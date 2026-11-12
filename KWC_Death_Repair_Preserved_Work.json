@@ -1,0 +1,11 @@
+{
+  "KeepersWarCommand/Core.lua": "d99108097188610f336cc9ebab1c4d53420a2f3199e4169031048a0f8896deea",
+  "KeepersWarCommand/GuildService.lua": "db128bd900a19f733d654cc1d95d5d1ae34741a037187f505b95ea55e54de7a2",
+  "KeepersWarCommand/Modules/RaidTools/Comms.lua": "755093820b817e76575f967c3d34e36ba43fd1e34f65dd0af3dff4bb1c3bf746",
+  "KeepersWarCommand/Modules/RaidTools/Modules/Attendance/AttendanceSync.lua": "5cf41b7d7a7f95cb50721c7d373aba2dd81bb57543a00a5ae2f03fb8978b0f97",
+  "KeepersWarCommand/Operations.lua": "80f0e86fe635a5740e82efb93c8f60b5d9f61ffc4966ed3d7878818f5cb950ec",
+  "KeepersWarCommand/QualityOfLife.lua": "24ae3be82f3d7cd2f36080ceb17cfefd3c493a910a56dbc929c57953780cc1c9",
+  "KeepersWarCommand/RaidSignup.lua": "54b1d4ed4ce878794e0abaed68b13a4f22dba53c1d2e03c15191bc39e2de4aa4",
+  "KeepersWarCommand/Sync.lua": "f65c5ad918d7b792d83bc16c1069929e248ec4eac0e2b2a8c21e50ddd3b4bd60",
+  "tests/guild_sync_audit.lua": "cb65751805c6b6f887d9cb1a2cfc7910740a318da5a0fe49fa650339e6e4bcc9"
+}

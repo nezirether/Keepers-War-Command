@@ -1,0 +1,1514 @@
+local K=KWC;local U={};K.UI=U
+local scrollChild
+local navButtons={}
+local navScroll,navChild=nil,nil
+local frame,body,scroll,header,active=nil,nil,nil,nil,'Overview'
+local boardFilter={CTA='ACTIVE',BOUNTY='ACTIVE'}
+local recruitmentRefresh, recruitmentQuery, recruitmentPitch
+local pvpView='lifetime'
+local function safeScale(value)
+ local n=tonumber(value) or 1
+ if n<0.65 then n=0.65 elseif n>1.35 then n=1.35 end
+ return math.floor(n*100+0.5)/100
+end
+-- Keep the full window inside the viewport, leaving room for action bars.
+local function fitScale(requested)
+ local width=UIParent and UIParent:GetWidth() or 1024
+ local height=UIParent and UIParent:GetHeight() or 768
+ local maxScale=math.min((width-24)/860,(height-100)/680)
+ return math.max(0.50,math.min(safeScale(requested),maxScale))
+end
+function U.SetScale(value)
+ if not KWCDB then return end
+ KWCDB.settings=KWCDB.settings or {}
+ local n=safeScale(value)
+ KWCDB.settings.windowScale=n
+ if frame then frame:SetScale(fitScale(n)) end
+ K.Say('Window scale: '..math.floor(n*100+0.5)..'%. Use /kt scale 100 to reset.')
+end
+function U.GetScale()
+ return safeScale(KWCDB and KWCDB.settings and KWCDB.settings.windowScale)
+end
+
+local render
+local surface
+local editingKind,editingId=nil,nil
+local pendingBountyTarget=nil
+local achievementPage=1
+local achievementFilter='All'
+local selectedCTA=nil
+local selectedBounty=nil
+local selectedAAR=nil
+-- War Command design system: larger readable type, restrained gold headings,
+-- ember accents, and distinct surfaces for navigation and action buttons.
+local C={gold={0.92,0.94,0.98},cream={0.91,0.94,0.98},muted={0.56,0.62,0.71},ember={0.38,0.75,0.62},dark={0.045,0.055,0.075}}
+local FONT='Fonts\\FRIZQT__.TTF'
+local function label(p,t,x,y,w,font)
+ local f=p:CreateFontString(nil,'OVERLAY')
+ local title=font=='GameFontNormalLarge'
+ local section=font=='GameFontNormal'
+ f:SetFont(FONT,title and 20 or (section and 14 or 12),'')
+ local color=title and C.gold or (section and C.cream or C.muted)
+ f:SetTextColor(color[1],color[2],color[3],1)
+ f:SetPoint('TOPLEFT',x,y);f:SetWidth(w);f:SetJustifyH('LEFT');f:SetJustifyV('TOP')
+ f:SetText(tostring(t or ''))
+ if title then
+  local rule=p:CreateTexture(nil,'ARTWORK')
+  rule:SetPoint('TOPLEFT',p,'TOPLEFT',x,y-27);rule:SetSize(math.min(w,545),1)
+  rule:SetColorTexture(0.22,0.26,0.32,0.55)
+ end
+ return f
+end
+local function button(p,t,x,y,w,cb)
+ local b=CreateFrame('Button',nil,p);b:SetSize(w,34);b:SetPoint('TOPLEFT',x,y)
+ local isNav=(p==navChild and w>=180)
+ local function colors(hover)
+  if isNav and (active==(b.kwcPage or t) or ((b.kwcPage or t)=='Raid Tools' and active:sub(1,12)=='Raid Tools: ')) then return 0.16,0.25,0.36
+  elseif hover then return 0.14,0.18,0.24
+  else return 0.075,0.09,0.12 end
+ end
+ local edge=b:CreateTexture(nil,'BACKGROUND');edge:SetAllPoints(b);edge:SetColorTexture(0.18,0.23,0.30,isNav and 0.05 or 0.48)
+ local bg=b:CreateTexture(nil,'ARTWORK');bg:SetPoint('TOPLEFT',1,-1);bg:SetPoint('BOTTOMRIGHT',-1,1)
+ local function paint(hover)
+  local rr,gg,bb=colors(hover);bg:SetColorTexture(rr,gg,bb,1)
+  if isNav and b.kwcAccent then
+   local selected=(active==(b.kwcPage or t) or ((b.kwcPage or t)=='Raid Tools' and active:sub(1,12)=='Raid Tools: '))
+   b.kwcAccent:SetColorTexture(0.38,0.75,0.62,selected and 1 or 0)
+  end
+ end
+ paint(false)
+ local tx=b:CreateFontString(nil,'OVERLAY');tx:SetFont(FONT,12,'');tx:SetPoint('CENTER');tx:SetWidth(w-12);tx:SetJustifyH('CENTER')
+ tx:SetTextColor(C.cream[1],C.cream[2],C.cream[3]);tx:SetText(t)
+ if isNav then
+  tx:ClearAllPoints();tx:SetPoint('LEFT',b,'LEFT',14,0);tx:SetJustifyH('LEFT')
+  local accent=b:CreateTexture(nil,'OVERLAY');accent:SetPoint('TOPLEFT',b,'TOPLEFT',0,0);accent:SetPoint('BOTTOMLEFT',b,'BOTTOMLEFT',0,0);accent:SetWidth(2)
+  b.kwcAccent=accent
+ end
+ b:SetScript('OnEnter',function(self)self.kwcHovered=true;paint(true) end)
+ b:SetScript('OnLeave',function(self)self.kwcHovered=false;paint(false) end)
+ if isNav then b.kwcPaint=paint;navButtons[#navButtons+1]=b end
+ b:SetScript('OnClick',cb)
+ return b
+end
+-- DEV39: consistent native KWC settings rows, with accessible status text.
+local function settingRow(parent,caption,description,settings,key,y,refresh)
+ surface(parent,18,y,538,65,0.10)
+ local name=label(parent,caption,32,y-10,345,'GameFontNormal')
+ label(parent,description or '',32,y-36,345)
+ local enabled=settings[key]==true
+ local b=button(parent,enabled and 'Enabled' or 'Disabled',407,y-14,133,function()
+  settings[key]=not (settings[key]==true)
+  if refresh then refresh() end
+  render()
+ end)
+ return b
+end
+local function edit(p,value,x,y,w)
+ local e=CreateFrame('EditBox',nil,p);e:SetSize(w,26);e:SetPoint('TOPLEFT',x,y);e:SetAutoFocus(false)
+ e:EnableMouse(true)
+ e:EnableKeyboard(true)
+ e:SetFrameLevel(p:GetFrameLevel()+5)
+ e:SetScript('OnMouseDown',function(self,button) if button=='LeftButton' then self:SetFocus() end end)
+ e:SetScript('OnEscapePressed',function(self) self:ClearFocus() end)
+ e:SetScript('OnEnterPressed',function(self) self:ClearFocus() end)
+ local bg=e:CreateTexture(nil,'BACKGROUND');bg:SetAllPoints(e);bg:SetColorTexture(0.10,0.13,0.17,0.97)
+ e:SetFont(FONT,13,'');e:SetTextColor(0.95,0.96,0.98);e:SetTextInsets(9,9,0,0);e:SetText(value or '');return e
+end
+local function multilineEdit(p,value,x,y,w,h)
+ local holder=CreateFrame('Frame',nil,p)
+ holder:SetSize(w,h);holder:SetPoint('TOPLEFT',x,y)
+ local bg=holder:CreateTexture(nil,'BACKGROUND');bg:SetAllPoints(holder);bg:SetColorTexture(0.10,0.13,0.17,0.97)
+ local scroll=CreateFrame('ScrollFrame',nil,holder,'UIPanelScrollFrameTemplate')
+ scroll:SetPoint('TOPLEFT',holder,'TOPLEFT',8,-7)
+ scroll:SetPoint('BOTTOMRIGHT',holder,'BOTTOMRIGHT',-27,7)
+ local e=CreateFrame('EditBox',nil,scroll)
+ e:SetMultiLine(true);e:SetAutoFocus(false);e:SetFont(FONT,13,'')
+ e:SetTextColor(0.95,0.96,0.98);e:SetWidth(w-48);e:SetHeight(h-14)
+ e:SetScript('OnEscapePressed',function(self)self:ClearFocus() end)
+ e:SetScript('OnTextChanged',function(self)
+  local _,lineCount=self:GetText():gsub('\n','\n')
+  local needed=math.max(h-14,(lineCount+2)*18)
+  if self:GetHeight()~=needed then self:SetHeight(needed) end
+  if self:GetHeight()>h-14 and scroll.UpdateScrollChildRect then scroll:UpdateScrollChildRect() end
+ end)
+ scroll:SetScrollChild(e);e:SetText(value or '')
+ holder:EnableMouse(true);holder:SetScript('OnMouseDown',function()e:SetFocus() end)
+ return e
+end
+surface=function(p,x,y,w,h,shade)
+ local t=p:CreateTexture(nil,'BACKGROUND');t:SetPoint('TOPLEFT',p,'TOPLEFT',x,y);t:SetSize(w,h)
+ local v=shade or 0.09;t:SetColorTexture(v,v+0.016,v+0.038,0.98)
+ return t
+end
+local function single(p,value,x,y,w,style)
+ local f=label(p,value,x,y,w,style);f:SetWordWrap(false);f:SetMaxLines(1);return f
+end
+local function count(t) local n=0;for _ in pairs(t or {}) do n=n+1 end;return n end
+local raidTabs={{'Overview','Raid Tools'},{'Raid Command','Raid Tools: Command'},{'Raid Sign-Ups','Raid Tools: Sign-Ups'}}
+local function raidTabFor(page)
+ if page=='Raid Tools: Command' or page=='Raid Tools: Sign-Ups' then return page end
+ if page=='Raid Tools' or page:sub(1,12)=='Raid Tools: ' then return 'Raid Tools' end
+end
+
+local function pageTitle(page)
+ if raidTabFor(page)==page then return 'Raid Operations' end
+ local names={
+  ['Raid Tools']='Raid Operations',
+  ['Raid Tools: Attendance']='Raid Attendance',
+  ['Raid Tools: Roster']='Raid Roster',
+  ['Raid Tools: Ready Check']='Readiness',
+  ['Raid Tools: Ready Check Advanced']='Readiness Settings',
+  ['Raid Tools: Combat Tools']='Combat',
+  ['Raid Tools: Combat Advanced']='Combat Settings',
+  ['Raid Tools: Battle Resurrection']='Battle Resurrection Button',
+  ['Raid Tools: Auto-Invite']='Invites',
+  ['Raid Tools: Auto-Invite Advanced']='Invite Settings',
+  ["Raid Tools: Don't Release"]='Death Protection',
+  ['Raid Tools: Notes']='Raid Notes',
+ }
+ return names[page] or page
+end
+local function reset()
+ if K.RaidTools and K.RaidTools.Close then K.RaidTools.Close() end
+ if body then
+  local children={body:GetChildren()};for _,child in ipairs(children) do child:Hide() end
+  local regions={body:GetRegions()};for _,region in ipairs(regions) do region:Hide() end
+  body:Hide()
+ end
+ body=CreateFrame('Frame',nil,scrollChild);body:SetSize(605,3900);body:SetPoint('TOPLEFT',scrollChild,'TOPLEFT',0,0)
+end
+-- Discord export: plain text shown in a selectable edit box; WoW addons cannot
+-- write to the operating system clipboard or post directly to Discord.
+local function discordText(kind,e)
+ local d=e.details or {}
+ local function val(v,fallback)
+  v=tostring(v or ''):gsub('[\r\n]',' '):gsub('|c%x%x%x%x%x%x%x%x',''):gsub('|r','')
+  if v=='' then return fallback or 'Unknown / TBD' end
+  return v
+ end
+ if kind=='BOUNTY' then
+  local target=val(d.target or (e.text or ''):match('^([^|%-]+)'), 'Unknown')
+  local reward=d.reward or (e.text or ''):match('[Rr]eward:%s*([^|]+)')
+  local last=(e.sightings or {})[1]
+  local loc=val((last and last.zone) or d.location)
+  return table.concat({
+   '💀 **BOUNTY** 💀','',
+   '**Target:** '..target,
+   '**Guild:** '..val(d.guild),
+   '**Last Known Location:** '..loc,
+   '**Bounty:** '..val(reward,'Not listed'),
+   '**Posted By:** '..val(e.author),
+   '**Status:** '..val(e.status,'ACTIVE'),
+   '**Proof:** Screenshot of the kill','',
+   'Bounties are player-funded. The poster is responsible for paying the reward.','',
+   'Happy hunting. Burninate responsibly.'
+  },'\n')
+ end
+ local zone=val(d.zone or (e.text or ''):match('%]%s*([^|%-]+)'), 'Unknown')
+ local coords=val(d.coords,'Not provided')
+ local objective=val(d.objective or e.text,'Reinforcements requested')
+ local enemy=val(d.alliance,'Unknown')
+ local friendly=val(d.horde,'Unknown')
+ local state=(e.status=='RESOLVED' and 'FIGHT OVER') or (e.status=='CANCELLED' and 'CANCELLED') or 'REINFORCEMENTS NEEDED'
+ return table.concat({
+  '⚔️ **CALL TO ARMS** ⚔️','',
+  '**LOCATION:** '..zone,
+  '**RALLY POINT / COORDS:** '..coords,
+  '**ENEMY FORCES:** '..enemy..' Alliance',
+  '**FRIENDLY FORCES:** '..friendly..' Horde',
+  '**OBJECTIVE:** '..objective,
+  '**VOICE CHANNEL:** PvP Party',
+  '**STATUS:** '..state,
+  '**POSTED BY:** '..val(e.author),'',
+  'React below:',
+  '⚔️ — On my way',
+  '🛡️ — Defending / Already there',
+  '✅ — Fight over','',
+  '@Call To Arms','',
+  '**FOR THE HORDE!**'
+ },'\n')
+end
+local discordPopup
+local function showDiscordExport(kind,e)
+ if not e then K.Say('Report not found.');return end
+ if not discordPopup then
+  local p=CreateFrame('Frame','KWCDiscordExportFrame',UIParent)
+  p:SetSize(630,520);p:SetPoint('CENTER');p:SetFrameStrata('DIALOG');p:SetFrameLevel(200)
+  p:EnableMouse(true);p:SetMovable(true);p:RegisterForDrag('LeftButton')
+  p:SetScript('OnDragStart',p.StartMoving);p:SetScript('OnDragStop',p.StopMovingOrSizing)
+  local bg=p:CreateTexture(nil,'BACKGROUND');bg:SetAllPoints(p);bg:SetColorTexture(0.055,0.07,0.095,1)
+  local border=p:CreateTexture(nil,'ARTWORK');border:SetPoint('TOPLEFT',p,'TOPLEFT',0,0);border:SetSize(630,3);border:SetColorTexture(0.35,0.58,0.83,1)
+  local title=p:CreateFontString(nil,'OVERLAY','GameFontNormalLarge');title:SetPoint('TOPLEFT',18,-18);title:SetText('DISCORD EXPORT')
+  local hint=p:CreateFontString(nil,'OVERLAY','GameFontHighlightSmall');hint:SetPoint('TOPLEFT',18,-50);hint:SetText('Click the text, press Ctrl+A then Ctrl+C. Paste into Discord with Ctrl+V.')
+  local sc=CreateFrame('ScrollFrame',nil,p,'UIPanelScrollFrameTemplate');sc:SetPoint('TOPLEFT',18,-82);sc:SetPoint('BOTTOMRIGHT',-36,65)
+  local eb=CreateFrame('EditBox',nil,sc)
+  eb:SetMultiLine(true);eb:SetAutoFocus(false);eb:SetFont('Fonts\\FRIZQT__.TTF',14,'')
+  eb:SetTextColor(0.97,0.91,0.82);eb:SetWidth(555);eb:SetHeight(900)
+  eb:SetScript('OnEscapePressed',function()p:Hide() end)
+  eb:SetScript('OnTextChanged',function(self)self:SetHeight(math.max(900,self:GetNumLetters()/55*18+100)) end)
+  sc:SetScrollChild(eb)
+  p.exportEdit=eb
+  local select=CreateFrame('Button',nil,p,'UIPanelButtonTemplate');select:SetSize(150,28);select:SetPoint('BOTTOMLEFT',18,19);select:SetText('Select All Text')
+  select:SetScript('OnClick',function()eb:SetFocus();eb:HighlightText() end)
+  local close=CreateFrame('Button',nil,p,'UIPanelButtonTemplate');close:SetSize(90,28);close:SetPoint('BOTTOMRIGHT',-18,19);close:SetText('Close');close:SetScript('OnClick',function()p:Hide() end)
+  discordPopup=p
+ end
+ discordPopup.exportEdit:SetText(discordText(kind,e))
+ discordPopup:Show();discordPopup.exportEdit:SetFocus();discordPopup.exportEdit:HighlightText()
+end
+
+-- The KRT panel is parented to the KWC window; no separate minimap/window.
+function U.GetHost() return frame end
+render=function()
+ if InCombatLockdown and InCombatLockdown() then U.needsRefresh=true;return end
+ if not frame or not frame:IsShown() or not KWCDB then return end
+ for _,nav in ipairs(navButtons) do if nav.kwcPaint then nav.kwcPaint(nav.kwcHovered or false) end end
+ if type(active)~='string' then active='Overview' end
+ header:SetText(string.upper(pageTitle(active)));reset();local d=KWCDB
+ if raidTabFor(active)==active then
+  for i,tab in ipairs(raidTabs) do
+   local name,page=tab[1],tab[2]
+   local selected=active==page
+   local control=button(body,name,18+(i-1)*181,-14,169,function()
+    if active~=page then scroll:SetVerticalScroll(0);active=page;render() end
+   end)
+   if selected then
+    local underline=control:CreateTexture(nil,'OVERLAY')
+    underline:SetPoint('BOTTOMLEFT',1,1);underline:SetPoint('BOTTOMRIGHT',-1,1)
+    underline:SetHeight(3);underline:SetColorTexture(0.59,0.23,0.29,1)
+   end
+  end
+ end
+ if active=='Overview' then
+  -- DEV28: UI-only command dashboard. Reads existing data; no writes or sync.
+  local st=K.Operations.Stats()
+  local ops=KWCDB.ops or {}
+  local chosen=nil
+  for _,entry in ipairs(ops) do
+   if (entry.status or 'ACTIVE')=='ACTIVE' and (not chosen or (tonumber(entry.created) or 0)>(tonumber(chosen.created) or 0)) then
+    chosen=entry
+   end
+  end
+  label(body,'War Command',18,-14,530,'GameFontNormalLarge')
+  label(body,'KEEPERS OF TROGDOR  /  GUILD OPERATIONS',18,-58,535)
+  local guildState=IsInGuild and IsInGuild()
+  local status=single(body,guildState and 'GUILD CONNECTED' or 'NOT IN GUILD',395,-18,164)
+  status:SetTextColor(guildState and 0.39 or 0.87,guildState and 0.82 or 0.55,guildState and 0.62 or 0.45)
+  local metrics={
+   {tostring(st.activeCTA or 0),'ACTIVE CTAs','Open operations'},
+   {tostring(st.activeBounty or 0),'BOUNTIES','Tracked targets'},
+   {tostring(st.sightings or 0),'SIGHTINGS','Intel reports'}
+  }
+  for i,m in ipairs(metrics) do
+   local x=18+(i-1)*184
+   surface(body,x,-99,171,105,0.088)
+   local n=label(body,m[1],x+16,-114,139,'GameFontNormalLarge')
+   n:SetFont(FONT,30,'')
+   label(body,m[2],x+16,-163,140)
+   label(body,m[3],x+16,-185,140)
+  end
+  label(body,'ACTIVE OPERATIONS',18,-238,360,'GameFontNormal')
+  surface(body,18,-271,539,157,0.083)
+  if chosen then
+   local priority=chosen.details and chosen.details.priority or ''
+   local heading=tostring(chosen.text or 'Active operation'):gsub('[\r\n]',' '):sub(1,92)
+   single(body,heading,34,-288,498,'GameFontNormal')
+   local commander=chosen.author or chosen.commander or 'Unknown'
+   if K.Operations.CTALeadership then
+    local lead=K.Operations.CTALeadership(chosen)
+    if lead and lead.creator then commander=lead.creator end
+   end
+   single(body,'Commander: '..tostring(commander),34,-319,496)
+   single(body,tostring(st.coming or 0)..' reinforcements responding  /  '..tostring(st.urgent or 0)..' urgent operations',34,-343,496)
+   button(body,'View Operation',34,-378,170,function()selectedCTA=chosen.id;active='CTA Details';render() end)
+   button(body,'All Operations',216,-378,170,function()active='War Room';render() end)
+  else
+   label(body,'No active calls to arms.',34,-290,490,'GameFontNormal')
+   label(body,'Create an operation when your guild needs reinforcements.',34,-321,490)
+   button(body,'New Call to Arms',34,-371,195,function()active='CTA Entry';render() end)
+  end
+  label(body,'GUILD ACTIVITY',18,-462,520,'GameFontNormal')
+  surface(body,18,-496,262,161,0.083)
+  surface(body,295,-496,262,161,0.083)
+  label(body,'RAID SIGN-UPS',34,-512,224,'GameFontNormal')
+  local raidCount=0
+  local raidData=KWCDB.raidSignups
+  if raidData and type(raidData.events)=='table' then
+   for _,e in pairs(raidData.events) do if not e.cancelled then raidCount=raidCount+1 end end
+  end
+  single(body,raidCount==0 and 'No scheduled raids' or (tostring(raidCount)..' scheduled raid(s)'),34,-545,228)
+  label(body,'View schedules and RSVP in-game.',34,-571,228)
+  button(body,'Open Sign-Ups',34,-611,218,function()active='Raid Tools: Sign-Ups';render() end)
+  label(body,'SCOUT NETWORK',311,-512,229,'GameFontNormal')
+  single(body,tostring(st.sightings or 0)..' recorded sightings',311,-545,228)
+  label(body,'Review enemy sightings and reports.',311,-571,228)
+  button(body,'Open Scout Network',311,-611,218,function()active='Scout Network';render() end)
+  label(body,'QUICK ACCESS',18,-695,520,'GameFontNormal')
+  button(body,'Raid Command',18,-730,168,function()active='Raid Tools: Command';render() end)
+  button(body,'Bounty Board',198,-730,168,function()active='Bounty Board';render() end)
+  button(body,'Sync Health',378,-730,178,function()active='Sync Health';render() end)
+ elseif active=='Recruitment' then
+  label(body,'KEEPERS RECRUITER  /  Player-driven discovery',12,-12,570,'GameFontNormalLarge')
+  local r=K.Recruiter
+  local db=d.recruiter
+  r.Restore()
+  local query=edit(body,recruitmentQuery or db.lastQuery or '10-20',12,-53,155)
+  query:SetScript('OnTextChanged',function(self) recruitmentQuery=self:GetText() end)
+  local search=button(body,'Search /who',183,-53,130,function() r.Search(query:GetText()) end)
+  local nextRange=button(body,'Next range',330,-53,125,function()
+   if r.Next() then query:SetText(db.lastQuery) end
+  end)
+  local summary=label(body,'',12,-97,550)
+  local status=label(body,'',12,-126,550,'GameFontNormal')
+  local candidateScroll=CreateFrame('ScrollFrame',nil,body,'UIPanelScrollFrameTemplate')
+  candidateScroll:SetPoint('TOPLEFT',12,-156)
+  candidateScroll:SetSize(512,270)
+  local candidateList=CreateFrame('Frame',nil,candidateScroll)
+  candidateList:SetSize(510,270)
+  candidateScroll:SetScrollChild(candidateList)
+  local rows={}
+  local lastResults
+  local selected=label(body,'',12,-448,550,'GameFontNormal')
+  local whisper=button(body,'Prepare whisper',12,-480,165,r.Whisper)
+  local invite=button(body,'Prepare invite',188,-480,160,r.PrepareInvite)
+  local ignore=button(body,'Ignore',360,-480,130,r.Ignore)
+  label(body,'Invites and whispers are drafts. You must send them yourself.',12,-523,550)
+  label(body,'Recruiting message:',12,-563,550)
+  local pitch=multilineEdit(body,recruitmentPitch or d.settings.pitch,12,-588,540,112)
+  pitch:HookScript('OnTextChanged',function(self) recruitmentPitch=self:GetText() end)
+  button(body,'Save message',12,-713,165,function()
+   d.settings.pitch=tostring(pitch:GetText() or ''):gsub('|',' '):gsub('\r\n','\n'):gsub('\r','\n'):sub(1,500)
+   recruitmentPitch=d.settings.pitch
+   K.Say('Message saved.')
+  end)
+  recruitmentRefresh=function()
+   summary:SetText(('Searches: %d  |  Whisper drafts: %d  |  Invite drafts: %d  |  Confirmed joins: %d')
+    :format(db.searches or 0,db.drafts or 0,db.inviteDrafts or 0,db.joins or 0))
+   if r.pending then status:SetText('Searching WHO...')
+   elseif r.error then status:SetText(r.error)
+   elseif #r.results>0 then status:SetText(('%d eligible candidates'):format(#r.results))
+   elseif r.received then status:SetText('No eligible candidates in the latest results.')
+   else status:SetText('Search WHO to find unguilded players.') end
+   search:SetEnabled(r.SearchReady())
+   nextRange:SetEnabled(r.SearchReady())
+   local candidate=r.Candidate()
+   selected:SetText('Selected: '..(candidate and candidate.name or 'none'))
+   whisper:SetEnabled(candidate~=nil)
+   invite:SetEnabled(candidate~=nil)
+   ignore:SetEnabled(candidate~=nil)
+   for i,c in ipairs(r.results) do
+    local row=rows[i]
+    if not row then
+     local index=i
+     local control=button(candidateList,'',0,-(i-1)*46,510,function() r.Select(index) end)
+     control:SetHeight(43)
+     row={control=control,
+      name=single(control,'',10,-6,280,'GameFontNormal'),
+      status=single(control,'',300,-8,198),
+      detail=single(control,'',10,-25,490)}
+     rows[i]=row
+    end
+    row.name:SetText((candidate==c and '* ' or '')..c.name)
+    row.status:SetText(c.status or 'discovered')
+    local details=('Level %s  |  %s'):format(tostring(c.level or '?'),c.class or 'Unknown class')
+    if c.zone and c.zone~='' then details=details..'  |  '..c.zone end
+    row.detail:SetText(details)
+    row.control:Show()
+   end
+   for i=#r.results+1,#rows do rows[i].control:Hide() end
+   local height=math.max(270,#r.results*46)
+   candidateList:SetHeight(height)
+   candidateScroll:UpdateScrollChildRect()
+   local offset=lastResults==r.results and (candidateScroll:GetVerticalScroll() or 0) or 0
+   candidateScroll:SetVerticalScroll(math.min(offset,height-270))
+   lastResults=r.results
+  end
+  recruitmentRefresh()
+ elseif active=='CTA Attendance' then
+  if K.GuildService then K.GuildService.DrawCTA(body,label,button) end
+ elseif active=='Commendations' then
+  if K.GuildService then K.GuildService.DrawCommendations(body,label) end
+ elseif active=='PvP Leaderboard' then
+  label(body,'PvP leaderboard',18,-16,530,'GameFontNormalLarge')
+  local views={{'lifetime','All-Time HKs'},{'world','World PvP'},{'battleground','Battlegrounds'}}
+  for i,view in ipairs(views) do
+   local metric,caption=view[1],view[2]
+   local tab=button(body,caption,18+(i-1)*135,-53,128,function()
+    pvpView=metric
+    scroll:SetVerticalScroll(0)
+    render()
+   end)
+   if pvpView==metric then
+    local accent=tab:CreateTexture(nil,'OVERLAY')
+    accent:SetPoint('BOTTOMLEFT',1,1);accent:SetPoint('BOTTOMRIGHT',-1,1)
+    accent:SetHeight(3);accent:SetColorTexture(0.63,0.23,0.30,1)
+   end
+  end
+  button(body,'Refresh honor',423,-53,134,function()
+   K.PvP.RefreshHonor()
+   K.PvP.RequestGuildHonor()
+   if K.GuildService then K.GuildService.Request() end
+  end)
+  local lifetime=pvpView=='lifetime'
+  label(body,lifetime and 'Lifetime honorable kills. Tiers are internal guild titles.' or
+   'Forever character history. Players without reported totals are unranked.',18,-100,539)
+  surface(body,18,-124,539,38,0.12)
+  local columns=lifetime and {
+   {'#',25,28},{'TIER',57,89},{'PLAYER',151,203},{'HKs',361,62},{'BOUNTIES',431,68},{'CTAs',510,44}
+  } or {
+   {'#',25,38},{'PLAYER',72,305},{pvpView=='world' and 'WORLD HKs' or 'BATTLEGROUND HKs',390,165}
+  }
+  for _,column in ipairs(columns) do single(body,column[1],column[2],-136,column[3],'GameFontNormal') end
+  local function tier(rank) if rank<=5 then return 'Warlord' elseif rank<=10 then return 'Gladiator' elseif rank<=20 then return 'Elite' elseif rank<=35 then return 'Duelist' elseif rank<=50 then return 'Rival' elseif rank<=75 then return 'Challenger' else return 'Combatant' end end
+  local players=K.PvP.Rankings(pvpView)
+  local playerColumn=lifetime and 3 or 2
+  for i,p in ipairs(players) do
+   if i>100 then break end
+   local y=-175-(i-1)*34
+   if i%2==1 then surface(body,18,y+7,539,32,0.075) end
+   local values={tostring(i),p.name,tostring(p.value)}
+   if lifetime then
+    local bounties,ctas=0,0
+    if K.GuildService then bounties,ctas=K.GuildService.Totals(p.name) end
+    values={tostring(i),tier(i),p.name,tostring(p.value),tostring(bounties),tostring(ctas)}
+   end
+   for j,column in ipairs(columns) do
+    local field=single(body,values[j],column[2],y,column[3],i<=3 and 'GameFontNormal' or nil)
+    if j==playerColumn and field:IsTruncated() then
+     local hover=CreateFrame('Frame',nil,body)
+     hover:SetAllPoints(field)
+     hover:EnableMouse(true)
+     hover:SetScript('OnEnter',function(self)
+      GameTooltip:SetOwner(self,'ANCHOR_RIGHT')
+      GameTooltip:SetText(p.name)
+      GameTooltip:Show()
+     end)
+     hover:SetScript('OnLeave',function() GameTooltip:Hide() end)
+     hover:SetScript('OnHide',function(self) if GameTooltip:GetOwner()==self then GameTooltip:Hide() end end)
+    end
+   end
+  end
+  if #players==0 then label(body,'No totals reported for this view yet.',25,-175,500) end
+ elseif active=='Raid Tools' then
+  local groups={
+   {'OPERATIONS',{{'Attendance & Records','Attendance'},{'Raid Roster','Roster'}}},
+   {'RAID PREPARATION',{{'Ready Checks','Ready Check'},{'Invitations','Auto-Invite'},{'Raid Notes','Notes'}}},
+   {'IN COMBAT',{{'Combat Tools','Combat Tools'},{'Battle Resurrection Button','Battle Resurrection'},{'Death Protection',"Don't Release"}}},
+  }
+  local y=-99
+  for _,group in ipairs(groups) do
+   label(body,group[1],18,y,530,'GameFontNormal')
+   y=y-39
+   for _,entry in ipairs(group[2]) do
+    local destination='Raid Tools: '..entry[2]
+    button(body,entry[1],18,y,528,function()active=destination;render() end)
+    y=y-45
+   end
+   y=y-17
+  end
+ elseif active=="Raid Tools: Don't Release" then
+  label(body,'Death Protection',18,-14,538,'GameFontNormalLarge')
+  label(body,'Prevent accidental release after death.',18,-55,535)
+  local rt=KeepersRaidTools
+  local cfg=rt and rt.GetSetting and rt:GetSetting('dontRelease')
+  if not cfg then label(body,'Death Protection is unavailable.',18,-105,520)
+  else
+   local function refresh() if rt.EvaluateAllModules then rt:EvaluateAllModules() end end
+   label(body,'GENERAL',18,-99,520,'GameFontNormal')
+   settingRow(body,'Death protection','Block accidental release when enabled.',cfg,'enabled',-129,refresh)
+   label(body,'ACTIVATE IN',18,-219,520,'GameFontNormal')
+   local ct=cfg.contentTypes or {}
+   settingRow(body,'Open world','Outside instances.',ct,'openWorld',-249,refresh)
+   if ct.dungeon then settingRow(body,'Dungeons','Classic dungeon instances.',ct.dungeon,'normal',-322,refresh) end
+   if ct.raid then settingRow(body,'Raids','Classic raid instances.',ct.raid,'normal',-395,refresh) end
+   label(body,'RELEASE SAFETY',18,-488,520,'GameFontNormal')
+   settingRow(body,'Require modifier','Hold the required key to release.',cfg,'requireModifier',-518,refresh)
+   settingRow(body,'Randomize modifier','Choose a different required key.',cfg,'randomizeModifier',-591,refresh)
+   label(body,'Release delay',18,-692,350,'GameFontNormal')
+   label(body,tostring(cfg.delay or 0)..' seconds',400,-692,145)
+   button(body,'Decrease',18,-729,166,function()cfg.delay=math.max(0,(tonumber(cfg.delay) or 0)-1);render() end)
+   button(body,'Increase',198,-729,166,function()cfg.delay=math.min(60,(tonumber(cfg.delay) or 0)+1);render() end)
+  end
+ elseif active=='Raid Tools: Ready Check' then
+  label(body,'Readiness',18,-14,535,'GameFontNormalLarge')
+  label(body,'Choose the checks used before your group pulls.',18,-55,535)
+  local rt=KeepersRaidTools
+  local cfg=rt and rt.GetSetting and rt:GetSetting('readyCheck')
+  if not cfg then label(body,'Readiness settings unavailable.',18,-110,530)
+  else
+   label(body,'GENERAL',18,-98,520,'GameFontNormal')
+   settingRow(body,'Enable notifications','Show ready-check feedback.',cfg,'enabled',-130)
+   label(body,'PLAYER CHECKS',18,-220,520,'GameFontNormal')
+   settingRow(body,'Dead players','Identify dead group members.',cfg,'checkDead',-250)
+   settingRow(body,'Soulstones','Check available soulstones.',cfg,'checkSoulstones',-323)
+   label(body,'CLASSIC BUFF CHECKS',18,-415,520,'GameFontNormal')
+   settingRow(body,'Arcane Intellect','Mage intellect buff.',cfg,'arcaneIntellect',-445)
+   settingRow(body,'Battle Shout','Warrior attack power buff.',cfg,'battleShout',-518)
+   settingRow(body,'Mark of the Wild','Druid group buff.',cfg,'markOfTheWild',-591)
+   settingRow(body,'Power Word: Fortitude','Priest stamina buff.',cfg,'powerWordFortitude',-664)
+   button(body,'Additional notification options',18,-753,360,function()active='Raid Tools: Ready Check Advanced';render() end)
+  end
+ elseif active=='Raid Tools: Ready Check Advanced' then
+  label(body,'Advanced Readiness',18,-14,540,'GameFontNormalLarge')
+  button(body,'Back to Readiness',18,-68,240,function()active='Raid Tools: Ready Check';render() end)
+  local mount=CreateFrame('Frame',nil,body)
+  mount:SetPoint('TOPLEFT',body,'TOPLEFT',18,-133)
+  mount:SetSize(550,760)
+  if K.RaidTools and K.RaidTools.Mount then K.RaidTools.Mount(mount,'Ready Check') end
+ elseif active=='Raid Tools: Combat Tools' then
+  label(body,'Combat',18,-14,535,'GameFontNormalLarge')
+  label(body,'Cooldowns, battle resurrection, and combat timer.',18,-55,535)
+  local rt=KeepersRaidTools
+  local cds=rt and rt.GetSetting and rt:GetSetting('cooldownRoster')
+  local timer=rt and rt.GetSetting and rt:GetSetting('combatTimer')
+  local function refresh()if rt and rt.EvaluateAllModules then rt:EvaluateAllModules() end end
+  label(body,'COOLDOWN ROSTER',18,-100,530,'GameFontNormal')
+  if cds then
+   settingRow(body,'Enable cooldown roster','Display available raid cooldowns.',cds,'enabled',-130,refresh)
+   local cats=cds.categories or {}
+   settingRow(body,'Defensives','Defensive abilities.',cats,'defensive',-203,refresh)
+   settingRow(body,'External cooldowns','Defensives cast on allies.',cats,'external',-276,refresh)
+   settingRow(body,'Movement','Group movement abilities.',cats,'movement',-349,refresh)
+   label(body,'SHOW IN',18,-438,520,'GameFontNormal')
+   local ct=cds.contentTypes or {}
+   settingRow(body,'Open world','Outside instances.',ct,'openWorld',-468,refresh)
+   if ct.dungeon then settingRow(body,'Dungeons','Classic dungeon instances.',ct.dungeon,'normal',-541,refresh) end
+   if ct.raid then settingRow(body,'Raids','Classic raid instances.',ct.raid,'normal',-614,refresh) end
+  end
+  label(body,'COMBAT TIMER',18,-711,520,'GameFontNormal')
+  if timer then settingRow(body,'Enable combat timer','Display elapsed encounter time.',timer,'enabled',-741,refresh) end
+  button(body,'Battle Resurrection Button',18,-838,260,function()active='Raid Tools: Battle Resurrection';render() end)
+  button(body,'Advanced combat settings',292,-838,255,function()active='Raid Tools: Combat Advanced';render() end)
+ elseif active=='Raid Tools: Battle Resurrection' then
+  label(body,'Battle Resurrection Button',18,-14,535,'GameFontNormalLarge')
+  button(body,'Back to Raid Operations',18,-58,240,function()active='Raid Tools';render() end)
+  local rt=KeepersRaidTools
+  local br=rt and rt.BattleResCounter
+  local cfg=br and rt:GetSetting('battleResCounter')
+  if cfg then
+   local function control(text,x,y,w,action)
+    button(body,text,x,y,w,function()action();render() end)
+   end
+   label(body,'The indicator shows Rebirth charges and cooldowns. Cast Rebirth from your spell bar.',18,-107,530)
+   control(cfg.widgetEnabled and 'Disable button' or 'Enable button',18,-145,255,function()br:SetWidgetEnabled(not cfg.widgetEnabled) end)
+   control(br:IsPreviewShown() and 'Hide Preview' or 'Show Preview',292,-145,255,function()
+    if br:IsPreviewShown() and not cfg.lockFrames then br:SetWidgetUnlocked(false) end
+    br:SetPreview(not br:IsPreviewShown())
+   end)
+   control(cfg.lockFrames and 'Unlock Position' or 'Lock Position',18,-190,255,function()br:SetWidgetUnlocked(cfg.lockFrames) end)
+   control('Reset Position',292,-190,255,function()br:ResetPosition() end)
+   label(body,'Unlock to show the indicator and drag it. Lock when finished.',18,-233,525)
+   local size=br:GetWidgetScale()
+   control('Size -',18,-263,120,function()br:SetWidgetScale(size-10) end)
+   label(body,('Size: %g%%'):format(size),157,-272,130)
+   control('Size +',292,-263,120,function()br:SetWidgetScale(size+10) end)
+   control('Reset Defaults',18,-308,255,function()br:ResetWidgetDefaults() end)
+   settingRow(body,'Zero charge overlay','Dim the Rebirth icon when no charges are available.',cfg,'zeroChargeOverlay',-366,
+    function()rt:ApplySettings('battleResCounter') end)
+   settingRow(body,'Show in Cooldowns','Show a Battle Resurrection row in the cooldown roster.',cfg,'rosterRowEnabled',-444,
+    function()rt:ApplySettings('battleResCounter') end)
+  end
+ elseif active=='Raid Tools: Combat Advanced' then
+  label(body,'Advanced Combat Settings',18,-14,530,'GameFontNormalLarge')
+  button(body,'Back to Combat',18,-67,240,function()active='Raid Tools: Combat Tools';render() end)
+  local mount=CreateFrame('Frame',nil,body)
+  mount:SetPoint('TOPLEFT',body,'TOPLEFT',18,-132)
+  mount:SetSize(550,760)
+  if K.RaidTools and K.RaidTools.Mount then K.RaidTools.Mount(mount,'Combat Tools') end
+ elseif active=='Raid Tools: Auto-Invite' then
+  label(body,'INVITES',18,-14,540,'GameFontNormalLarge')
+  label(body,'KEEPERS WAR COMMAND  /  RAID OPERATIONS',18,-56,540)
+  local rt=KeepersRaidTools
+  local settings=rt and rt.GetSetting and rt:GetSetting('autoInvite')
+  if not settings then
+   label(body,'Invite settings are unavailable. Check module initialization.',18,-105,520)
+  else
+   label(body,'WHISPER INVITATIONS',18,-104,530,'GameFontNormal')
+   label(body,'Automatically invite players who whisper an exact keyword.',18,-138,520)
+   local function toggle(title,key,y)
+    button(body,(settings[key] and '[ON]  ' or '[OFF]  ')..title,18,y,320,function()
+     settings[key]=not settings[key];render()
+    end)
+   end
+   toggle('Enable whisper invitations','whisperInviteEnabled',-179)
+   toggle('Guild members only','guildOnly',-222)
+   label(body,'Invite keywords (separate with spaces)',18,-284,520,'GameFontNormal')
+   local keywords=edit(body,settings.keywords or 'inv invite 123',18,-318,390)
+   local function saveKeywords()
+    local value=(keywords:GetText() or ''):gsub('^%s+',''):gsub('%s+$','')
+    settings.keywords=value
+    keywords:SetText(value)
+    keywords:ClearFocus()
+   end
+   keywords:SetScript('OnEnterPressed',saveKeywords)
+   keywords:SetScript('OnEditFocusLost',function(self)
+    settings.keywords=(self:GetText() or ''):gsub('^%s+',''):gsub('%s+$','')
+   end)
+   button(body,'Save Keywords',419,-318,136,saveKeywords)
+   label(body,'Example: inv invite 123',18,-369,520)
+   label(body,'Whisper detection uses the existing raid-tools invite engine.',18,-398,535)
+   label(body,'GROUP INVITES',18,-462,530,'GameFontNormal')
+   label(body,'Invite guild members by rank using the existing invitation controls.',18,-495,535)
+   button(body,'Open Guild Invite Controls',18,-534,300,function()
+    active='Raid Tools: Auto-Invite Advanced';render()
+   end)
+  end
+ elseif active=='Raid Tools: Auto-Invite Advanced' then
+  label(body,'GUILD INVITE CONTROLS',18,-14,540,'GameFontNormalLarge')
+  button(body,'Back to Invites',18,-66,240,function()active='Raid Tools: Auto-Invite';render() end)
+  local mount=CreateFrame('Frame',nil,body)
+  mount:SetPoint('TOPLEFT',body,'TOPLEFT',18,-130)
+  mount:SetSize(550,760)
+  if K.RaidTools and K.RaidTools.Mount then K.RaidTools.Mount(mount,'Auto-Invite') end
+ elseif active=='Raid Tools: Attendance' then
+  label(body,'Raid Attendance',18,-14,530,'GameFontNormalLarge')
+  label(body,'OBSERVED RAID ATTENDANCE AND HISTORICAL RECORDS',18,-56,530)
+  label(body,'RECENT RAID DAYS',18,-105,530,'GameFontNormal')
+  local db=KeepersRaidToolsAttendanceDB or {}
+  local days={}
+  for day,records in pairs(db) do
+   if type(day)=='string' and day:match('^%d%d%d%d%-%d%d%-%d%d$') and type(records)=='table' then
+    days[#days+1]=day
+   end
+  end
+  table.sort(days,function(a,b)return a>b end)
+  if #days==0 then
+   label(body,'No attendance has been recorded yet.',30,-158,510)
+   label(body,'KWC records attendance through the integrated raid countdown system.',30,-187,510)
+  end
+  local y=-153
+  for i=1,math.min(#days,15) do
+   local day=days[i]
+   local total,present=0,0
+   for name,record in pairs(db[day]) do
+    if type(name)=='string' and name:sub(1,2)~='__' then
+     total=total+1
+     local status=type(record)=='table' and record.status or record
+     if status==3 then present=present+1 end
+    end
+   end
+   surface(body,18,y+5,538,48,0.095)
+   single(body,day,32,y-7,195,'GameFontNormal')
+   single(body,tostring(present)..' present / '..tostring(total)..' recorded',251,y-7,286)
+   y=y-58
+  end
+  label(body,'MANAGE ATTENDANCE',18,y-24,530,'GameFontNormal')
+  label(body,'Open the complete records editor to review, correct, or sync attendance.',18,y-59,530)
+  button(body,'Open Attendance Records',18,y-95,290,function()active='Raid Tools: Attendance Editor';render() end)
+ elseif active=='Raid Tools: Roster' then
+  label(body,'Raid Roster',18,-14,530,'GameFontNormalLarge')
+  label(body,'CURRENT GROUP  /  LIVE PARTICIPANTS',18,-56,530)
+  local size=(GetNumGroupMembers and GetNumGroupMembers()) or 0
+  single(body,tostring(size)..' group members',18,-104,450,'GameFontNormal')
+  local y=-150
+  if size==0 then label(body,'Not currently in a party or raid.',18,y,500) end
+  local prefix=IsInRaid and IsInRaid() and 'raid' or 'party'
+  for i=1,math.min(size,40) do
+   local unit=prefix..i
+   if UnitExists(unit) then
+    local name=GetUnitName and GetUnitName(unit,true) or UnitName(unit)
+    local _,class=UnitClass(unit)
+    surface(body,18,y+6,538,34,0.08)
+    single(body,tostring(name or 'Unknown'),32,y,335,'GameFontNormal')
+    single(body,tostring(class or ''),388,y,150)
+    y=y-39
+   end
+  end
+  label(body,'ROSTER MANAGEMENT',18,y-30,530,'GameFontNormal')
+  label(body,'Manage saved players, specifications, and attendance imports.',18,y-64,530)
+  button(body,'Open Roster Manager',18,y-101,285,function()active='Raid Tools: Roster Manager';render() end)
+ elseif active=='Raid Tools: Attendance Editor' or active=='Raid Tools: Roster Manager' then
+  local tab=active=='Raid Tools: Attendance Editor' and 'Attendance' or 'Roster'
+  label(body,tab=='Attendance' and 'Attendance Records' or 'Roster Management',18,-14,530,'GameFontNormalLarge')
+  button(body,'Back',18,-68,220,function()active='Raid Tools: '..tab;render() end)
+  local mount=CreateFrame('Frame',nil,body)
+  mount:SetPoint('TOPLEFT',body,'TOPLEFT',18,-133)
+  mount:SetSize(550,760)
+  if K.RaidTools and K.RaidTools.Mount then K.RaidTools.Mount(mount,tab) end
+ elseif active=='Raid Tools: Sign-Ups' or active=='Raid Tools: Command' then
+  local module=active=='Raid Tools: Command' and K.RaidCommand or K.RaidSignup
+  if module then
+   module.Draw(body,function(p,t,x,y,...) return label(p,t,x,y-53,...) end,
+    function(p,t,x,y,...) return button(p,t,x,y-53,...) end,
+    function(p,t,x,y,...) return edit(p,t,x,y-53,...) end)
+  end
+ elseif active:sub(1,12)=='Raid Tools: ' then
+  local tab=active:sub(13)
+  local titles={['Attendance']='Operations / Attendance',['Roster']='Operations / Raid Roster',
+    ['Ready Check']='Raids / Readiness',['Combat Tools']='Combat',
+    ['Auto-Invite']='Raids / Invites',["Don't Release"]='Raids / Death Protection',
+    ['Notes']='Command / Notes'}
+  label(body,titles[tab] or 'RAID OPERATIONS',18,-14,540,'GameFontNormalLarge')
+  label(body,'KEEPERS WAR COMMAND  /  RAID OPERATIONS',18,-56,540)
+  button(body,'Back to Raid Operations',18,-89,240,function()active='Raid Tools';render() end)
+  local mount=CreateFrame('Frame',nil,body)
+  mount:SetPoint('TOPLEFT',body,'TOPLEFT',18,-138)
+  mount:SetSize(550,760)
+  if not (K.RaidTools and K.RaidTools.Mount and K.RaidTools.Mount(mount,tab)) then
+   label(body,'Raid module could not initialize. Check Lua errors and reload.',18,-120,535)
+  end
+ elseif active=='CTA Entry' then
+  label(body,'NEW CALL TO ARMS  /  Request reinforcements',12,-12,570,'GameFontNormalLarge')
+  button(body,'View CTA Board',365,-35,170,function()active='CTA Board';render() end)
+  label(body,'Zone / location',12,-47,280)
+  local zone=edit(body,GetZoneText and GetZoneText() or '',12,-69,265)
+  button(body,'Current zone',292,-69,145,function()zone:SetText(GetZoneText and GetZoneText() or '') end)
+  label(body,'Horde already there',12,-110,245)
+  label(body,'Alliance spotted',280,-110,245)
+  local horde=edit(body,'0',12,-132,225)
+  local alliance=edit(body,'0',280,-132,225)
+  label(body,'Map coordinates / landmark (optional)',12,-173,550)
+  local coords=edit(body,'',12,-195,510)
+  label(body,'What is happening / objective?',12,-235,550)
+  local objective=edit(body,'Need reinforcements',12,-257,540)
+  label(body,'Extra details (optional)',12,-297,550)
+  local notes=edit(body,'',12,-319,540)
+  local priorities={'LOW','NORMAL','HIGH','URGENT'}
+  local priorityIndex=2
+  button(body,'Priority: NORMAL',12,-363,200,function(self)
+   priorityIndex=priorityIndex%#priorities+1
+   self:SetText('Priority: '..priorities[priorityIndex])
+  end)
+  button(body,'POST CALL TO ARMS',230,-363,310,function()
+   K.Operations.DetailedCTA(zone:GetText(),objective:GetText(),horde:GetText(),alliance:GetText(),priorities[priorityIndex],coords:GetText(),notes:GetText())
+  end)
+  label(body,'Counts are member estimates, not live population data.',12,-406,565)
+ elseif active=='Edit Entry' then
+  local entries=editingKind=='CTA' and d.ops or d.bounties
+  local current
+  for _,v in ipairs(entries or {}) do if v.id==editingId then current=v;break end end
+  label(body,'EDIT '..(editingKind=='CTA' and 'CALL TO ARMS' or 'BOUNTY'),12,-12,550,'GameFontNormalLarge')
+  if current and editingKind=='CTA' then
+   local d0=current.details or {}
+   label(body,'Location',12,-62,520)
+   local zone=edit(body,d0.zone or (current.text:match('%] ([^|]+)') or ''),12,-84,510)
+   label(body,'Horde present',12,-126,240);label(body,'Alliance present',275,-126,240)
+   local h=edit(body,tostring(d0.horde or 0),12,-148,220);local a=edit(body,tostring(d0.alliance or 0),275,-148,220)
+   label(body,'Objective',12,-192,520)
+   local obj=edit(body,d0.objective or current.text,12,-214,530)
+   label(body,'Additional intelligence',12,-256,520)
+   local notes=edit(body,d0.notes or '',12,-278,530)
+   local priorities={'LOW','NORMAL','HIGH','URGENT'}
+   local stored=d0.priority or (d0.urgent and 'URGENT') or (current.text or ''):match('^%[([A-Z]+)%]') or 'NORMAL'
+   local priorityIndex=2
+   for i,v in ipairs(priorities) do if v==stored then priorityIndex=i;break end end
+   button(body,'Priority: '..priorities[priorityIndex],12,-320,210,function(self)
+    priorityIndex=priorityIndex%#priorities+1
+    self:SetText('Priority: '..priorities[priorityIndex])
+   end)
+   button(body,'SAVE CTA UPDATE',238,-320,270,function()
+    K.Operations.UpdateCTA(editingId,zone:GetText(),h:GetText(),a:GetText(),obj:GetText(),priorities[priorityIndex],notes:GetText())
+    active='CTA Board';render()
+   end)
+  elseif current and editingKind=='BOUNTY' then
+   local d0=current.details or {}
+   label(body,'Target name',12,-62,520)
+   local target=edit(body,d0.target or current.text:match('^([^ %-]+)') or '',12,-84,530)
+   label(body,'Last known location',12,-126,520)
+   local location=edit(body,d0.location or '',12,-148,530)
+   label(body,'Reason / details',12,-192,520)
+   local reason=edit(body,d0.reason or current.text,12,-214,530)
+   label(body,'Reward (optional)',12,-256,520)
+   local reward=edit(body,d0.reward or '',12,-278,530)
+   button(body,'SAVE BOUNTY UPDATE',12,-330,240,function()
+    K.Operations.UpdateBounty(editingId,target:GetText(),location:GetText(),reason:GetText(),reward:GetText())
+    active='Bounty Board';render()
+   end)
+  else label(body,'Entry no longer exists.',12,-65,540) end
+  button(body,'Back to Board',12,-395,200,function()active=editingKind=='CTA' and 'CTA Board' or 'Bounty Board';render() end)
+ elseif active=='CTA Board' then
+  label(body,'Calls to arms',18,-16,530,'GameFontNormalLarge')
+  button(body,'+ New CTA',12,-48,165,function()active='CTA Entry';render() end)
+  button(body,'Report to Guild',190,-48,170,function()K.Operations.ListActive('CTA',true) end)
+  button(body,'Attendance History',372,-48,182,function()active='CTA Attendance';render() end)
+  for i,v in ipairs({'ACTIVE','RESOLVED','ALL'}) do
+   button(body,v,12+(i-1)*165,-92,155,function()boardFilter.CTA=v;render() end)
+  end
+  local shown=0
+  for _,a in ipairs(d.ops) do
+   local status=a.status or 'ACTIVE'
+   if boardFilter.CTA=='ALL' or boardFilter.CTA==status or (boardFilter.CTA=='RESOLVED' and status=='CANCELLED') then
+    shown=shown+1;if shown>20 then break end
+    local y=-146-(shown-1)*105
+    local panel=body:CreateTexture(nil,'BACKGROUND');panel:SetPoint('TOPLEFT',12,y+8);panel:SetSize(545,94);panel:SetColorTexture(0.095,0.115,0.15,0.96)
+    local heading=label(body,tostring(a.time or '')..'   |   '..status,23,y,500,'GameFontNormal')
+    local desc=label(body,K.Operations.FactionText(a),23,y-25,510);desc:SetMaxLines(1);desc:SetWordWrap(false)
+    local rs=d.responses and d.responses[a.id] or {};local coming=0
+    for _,v in pairs(rs) do if v=='Coming' then coming=coming+1 end end
+    local leaders=K.Operations.CTALeadership(a)
+    local heading=(leaders.warchief and ('War Chief: '..leaders.warchief..'   |   ') or '')..'Commander: '..tostring(leaders.creator)
+    if #leaders.officers>0 then heading=heading..'   |   Co-Commander: '..table.concat(leaders.officers,', ') end
+    local leadLabel=label(body,heading,23,y-46,365);leadLabel:SetMaxLines(1);leadLabel:SetWordWrap(false)
+    label(body,'Reinforcements: '..coming,23,y-65,355)
+    button(body,'View Details',405,y-49,145,function()selectedCTA=a.id;active='CTA Details';render() end)
+   end
+  end
+  if shown==0 then label(body,'No operations in this view.',12,-155,500) end
+ elseif active=='CTA Details' then
+  local a;for _,entry in ipairs(d.ops) do if entry.id==selectedCTA then a=entry;break end end
+  button(body,'< Back to CTAs',12,-12,170,function()active='CTA Board';render() end)
+  if a then
+   label(body,'OPERATION DETAILS',12,-62,545,'GameFontNormalLarge')
+   label(body,K.Operations.FactionText(a),12,-112,545)
+   local leaders=K.Operations.CTALeadership(a)
+   label(body,'Status: '..tostring(a.status or 'ACTIVE'),12,-162,545)
+   local rs=d.responses and d.responses[a.id] or {};local coming,maybe,busy=0,0,0
+   for _,v in pairs(rs) do if v=='Coming' then coming=coming+1 elseif v=='Maybe' then maybe=maybe+1 elseif v=='Busy' then busy=busy+1 end end
+   local ly=-184
+   if leaders.warchief then label(body,'War Chief: '..leaders.warchief,12,ly,545);ly=ly-22 end
+   label(body,'Commander: '..tostring(leaders.creator or '?'),12,ly,545);ly=ly-22
+   if #leaders.officers>0 then label(body,'Co-Commander: '..table.concat(leaders.officers,', '),12,ly,545);ly=ly-22 end
+   label(body,'Coming: '..coming..'     Maybe: '..maybe..'     Busy: '..busy,12,ly-2,545,'GameFontNormal')
+   label(body,'YOUR RESPONSE',12,-260,540,'GameFontNormal')
+   button(body,'Coming',12,-292,115,function()K.Operations.Respond(a.id,'Coming');render() end)
+   button(body,'Maybe',137,-292,115,function()K.Operations.Respond(a.id,'Maybe');render() end)
+   button(body,'Busy',262,-292,115,function()K.Operations.Respond(a.id,'Busy');render() end)
+   button(body,'Roster',387,-292,155,function()editingId=a.id;active='CTA Roster';render() end)
+   if a.status=='ACTIVE' then
+    button(body,'Join the Fight',12,-324,180,function()K.CTAJoin.Request(a.id) end)
+    local requests=K.CTAJoin.Pending(a.id)
+    if #requests>0 then
+     label(body,'INVITE REQUESTS',210,-326,340,'GameFontNormal')
+     for i=1,math.min(3,#requests) do
+      local name=requests[i]
+      button(body,'Invite '..name,210,-348-(i-1)*27,335,function()K.CTAJoin.Invite(a.id,name) end)
+     end
+    end
+   end
+   label(body,'MANAGE OPERATION',12,-446,540,'GameFontNormal')
+   button(body,'Guild Report',12,-484,160,function()K.Operations.Report('CTA',a.id) end)
+   button(body,'Discord Export',184,-484,160,function()showDiscordExport('CTA',a) end)
+   button(body,'Draft OV',12,-530,160,function()K.Operations.DraftExternal('CTA',a.id,'OV') end)
+   button(body,'Draft War Effort',184,-530,175,function()K.Operations.DraftExternal('CTA',a.id,'WE') end)
+   if a.status=='ACTIVE' then
+    button(body,'Resolve',12,-576,125,function()K.Operations.ChangeStatus('CTA',a.id,'RESOLVED');render() end)
+    button(body,'Cancel',147,-576,125,function()K.Operations.ChangeStatus('CTA',a.id,'CANCELLED');render() end)
+   else button(body,'Reopen',12,-576,125,function()K.Operations.ChangeStatus('CTA',a.id,'ACTIVE');render() end) end
+   button(body,'Edit',282,-576,125,function()editingKind='CTA';editingId=a.id;active='Edit Entry';render() end)
+   if K.Operations.CanDelete(a) then
+    button(body,'Delete Guild-Wide',12,-622,180,function()
+     StaticPopupDialogs['KWC_CONFIRM_DELETE']={text='Permanently delete this %s for the guild? This cannot be undone.',button1='Delete',button2='Cancel',OnAccept=function(_,data)
+      if K.Operations.Delete(data.kind,data.id) then selectedCTA=nil;selectedBounty=nil;active=data.kind=='CTA' and 'CTA Board' or 'Bounty Board';render() end
+     end,timeout=0,whileDead=true,hideOnEscape=true,preferredIndex=3}
+     StaticPopup_Show('KWC_CONFIRM_DELETE','CTA',nil,{kind='CTA',id=a.id})
+    end)
+   end
+  end
+ elseif active=='War Room' then
+  label(body,'WAR ROOM  /  Operations command',12,-12,565,'GameFontNormalLarge')
+  label(body,'Existing CTA board sync is reused; no new network protocol in this build.',12,-52,565)
+  button(body,'New CTA',12,-85,165,function()active='CTA Entry';render() end)
+  button(body,'Request guild sync',189,-85,175,function()K.Operations.RequestSync() end)
+  button(body,'Scout Network',376,-85,175,function()active='Scout Network';render() end)
+  local entries=K.WarRoom.Active()
+  label(body,'ACTIVE OPERATIONS  ('..#entries..')',12,-140,560,'GameFontNormal')
+  for i,e in ipairs(entries) do
+   if i>12 then break end
+   local y=-180-(i-1)*125
+   local c,m,b=K.WarRoom.Roster(e)
+   label(body,((e.details and e.details.urgent) and '[URGENT] ' or '')..tostring(e.text or ''),12,y,550,'GameFontNormal')
+   local leaders=K.Operations.CTALeadership(e)
+   local leadership=(leaders.warchief and ('War Chief: '..leaders.warchief..'  |  ') or '')..'Commander: '..tostring(leaders.creator)
+   if #leaders.officers>0 then leadership=leadership..'  |  Co-Commander: '..table.concat(leaders.officers,', ') end
+   label(body,leadership,12,y-32,545)
+   label(body,'Coming: '..c..'  Maybe: '..m..'  Busy: '..b,12,y-48,545)
+   button(body,'Respond',12,y-61,125,function()active='CTA Board';render() end)
+   button(body,'After-action report',151,y-61,185,function()selectedAAR=e.id;active='After Action';render() end)
+   button(body,'View Operation',350,y-61,145,function()selectedCTA=e.id;active='CTA Details';render() end)
+  end
+  if #entries==0 then label(body,'No active CTAs. Create one or request a board sync.',12,-190,550) end
+ elseif active=='Scout Network' then
+  label(body,'Scout network',12,-12,560,'GameFontNormalLarge')
+  label(body,'Manual reports are local; Auto Scout can share enemy sightings with guild.',12,-48,560)
+  label(body,'Auto Scout starts enabled by default; /kt autoscout off disables it.',12,-69,540)
+  label(body,'Zone',12,-91,120)
+  local zone=edit(body,GetZoneText and GetZoneText() or '',12,-113,250)
+  label(body,'Enemy / guild',282,-91,270)
+  local enemy=edit(body,'',282,-113,270)
+  label(body,'Enemy count',12,-160,170)
+  local qty=edit(body,'1',12,-183,150)
+  label(body,'Details / landmark',180,-160,350)
+  local notes=edit(body,'',180,-183,370)
+  button(body,'Save scout report',12,-230,225,function()K.WarRoom.ReportScout(zone:GetText(),enemy:GetText(),qty:GetText(),notes:GetText()) end)
+  button(body,'War Room',251,-230,160,function()active='War Room';render() end)
+  label(body,'RECENT SIGHTINGS (LOCAL + GUILD AUTO)',12,-300,540,'GameFontNormal')
+  for i,r in ipairs(d.scoutReports or {}) do
+   if i>18 then break end
+   label(body,tostring(r.when)..'  '..tostring(r.zone)..'  |  '..tostring(r.enemy)..' x'..tostring(r.count),12,-334-(i-1)*58,545)
+   label(body,tostring(r.notes or '')..'  /  '..tostring(r.author or '?'),12,-359-(i-1)*58,545)
+  end
+ elseif active=='After Action' then
+  label(body,'AFTER-ACTION REPORTS  /  Development preview',12,-12,565,'GameFontNormalLarge')
+  label(body,'Local draft records; no automatic kill verification or guild sync.',12,-47,560)
+  local choices={}
+  for _,e in ipairs(d.ops or {}) do if #choices>=8 then break end;choices[#choices+1]=e end
+  local picked=selectedAAR
+  if not picked and choices[1] then picked=choices[1].id end
+  label(body,'Choose operation:',12,-90,520,'GameFontNormal')
+  for i,e in ipairs(choices) do
+   local y=-125-(i-1)*37
+   button(body,(picked==e.id and '* ' or '')..tostring(e.text or ''):sub(1,55),12,y,540,function()selectedAAR=e.id;render() end)
+  end
+  local base=-145-#choices*37
+  label(body,'Outcome (Victory / Defeat / Draw / Other)',12,base,530)
+  local outcome=edit(body,'Victory',12,base-24,240)
+  label(body,'Estimated enemy kills',275,base,260)
+  local kills=edit(body,'0',275,base-24,200)
+  label(body,'Notes',12,base-72,520)
+  local notes=edit(body,'',12,base-96,540)
+  button(body,'Save AAR locally',12,base-141,210,function()K.WarRoom.SaveAAR(picked or '',outcome:GetText(),kills:GetText(),notes:GetText()) end)
+  button(body,'War Room',235,base-141,150,function()active='War Room';render() end)
+  label(body,'RECENT REPORTS',12,base-195,520,'GameFontNormal')
+  for i,r in ipairs(d.afterAction or {}) do
+   if i>10 then break end
+   label(body,tostring(r.when)..'  '..tostring(r.result)..'  |  '..tostring(r.title):sub(1,65),12,base-231-(i-1)*54,550)
+   label(body,'Estimated kills: '..tostring(r.kills)..'  |  '..tostring(r.notes or ''),12,base-253-(i-1)*54,550)
+  end
+ elseif active=='CTA Roster' then
+  label(body,'CTA RESPONSE ROSTER',12,-12,550,'GameFontNormalLarge')
+  button(body,'Back to CTA Board',12,-47,210,function()active='CTA Board';render() end)
+  local current;for _,e in ipairs(d.ops) do if e.id==editingId then current=e;break end end
+  if current then
+   label(body,current.text,12,-92,545)
+   local names={};for name,response in pairs((d.responses or {})[editingId] or {}) do
+    names[#names+1]={name=name,response=response}
+   end
+   table.sort(names,function(a,b)return a.name<b.name end)
+   if #names==0 then label(body,'No responses yet.',12,-130,545) end
+   for i,v in ipairs(names) do if i>55 then break end
+    label(body,v.name..'  |  '..tostring(v.response),12,-130-(i-1)*28,540)
+   end
+  else label(body,'CTA not found.',12,-100,540) end
+ elseif active=='World PvP Deaths' then
+  label(body,'WORLD PVP DEATH INTELLIGENCE',12,-12,555,'GameFontNormalLarge')
+  label(body,'Recent guild reports. Suspected attackers are not confirmed killing blows.',12,-43,555)
+  button(body,'Test death alert',12,-75,180,function()K.WorldPvPDeaths.Demo();render() end)
+  button(body,'Back to Overview',205,-75,185,function()active='Overview';render() end)
+  for i,e in ipairs(d.worldPvPDeaths or {}) do
+   if i>75 then break end
+   local y=-122-(i-1)*73
+   label(body,tostring(e.at or '?')..'  '..tostring(e.victim or '?')..'  slain by  '..tostring(e.killer or '?'),12,y,555,'GameFontNormal')
+   label(body,tostring(e.zone or '?')..'  |  '..tostring(e.method or 'Reported by victim'),12,y-24,555)
+   if e.killer and e.killer~='Unknown Alliance attacker' then
+    button(body,'Bounty',470,y-4,88,function()U.OpenBountyForName(e.killer) end)
+   end
+  end
+ elseif active=='Achievements' then
+  local q=K.QOL
+  local unlocked,total=q.Summary()
+  label(body,'GUILD PvP ACHIEVEMENTS',12,-12,550,'GameFontNormalLarge')
+  label(body,'Unlocked '..unlocked..' / '..total..'  |  Achievement Points: '..q.Points(),12,-48,570)
+  label(body,'Earn points through addon actions and lifetime honorable kill milestones.',12,-72,575)
+  local categories={'All','PvP Kills','Calls to Arms','Bounty Board','Bounty Claims','Scouting','Reinforcements'}
+  for i,cat in ipairs(categories) do
+   local row=math.floor((i-1)/4);local col=(i-1)%4
+   button(body,(achievementFilter==cat and '* ' or '')..cat,12+col*145,-108-row*40,138,function()achievementFilter=cat;achievementPage=1;render() end)
+  end
+  local filtered={}
+  for _,a in ipairs(q.Catalog()) do if achievementFilter=='All' or achievementFilter=='Unlocked' or a.category==achievementFilter then filtered[#filtered+1]=a end end
+  if achievementFilter=='Unlocked' then
+   local earned={};for _,a in ipairs(filtered) do if q.Unlocked(a.id) then earned[#earned+1]=a end end
+   filtered=earned
+  end
+  local perPage=12
+  local pages=math.max(1,math.ceil(#filtered/perPage))
+  achievementPage=math.max(1,math.min(achievementPage,pages))
+  label(body,achievementFilter..'  |  Page '..achievementPage..' / '..pages..'  |  '..#filtered..' achievements',12,-199,570,'GameFontNormal')
+  button(body,'< Previous',12,-229,130,function()achievementPage=math.max(1,achievementPage-1);render() end)
+  button(body,'Next >',158,-229,130,function()achievementPage=math.min(pages,achievementPage+1);render() end)
+  button(body,'Unlocked only',304,-229,175,function()achievementFilter='Unlocked';achievementPage=1;render() end)
+  for i=(achievementPage-1)*perPage+1,math.min(#filtered,achievementPage*perPage) do
+   local a=filtered[i];local n=i-(achievementPage-1)*perPage
+   local y=-285-(n-1)*65
+   local current=q.Count(a.kind);local earned=q.Unlocked(a.id)
+   label(body,(earned and '|cff66dd88[UNLOCKED]|r ' or '|cff999999[LOCKED]|r ')..a.title,12,y,560,'GameFontNormal')
+   label(body,a.description..'   |   '..(a.points or 5)..' pts   |   Progress: '..math.min(current,a.required)..' / '..a.required,24,y-26,545)
+  end
+  if #filtered==0 then label(body,'No unlocked achievements in this view yet.',12,-285,550) end
+ elseif active=='Bounty Entry' then
+  label(body,'NEW BOUNTY  /  All guild members can submit',12,-12,565,'GameFontNormalLarge')
+  button(body,'View Bounty Board',350,-40,190,function()active='Bounty Board';render() end)
+  label(body,'Enemy character name',12,-48,520)
+  local target=edit(body,pendingBountyTarget or '',12,-72,350)
+  pendingBountyTarget=nil
+  label(body,'Reason or location (optional)',12,-115,520)
+  local reason=edit(body,'',12,-139,540)
+  label(body,'Reward (optional; not automatically paid)',12,-182,520)
+  local reward=edit(body,'',12,-206,330)
+  button(body,'POST BOUNTY',12,-249,220,function()K.Operations.QuickBounty(target:GetText(),reason:GetText(),reward:GetText()) end)
+  label(body,'Bounties are player-submitted and unverified.',12,-291,565)
+ elseif active=='Report Sighting' then
+  local current
+  for _,e in ipairs(d.bounties) do if e.id==editingId then current=e;break end end
+  label(body,'REPORT ENEMY SIGHTING',12,-12,550,'GameFontNormalLarge')
+  if current then
+   label(body,'Target: '..current.text,12,-60,540)
+   label(body,'Zone / landmark',12,-103,520)
+   local zone=edit(body,GetZoneText and GetZoneText() or '',12,-125,530)
+   label(body,'Additional details',12,-166,520)
+   local note=edit(body,'',12,-188,530)
+   button(body,'SUBMIT SIGHTING',12,-240,240,function()K.Operations.AddSighting(editingId,zone:GetText(),note:GetText());active='Bounty Board';render() end)
+  end
+  button(body,'Back to Bounty Board',12,-290,230,function()active='Bounty Board';render() end)
+ elseif active=='Bounty Board' then
+  label(body,'Bounty board',18,-16,530,'GameFontNormalLarge')
+  button(body,'+ New Bounty',12,-48,165,function()active='Bounty Entry';render() end)
+  button(body,'Add current target',190,-48,190,function()U.OpenBountyForUnit('target') end)
+  button(body,'Report to Guild',190,-48,170,function()K.Operations.ListActive('BOUNTY',true) end)
+  for i,v in ipairs({'ACTIVE','COMPLETED','ALL'}) do
+   button(body,v,12+(i-1)*165,-92,155,function()boardFilter.BOUNTY=v;render() end)
+  end
+  local shown=0
+  for _,b in ipairs(d.bounties) do
+   local status=b.status or 'ACTIVE'
+   if boardFilter.BOUNTY=='ALL' or boardFilter.BOUNTY==status or (boardFilter.BOUNTY=='COMPLETED' and status=='CANCELLED') then
+    shown=shown+1;if shown>20 then break end
+    local y=-146-(shown-1)*110
+    local panel=body:CreateTexture(nil,'BACKGROUND');panel:SetPoint('TOPLEFT',12,y+8);panel:SetSize(545,99);panel:SetColorTexture(0.095,0.115,0.15,0.96)
+    local target=(b.details and b.details.target) or b.text or 'Unknown target'
+    local reward=(b.details and b.details.reward) or (b.text or ''):match('[Rr]eward:%s*([^|]+)') or 'Not listed'
+    local name=label(body,tostring(target),23,y,350,'GameFontNormal');name:SetMaxLines(1);name:SetWordWrap(false)
+    label(body,status,420,y,125,'GameFontNormal')
+    label(body,'Reward: '..tostring(reward),23,y-28,350)
+    local last=(b.sightings or {})[1]
+    label(body,'Sightings: '..#(b.sightings or {})..'   |   Last: '..tostring(last and last.zone or 'Unknown'),23,y-56,365)
+    button(body,'View Details',405,y-52,145,function()selectedBounty=b.id;active='Bounty Details';render() end)
+   end
+  end
+  if shown==0 then label(body,'No bounties in this view.',12,-155,500) end
+ elseif active=='Bounty Details' then
+  local b;for _,entry in ipairs(d.bounties) do if entry.id==selectedBounty then b=entry;break end end
+  button(body,'< Back to Bounties',12,-12,185,function()active='Bounty Board';render() end)
+  if b then
+   local target=(b.details and b.details.target) or b.text or 'Unknown target'
+   local reward=(b.details and b.details.reward) or (b.text or ''):match('[Rr]eward:%s*([^|]+)') or 'Not listed'
+   label(body,'BOUNTY DETAILS',12,-62,545,'GameFontNormalLarge')
+   local name=label(body,tostring(target),12,-112,540,'GameFontNormal');name:SetMaxLines(2)
+   label(body,'Reward: '..tostring(reward)..'   |   Status: '..tostring(b.status or 'ACTIVE'),12,-163,545)
+   label(body,'Posted by '..tostring(b.author or '?')..' on '..tostring(b.time or '?'),12,-192,545)
+   local last=(b.sightings or {})[1]
+   label(body,'Sightings: '..#(b.sightings or {})..'   |   Last seen: '..tostring(last and last.zone or 'Unknown'),12,-220,545)
+   label(body,'HUNT THE TARGET',12,-272,545,'GameFontNormal')
+   if b.status=='ACTIVE' then
+    button(body,'Claim Kill',12,-307,155,function()K.Operations.ClaimBounty(b.id) end)
+    button(body,'Report Sighting',180,-307,180,function()editingId=b.id;active='Report Sighting';render() end)
+   end
+   button(body,'Sighting History',12,-354,175,function()editingId=b.id;active='Sighting History';render() end)
+   if K.GuildService then
+    local pending=K.GuildService.Pending(b.id)
+    if #pending>0 then
+     label(body,'Pending claim: '..pending[1],207,-355,333)
+     if K.IsOfficer() then button(body,'Approve Claim',385,-385,165,function()K.GuildService.Approve(b.id,pending[1]);render() end) end
+    end
+   end
+   label(body,'MANAGE BOUNTY',12,-415,545,'GameFontNormal')
+   if b.status=='ACTIVE' then
+    button(body,'Complete',12,-450,135,function()K.Operations.ChangeStatus('BOUNTY',b.id,'COMPLETED');render() end)
+    button(body,'Cancel',157,-450,135,function()K.Operations.ChangeStatus('BOUNTY',b.id,'CANCELLED');render() end)
+   else button(body,'Reopen',12,-450,135,function()K.Operations.ChangeStatus('BOUNTY',b.id,'ACTIVE');render() end) end
+   button(body,'Edit',307,-450,135,function()editingKind='BOUNTY';editingId=b.id;active='Edit Entry';render() end)
+   button(body,'Guild Report',12,-500,160,function()K.Operations.Report('BOUNTY',b.id) end)
+   button(body,'Discord Export',184,-500,160,function()showDiscordExport('BOUNTY',b) end)
+   button(body,'Draft OV',12,-550,160,function()K.Operations.DraftExternal('BOUNTY',b.id,'OV') end)
+   button(body,'Draft War Effort',184,-550,175,function()K.Operations.DraftExternal('BOUNTY',b.id,'WE') end)
+   if K.Operations.CanDelete(b) then
+    button(body,'Delete Guild-Wide',375,-550,175,function()
+     StaticPopupDialogs['KWC_CONFIRM_DELETE']={text='Permanently delete this %s for the guild? This cannot be undone.',button1='Delete',button2='Cancel',OnAccept=function(_,data)
+      if K.Operations.Delete(data.kind,data.id) then selectedCTA=nil;selectedBounty=nil;active=data.kind=='CTA' and 'CTA Board' or 'Bounty Board';render() end
+     end,timeout=0,whileDead=true,hideOnEscape=true,preferredIndex=3}
+     StaticPopup_Show('KWC_CONFIRM_DELETE','Bounty',nil,{kind='BOUNTY',id=b.id})
+    end)
+   end
+  end
+ elseif active=='Sighting History' then
+  label(body,'BOUNTY SIGHTING HISTORY',12,-12,550,'GameFontNormalLarge')
+  button(body,'Back to Bounty Board',12,-50,225,function()active='Bounty Board';render() end)
+  local current;for _,e in ipairs(d.bounties) do if e.id==editingId then current=e;break end end
+  if current then
+   label(body,'Target: '..tostring(current.details and current.details.target or current.text),12,-100,545)
+   local sightings=current.sightings or {}
+   if #sightings==0 then label(body,'No sightings reported.',12,-140,540) end
+   for i,v in ipairs(sightings) do if i>15 then break end
+    local y=-145-(i-1)*65
+    label(body,tostring(v.zone or '?')..'  |  '..tostring(v.at or '?'),12,y,545,'GameFontNormal')
+    label(body,'Reported by '..tostring(v.who or '?')..'  '..tostring(v.note or ''),12,y-25,545)
+   end
+   label(body,'Reports are player-submitted, not live location tracking.',12,-1180,545)
+  end
+ elseif active=='Sync Health' then
+  label(body,'|cffffa84bGUILD SYNC HEALTH|r',12,-12,500,'GameFontNormalLarge')
+  label(body,'Sync requests CTAs, bounties, deletions and honor. Peer replies are automatic.',12,-43,580)
+  local h=K.Sync and K.Sync.Health and K.Sync.Health()
+  if h then
+   label(body,'Requests: '..h.requests..' | Sent: '..h.sent..' | Received: '..h.received,12,-75,570)
+   label(body,'Records applied: '..h.applied..' | Rejected: '..h.rejected,12,-98,580)
+   local age=h.lastReceived>0 and (time()-h.lastReceived) or nil
+   label(body,'Last message: '..(age and (age..' seconds ago') or 'None'),12,-121,580)
+   local peers={}
+   for name,v in pairs(h.peers) do peers[#peers+1]={name=name,age=time()-v.lastSeen,count=v.received} end
+   table.sort(peers,function(a,b)return a.age<b.age end)
+   label(body,'|cffffa84bRECENT PEERS|r',12,-158,500,'GameFontNormal')
+   if #peers==0 then label(body,'No addon peers observed yet.',12,-187,570) end
+   for i=1,math.min(11,#peers) do
+    local v=peers[i]
+    label(body,v.name..' | '..v.age..'s ago | '..v.count..' messages',12,-181-i*24,570)
+   end
+  end
+  button(body,'Sync All Guild Data',12,-510,190,function()if K.Sync then K.Sync.RequestAll(false) end;render() end)
+  button(body,'Refresh Diagnostics',216,-510,190,function()render() end)
+ elseif active=='Addon Checker' then
+  label(body,'ADDON CHECKER  /  Guild clients',12,-12,565,'GameFontNormalLarge')
+  label(body,'Check online guildmates to see which addon versions are responding.',12,-47,565)
+  button(body,'Check Online Guildmates',12,-80,245,function()K.AddonChecker.Request();render() end)
+  button(body,'Refresh View',270,-80,150,function()render() end)
+  local me,ver=K.AddonChecker.Self()
+  label(body,'YOU: '..me..'  |  v'..ver..'  |  Installed',12,-134,565,'GameFontNormal')
+  local peers=K.AddonChecker.Entries()
+  label(body,'OTHER DETECTED CLIENTS ('..#peers..')',12,-180,565,'GameFontNormal')
+  if #peers==0 then label(body,'No other addon clients detected yet. Ask members to log in and run /kt addons.',12,-211,565) end
+  for i=1,math.min(15,#peers) do
+   local p=peers[i]
+   local age=math.max(0,time()-(p.lastSeen or time()))
+   local status=p.legacy and 'Legacy / unknown' or (p.version==K.version and 'Current' or 'Different version')
+   label(body,p.name..'  |  '..(p.legacy and 'Unknown version' or ('v'..p.version))..'  |  '..status..'  |  '..age..'s ago',12,-208-i*25,565)
+  end
+  button(body,'Back to Settings',12,-555,190,function()active='Settings';render() end)
+ elseif active=='Settings' then
+  label(body,'SETTINGS / GUILD DATA',12,-12,565,'GameFontNormalLarge')
+  label(body,'WINDOW SIZE',12,-410,540,'GameFontNormal')
+  label(body,'Current: '..math.floor(U.GetScale()*100+0.5)..'%  |  Choose a size below or use /kt scale 90',12,-440,550)
+  button(body,'75%',12,-475,100,function()U.SetScale(0.75);render() end)
+  button(body,'90%',124,-475,100,function()U.SetScale(0.90);render() end)
+  button(body,'100%',236,-475,100,function()U.SetScale(1);render() end)
+  button(body,'115%',348,-475,100,function()U.SetScale(1.15);render() end)
+  button(body,'125%',460,-475,100,function()U.SetScale(1.25);render() end)
+
+  label(body,'Roster and Chronicle remain available here. Background data collection stays active.',12,-52,560)
+  button(body,'View Guild Roster',12,-100,220,function()active='Guild Roster';render() end)
+  button(body,'View Chronicle',250,-100,220,function()active='Chronicle';render() end)
+  label(body,'Guild roster data still supports recruiting, guild checks and other features.',12,-153,560)
+  label(body,'!cta / !bounties request reports locally; use the board to send.',12,-275,550)
+  button(body,'Addon Checker',272,-365,245,function()active='Addon Checker';K.AddonChecker.Request();render() end)
+  button(body,'Sync Health Monitor',12,-365,245,function()active='Sync Health';render() end)
+  button(body,'Request board sync',12,-316,245,function()K.Operations.RequestSync() end)
+ elseif active=='Alerts' then
+  label(body,'ALERTS',12,-12,550,'GameFontNormalLarge')
+  local settings=d.settings
+  local q=K.QOL
+  local function toggle(text,enabled,x,y,change)
+   button(body,text..': '..(enabled and 'ON' or 'OFF'),x,y,255,function()
+    change(not enabled);render()
+   end)
+  end
+  if q then toggle('All alert sounds',q.Enabled('alertSound'),12,-53,function()q.Toggle('alertSound') end) end
+
+  local function popup(title,api,key,y,enabled,soundEnabled,setSound,duration)
+   label(body,title,12,y,555,'GameFontNormal')
+   toggle('Popup',enabled,12,y-25,api.SetEnabled)
+   toggle('Sound',soundEnabled,282,y-25,setSound)
+   local unlocked=settings[key..'Unlocked']
+   button(body,unlocked and 'Lock position' or 'Unlock & move',12,y-66,255,function()api.SetUnlocked(not unlocked);render() end)
+   button(body,'Test alert',282,y-66,255,api.Demo)
+
+   local pct=math.floor((tonumber(settings[key..'Scale']) or 1)*100+0.5)
+   button(body,'Size -',12,y-107,100,function()api.SetScale((pct-10)/100);render() end)
+   label(body,'Size: '..pct..'%',125,y-116,142)
+   button(body,'Size +',282,y-107,100,function()api.SetScale((pct+10)/100);render() end)
+   button(body,'Reset position',397,y-107,140,function()api.ResetPosition();render() end)
+
+   button(body,'Time -',12,y-148,100,function()api.SetDuration(math.max(3,duration-1));render() end)
+   label(body,'Duration: '..duration..'s',125,y-157,150)
+   button(body,'Time +',282,y-148,100,function()api.SetDuration(math.min(30,duration+1));render() end)
+  end
+
+  local deaths=K.WorldPvPDeaths
+  if deaths and deaths.SetDuration then
+   popup('GUILD DEATH ALERTS',deaths,'worldPvPDeath',-109,settings.worldPvPDeathAlerts~=false,
+    settings.worldPvPDeathSound~=false,deaths.SetSound,tonumber(settings.worldPvPDeathDuration) or 8)
+   toggle('Smart Mode',settings.worldPvPDeathSmart~=false,12,-298,deaths.SetSmart)
+   toggle('Chat alerts',settings.worldPvPDeathChat~=false,282,-298,deaths.SetChat)
+   toggle('Hide in combat',not not settings.worldPvPDeathSuppressInCombat,12,-339,deaths.SetCombatSuppression)
+   toggle('Guild broadcast',settings.worldPvPDeathBroadcast~=false,282,-339,function(value)settings.worldPvPDeathBroadcast=value end)
+   local smart=deaths.GetBattleSettings()
+   label(body,'Unique deaths (2–20)',12,-389,166)
+   label(body,'Detection window (15–180s)',190,-389,174)
+   label(body,'Quiet period (15–300s)',370,-389,167)
+   local threshold=edit(body,tostring(smart.threshold),12,-409,164)
+   local window=edit(body,tostring(smart.window),190,-409,164)
+   local quiet=edit(body,tostring(smart.quiet),370,-409,164)
+   for _,field in ipairs({threshold,window,quiet}) do field:SetNumeric(true) end
+   button(body,'Apply Smart Mode settings',12,-447,255,function()
+    deaths.SetBattleSettings({threshold=threshold:GetText(),window=window:GetText(),quiet=quiet:GetText()})
+    render()
+   end)
+   button(body,'Reset Defaults',282,-447,255,function()deaths.ResetBattleSettings();render() end)
+   label(body,('Suppresses death popups after %d unique deaths in %ds. Each new report extends the %ds quiet period.')
+    :format(smart.threshold,smart.window,smart.quiet),12,-495,545)
+  else
+   label(body,'Guild death alerts are unavailable.',12,-109,550)
+  end
+
+  local bounty=K.BountyAlerts
+  if bounty and bounty.GetDuration and q then
+   popup('BOUNTY TARGET SPOTTED',bounty,'bountyAlert',-553,bounty.Status(),
+    q.Enabled('bountySound'),function()q.Toggle('bountySound') end,bounty.GetDuration())
+   toggle('Friendly bounty test mode',bounty.TestMode(),12,-742,bounty.SetTestMode)
+  else
+   label(body,'Bounty alerts are unavailable.',12,-553,550)
+  end
+
+  label(body,'CALL TO ARMS & REPORT REMINDERS',12,-800,550,'GameFontNormal')
+  toggle('Incoming CTA chat alerts',settings.alerts~=false,12,-825,function(value)settings.alerts=value end)
+  toggle('Report reminders',not not settings.autoGuildReports,282,-825,function(value)settings.autoGuildReports=value end)
+  label(body,'CTA announcements and report reminders appear in chat.',12,-869,550)
+
+  label(body,'RAID TOOLS',12,-912,550,'GameFontNormal')
+  button(body,'Ready-check notifications',12,-937,255,function()active='Raid Tools: Ready Check Advanced';render() end)
+  button(body,'Combat displays',282,-937,255,function()active='Raid Tools: Combat Tools';render() end)
+  button(body,'Death protection',12,-978,255,function()active="Raid Tools: Don't Release";render() end)
+ elseif active=='Guild Roster' then
+  button(body,'Back to Settings',12,-53,180,function()active='Settings';render() end)
+  label(body,'GUILD ROSTER  /  Live game roster',12,-12,560,'GameFontNormalLarge')
+  button(body,'Refresh roster',200,-53,170,function()if C_GuildInfo and C_GuildInfo.GuildRoster then pcall(C_GuildInfo.GuildRoster) end;K.Roster.Scan() end)
+  button(body,'Check addon versions',380,-53,195,function()K.AddonChecker.Request();render() end)
+  label(body,'Green: current  |  Yellow: different/unknown version  |  Red: not detected',12,-92,560)
+  local members={};for _,m in pairs(d.roster) do if type(m)=='table' and m.name then table.insert(members,m) end end
+  table.sort(members,function(a,b)
+   if (a.online and true or false)~=(b.online and true or false) then return a.online and true or false end
+   return tostring(a.name):lower()<tostring(b.name):lower()
+  end)
+  local y=-126
+  local section=nil
+  for _,m in ipairs(members) do
+   local online=m.online and true or false
+   if section~=online then
+    section=online
+    label(body,online and 'ONLINE' or 'OFFLINE',12,y,560,'GameFontNormal');y=y-27
+   end
+   local peer=K.AddonChecker.ForRoster(m.name)
+   local fresh=peer and (time()-(peer.lastSeen or 0)<600)
+   local color='|cffff6666'
+   local status='Not detected'
+   if peer and (fresh or not online) then
+    if not peer.legacy and peer.version==K.version then color='|cff55ff77';status='Current' 
+    else color='|cffffd35a';status=peer.legacy and 'Version unknown' or ('v'..tostring(peer.version)) end
+    if not fresh then status=status..' (last seen)' end
+   elseif online then status='No response' end
+   label(body,color..m.name..'|r  |  '..status..'  |  '..tostring(m.rank or '')..'  |  L'..tostring(m.level or '?')..' '..tostring(m.class or ''),12,y,565)
+   y=y-25
+  end
+ elseif active=='Chronicle' then
+  button(body,'Back to Settings',12,-53,180,function()active='Settings';render() end)
+  label(body,'GUILD CHRONICLE  /  Recent recorded events',12,-12,565,'GameFontNormalLarge')
+  for i,e in ipairs(d.history) do if i>48 then break end;label(body,e.time..' ['..e.category..'] '..e.text,12,-56-(i-1)*30,565) end
+ end
+end
+-- Prefill only; posting still requires the user's explicit confirmation.
+function U.OpenBountyForName(name)
+ if InCombatLockdown and InCombatLockdown() then K.Say('Open bounty entry after combat.');return end
+ name=K.Clean(name,45)
+ if name=='' then return end
+ pendingBountyTarget=name
+ if not frame or not frame:IsShown() then U.Toggle('Bounty Entry') else active='Bounty Entry';render() end
+end
+function U.GetBountyPlayerName(unit)
+ if type(unit)~='string' or (issecretvalue and issecretvalue(unit)) then return end
+ if not UnitExists(unit) or not UnitIsPlayer(unit) then return end
+ local name,realm
+ if UnitFullName then name,realm=UnitFullName(unit) end
+ if issecretvalue and issecretvalue(name) then return end
+ if not name or name=='' then name,realm=UnitName(unit) end
+ if issecretvalue and (issecretvalue(name) or issecretvalue(realm)) then return end
+ if not name or name=='' then return end
+ if realm and realm~='' and not name:find('-',1,true) then return name..'-'..realm end
+ return name
+end
+function U.OpenBountyForUnit(unit)
+ if InCombatLockdown and InCombatLockdown() then K.Say('Open bounty entry after combat.');return end
+ if not unit or not UnitExists(unit) or not UnitIsPlayer(unit) then K.Say('Target a player first.');return end
+ local name=U.GetBountyPlayerName(unit)
+ if not name then K.Say('Player name unavailable.');return end
+ U.OpenBountyForName(name)
+end
+function U.RaidRefresh() if active=='Raid Tools: Command' then render() end end
+function U.CheckerRefresh() if active=='Addon Checker' or active=='Guild Roster' then U.Refresh() end end
+function U.RecruitmentRefresh()
+ if active~='Recruitment' or not frame or not frame:IsShown() or not recruitmentRefresh then return end
+ if InCombatLockdown and InCombatLockdown() then U.needsRecruitmentRefresh=true;return end
+ U.needsRecruitmentRefresh=false
+ recruitmentRefresh()
+end
+function U.Refresh()
+ if InCombatLockdown and InCombatLockdown() then U.needsRefresh=true;return end
+ -- Background synchronization must not destroy the user's active text form.
+ if active=='Raid Tools: Command' or active=='Raid Tools: Sign-Ups' or active=='CTA Entry' or active=='Bounty Entry' or active=='Edit Entry' or active=='Report Sighting' or active=='Recruitment' then
+  U.needsFormRefresh=true
+  return
+ end
+ U.needsFormRefresh=false
+ render()
+end
+K.On('PLAYER_REGEN_ENABLED',function()
+ if U.needsRefresh then U.needsRefresh=false;U.Refresh() end
+ if U.needsRecruitmentRefresh then U.RecruitmentRefresh() end
+end)
+function U.Toggle(page)
+ if page=='Alert Settings' then page='Alerts' end
+ if page=='KT Raid' then page='Raid Tools: Command' end
+ if page=='Raid Sign-Ups' then page='Raid Tools: Sign-Ups' end
+ if page=='Raid Attendance' then page='Raid Tools: Attendance' end
+ if InCombatLockdown and InCombatLockdown() then K.Say('Open War Command after combat.');return end
+ if not frame then
+  frame=CreateFrame('Frame','KeepersWarCommandFrame',UIParent);frame:SetSize(860,680);frame:SetPoint('CENTER',UIParent,'CENTER',0,30);frame:SetMovable(true);frame:EnableMouse(true);frame:SetClampedToScreen(true);frame:SetFrameStrata('FULLSCREEN_DIALOG');frame:SetFrameLevel(100);frame:SetScale(fitScale(U.GetScale()))
+  -- Dragging is restricted to the header so the parent frame cannot capture clicks
+  -- meant for edit boxes inside the scroll area.
+  local dragHeader=CreateFrame('Frame',nil,frame)
+  dragHeader:SetPoint('TOPLEFT',frame,'TOPLEFT',2,-2)
+  dragHeader:SetPoint('TOPRIGHT',frame,'TOPRIGHT',-65,-2)
+  dragHeader:SetHeight(43)
+  dragHeader:EnableMouse(true)
+  dragHeader:RegisterForDrag('LeftButton')
+  dragHeader:SetScript('OnDragStart',function()frame:StartMoving() end)
+  dragHeader:SetScript('OnDragStop',function()frame:StopMovingOrSizing() end)
+  local border=frame:CreateTexture(nil,'BACKGROUND');border:SetAllPoints(frame);border:SetColorTexture(0.23,0.27,0.34,1)
+  local backdrop=frame:CreateTexture(nil,'ARTWORK');backdrop:SetPoint('TOPLEFT',2,-2);backdrop:SetPoint('BOTTOMRIGHT',-2,2);backdrop:SetColorTexture(0.043,0.053,0.072,1)
+  local sidebar=frame:CreateTexture(nil,'BACKGROUND')
+  sidebar:SetPoint('TOPLEFT',frame,'TOPLEFT',8,-57);sidebar:SetPoint('BOTTOMLEFT',frame,'BOTTOMLEFT',8,12)
+  sidebar:SetWidth(211);sidebar:SetColorTexture(0.060,0.075,0.10,1)
+  local sidebarAccent=frame:CreateTexture(nil,'ARTWORK')
+  sidebarAccent:SetPoint('TOPLEFT',frame,'TOPLEFT',218,-58);sidebarAccent:SetPoint('BOTTOMLEFT',frame,'BOTTOMLEFT',218,14)
+  sidebarAccent:SetWidth(2);sidebarAccent:SetColorTexture(0.23,0.27,0.34,0.6)
+  local stripe=frame:CreateTexture(nil,'OVERLAY');stripe:SetPoint('TOPLEFT',frame,'TOPLEFT',2,-46);stripe:SetPoint('TOPRIGHT',frame,'TOPRIGHT',-2,-46);stripe:SetHeight(2);stripe:SetColorTexture(0.25,0.31,0.40,0.65)
+  label(frame,'KEEPERS OF TROGDOR',18,-12,255,'GameFontNormal');header=label(frame,'OVERVIEW',282,-12,475,'GameFontNormalLarge')
+  local close=button(frame,'X',800,-8,28,function()frame:Hide() end)
+  -- Bottom-right resize grip: scales the entire native UI proportionally.
+  -- Unlike StartSizing, this keeps fixed-position controls aligned.
+  local grip=CreateFrame('Button',nil,frame)
+  grip:SetSize(30,30)
+  grip:SetPoint('BOTTOMRIGHT',frame,'BOTTOMRIGHT',-5,5)
+  grip:SetFrameLevel(frame:GetFrameLevel()+12)
+  grip:EnableMouse(true)
+  local gripLines={}
+  for i=1,3 do
+   local line=grip:CreateTexture(nil,'OVERLAY')
+   line:SetColorTexture(0.55,0.62,0.71,0.8)
+   line:SetSize(3,3)
+   line:SetPoint('BOTTOMRIGHT',grip,'BOTTOMRIGHT',-5-(i-1)*7,5)
+   local line2=grip:CreateTexture(nil,'OVERLAY')
+   line2:SetColorTexture(0.55,0.62,0.71,0.8)
+   line2:SetSize(3,3)
+   line2:SetPoint('BOTTOMRIGHT',grip,'BOTTOMRIGHT',-5,5+(i-1)*7)
+  end
+  local dragging=false
+  local originX,originY,originScale
+  local function stopGrip()
+   if not dragging then return end
+   dragging=false
+   grip:SetScript('OnUpdate',nil)
+   if KWCDB then
+    KWCDB.settings=KWCDB.settings or {}
+    KWCDB.settings.windowScale=U.GetScale()
+   end
+  end
+  grip:SetScript('OnMouseDown',function(self,mouseButton)
+   if mouseButton~='LeftButton' then return end
+   if InCombatLockdown and InCombatLockdown() then return end
+   originX,originY=GetCursorPosition()
+   originScale=U.GetScale()
+   dragging=true
+   self:SetScript('OnUpdate',function()
+    if not dragging then return end
+    if IsMouseButtonDown and not IsMouseButtonDown('LeftButton') then stopGrip();return end
+    local x,y=GetCursorPosition()
+    local uiScale=UIParent:GetEffectiveScale()
+    if not uiScale or uiScale<=0 then uiScale=1 end
+    -- Dragging right or down enlarges the frame.
+    local dx=(x-originX)/uiScale
+    local dy=(originY-y)/uiScale
+    local nextScale=safeScale(originScale+(dx/860+dy/680)*0.55)
+    if frame:GetScale()~=nextScale then
+     frame:SetScale(fitScale(nextScale))
+     KWCDB.settings=KWCDB.settings or {}
+     KWCDB.settings.windowScale=nextScale
+    end
+   end)
+  end)
+  grip:SetScript('OnMouseUp',stopGrip)
+  grip:SetScript('OnHide',stopGrip)
+  grip:SetScript('OnEnter',function(self)
+   if GameTooltip then GameTooltip:SetOwner(self,'ANCHOR_TOP');GameTooltip:SetText('Drag to scale War Command');GameTooltip:AddLine('Size saves automatically. /kt scale 100 resets.',0.85,0.70,0.48);GameTooltip:Show() end
+  end)
+  grip:SetScript('OnLeave',function()if GameTooltip then GameTooltip:Hide() end end)
+
+  -- DEV35: Dedicated scrollable sidebar. Page identifiers and callbacks unchanged.
+  -- Navigation is a separate scroll surface so it never overlaps the content.
+  local navViewport=CreateFrame('Frame',nil,frame)
+  navViewport:SetPoint('TOPLEFT',frame,'TOPLEFT',10,-63)
+  navViewport:SetPoint('BOTTOMLEFT',frame,'BOTTOMLEFT',10,18)
+  navViewport:SetWidth(207)
+  navScroll=CreateFrame('ScrollFrame',nil,navViewport)
+  navScroll:SetAllPoints(navViewport)
+  navChild=CreateFrame('Frame',nil,navScroll)
+  navChild:SetSize(207,1010)
+  navScroll:SetScrollChild(navChild)
+  navScroll:EnableMouseWheel(true)
+  navScroll:SetScript('OnMouseWheel',function(self,delta)
+   local max=math.max(0,navChild:GetHeight()-self:GetHeight())
+   self:SetVerticalScroll(math.max(0,math.min(max,self:GetVerticalScroll()-delta*58)))
+  end)
+  local navY=-8
+  local function section(title)
+   navY=navY-13
+   local h=label(navChild,title,11,navY,181)
+   h:SetFont(FONT,10,'')
+   h:SetTextColor(0.60,0.69,0.79)
+   navY=navY-25
+  end
+  local function item(text,page)
+   local b=button(navChild,text,5,navY,194,function()
+    scroll:SetVerticalScroll(0)
+    active=page
+    render()
+   end)
+   b:SetHeight(32)
+   b.kwcPage=page
+   navY=navY-38
+  end
+  section('DASHBOARD')
+  item('Overview','Overview')
+  section('PVP OPERATIONS')
+  item('War Room','War Room')
+  item('Calls to Arms','CTA Board')
+  item('Bounty Board','Bounty Board')
+  item('PvP Leaderboard','PvP Leaderboard')
+  section('RAIDS')
+  item('Raid Operations','Raid Tools')
+  section('GUILD')
+  item('Recruitment','Recruitment')
+  item('Commendations','Commendations')
+  section('SETTINGS')
+  item('Preferences','Settings')
+  item('Alerts','Alerts')
+  item('Sync Health','Sync Health')
+  navChild:SetHeight(math.max(-navY+20,620))
+  local indicator=frame:CreateFontString(nil,'OVERLAY')
+  indicator:SetFont(FONT,10,'')
+  indicator:SetTextColor(0.50,0.60,0.70)
+  indicator:SetPoint('BOTTOMLEFT',frame,'BOTTOMLEFT',24,7)
+  indicator:SetText('SCROLL TO EXPLORE')
+  scroll=CreateFrame('ScrollFrame',nil,frame);scroll:SetPoint('TOPLEFT',224,-65);scroll:SetPoint('BOTTOMRIGHT',-34,22)
+  scrollChild=CreateFrame('Frame',nil,scroll);scrollChild:SetSize(605,3900);scroll:SetScrollChild(scrollChild)
+  scroll:EnableMouseWheel(true)
+  scroll:SetScript('OnMouseWheel',function(self,delta)
+   if not body then return end
+   local max=math.max(0,(body:GetHeight() or 0)-(self:GetHeight() or 0))
+   self:SetVerticalScroll(math.max(0,math.min(max,(self:GetVerticalScroll() or 0)-delta*55)))
+  end)
+  frame:Hide()
+ end
+ if type(page)=='string' and page~='' then if page~=active then scroll:SetVerticalScroll(0) end;active=page;frame:Show() else if frame:IsShown() then frame:Hide() else frame:Show() end end
+ if not frame:IsShown() and K.RaidTools and K.RaidTools.Close then K.RaidTools.Close() end
+ if frame:IsShown() then frame:SetScale(fitScale(U.GetScale())) end
+ if frame:IsShown() and K.Sync and K.Sync.OnWindowOpened then K.Sync.OnWindowOpened() end
+ render()
+end

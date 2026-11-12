@@ -1,0 +1,854 @@
+-- AttendanceUI: the Attendance sidebar tab. Owns the Attendance, Records, and Settings
+-- tabs, the audit grid itself, and the per-character status modal a cell click
+-- opens. The Records tab's content belongs to RecordsUI.
+--
+-- The grid is rebuilt only on a data change -- the panel being shown, an edit,
+-- or an accepted sync. AttendanceReport:Build walks the un-rostered characters
+-- once per day, so rebuilding it per frame or per keystroke would be felt.
+--
+-- Statuses are edited per character rather than per player: a displayed status
+-- is resolved across a player's characters, so a player-level edit could not
+-- lower one without silently choosing which record underneath to rewrite.
+
+local KRT = KeepersRaidTools
+local AttendanceUI = {}
+KRT.AttendanceUI = AttendanceUI
+
+local ROW_HEIGHT = 20
+local HEADER_HEIGHT = 22
+local SECTION_HEIGHT = 22
+local GRID_HEIGHT = 380
+local NAME_WIDTH = 116
+local DELETE_BUTTON_WIDTH = 16
+local PCT_WIDTH = 46
+local ITEM_LEVEL_WIDTH = 82
+local SUMMARY_WIDTH = NAME_WIDTH + PCT_WIDTH + ITEM_LEVEL_WIDTH
+local CELL_WIDTH = 42
+
+local MODAL_WIDTH = 488
+local MODAL_CHARACTER_HEIGHT = 52
+local MODAL_HEADER_HEIGHT = 66
+local MODAL_FOOTER_HEIGHT = 40
+local STATUS_BUTTON_WIDTH = 72
+
+local MISSING, ABSENT, LATE, PRESENT, STANDBY = 0, 1, 2, 3, 4
+local STATUS_OPTIONS = {
+    { status = PRESENT, name = "Present", letter = "P" },
+    { status = STANDBY, name = "Standby", letter = "S" },
+    { status = LATE, name = "Late", letter = "L" },
+    { status = ABSENT, name = "Absent", letter = "A" },
+    { status = MISSING, name = "Missing", letter = "M" },
+}
+
+local STATUS_OPTIONS_BY_VALUE = {}
+for _, option in ipairs(STATUS_OPTIONS) do
+    STATUS_OPTIONS_BY_VALUE[option.status] = option
+end
+
+local STATUS_COLORS = {
+    [MISSING] = "FFF44336",
+    [ABSENT] = "FF9E9E9E",
+    [LATE] = "FFFF9800",
+    [PRESENT] = "FF4CAF50",
+    [STANDBY] = "FF2196F3",
+}
+
+local MUTED_COLOR = "FF808080"
+local HIGH_PERCENTAGE_COLOR = "FF4CAF50"
+local MID_PERCENTAGE_COLOR = "FFFF9800"
+local LOW_PERCENTAGE_COLOR = "FFF44336"
+
+local HIGH_PERCENTAGE, MID_PERCENTAGE = 90, 75
+
+local ISO_DAY_PATTERN = "^(%d%d%d%d)%-(%d%d)%-(%d%d)$"
+
+local CONTENT_CHECKBOXES = {
+    { label = "Open World",        path = { "contentTypes", "openWorld" } },
+    { label = "Dungeon",  path = { "contentTypes", "dungeon", "normal" } },
+    { label = "Raid",     path = { "contentTypes", "raid", "normal" } },
+}
+
+local RefreshGrid
+local gridPanel
+local detailPanel
+local OpenDetails
+local lastViewedCharacter
+local editModal
+local editState
+
+function AttendanceUI:GetStatusOptions()
+    local options = {}
+    for index, option in ipairs(STATUS_OPTIONS) do
+        options[index] = {
+            status = option.status,
+            name = option.name,
+            letter = option.letter,
+        }
+    end
+    return options
+end
+
+local function AttendanceSettings()
+    return KRT:GetSetting("attendance")
+end
+
+local function ReadSettingPath(settings, path)
+    local value = settings
+    for _, key in ipairs(path) do
+        value = value[key]
+    end
+    return value
+end
+
+local function WriteSettingPath(settings, path, value)
+    local node = settings
+    for index = 1, #path - 1 do
+        node = node[path[index]]
+    end
+    node[path[#path]] = value
+end
+
+local function Colored(color, text)
+    return "|c" .. color .. text .. "|r"
+end
+
+local function ColumnDate(day)
+    local _, month, dayOfMonth = tostring(day):match(ISO_DAY_PATTERN)
+    if not month then
+        return tostring(day)
+    end
+    return tonumber(month) .. "/" .. tonumber(dayOfMonth)
+end
+
+local function PercentageText(percentage)
+    if not percentage then
+        return Colored(MUTED_COLOR, "-")
+    end
+
+    local color = LOW_PERCENTAGE_COLOR
+    if percentage >= HIGH_PERCENTAGE then
+        color = HIGH_PERCENTAGE_COLOR
+    elseif percentage >= MID_PERCENTAGE then
+        color = MID_PERCENTAGE_COLOR
+    end
+    return Colored(color, percentage .. "%")
+end
+
+local function StatusText(status)
+    if status == nil then
+        return Colored(MUTED_COLOR, "-")
+    end
+    return Colored(STATUS_COLORS[status], STATUS_OPTIONS_BY_VALUE[status].letter)
+end
+
+local function ClassColoredName(character)
+    local classToken = KRT.Roster:GetCharacterClass(character)
+    local classColor = classToken and RAID_CLASS_COLORS[classToken]
+    if not classColor then
+        return character
+    end
+    return classColor:WrapTextInColorCode(character)
+end
+
+local function BuildReport()
+    local db = KeepersRaidToolsAttendanceDB or {}
+    local report = KRT.AttendanceReport:Build(db, KRT.Roster:GetEntries())
+    for _, rows in ipairs({ report.players, report.unrostered }) do
+        for _, entry in ipairs(rows) do
+            entry.itemLevel = KRT.AttendanceReport:GetLatestItemLevel(db, report.days, entry.characters)
+        end
+    end
+    return report
+end
+
+local function CompareNames(a, b)
+    local comparison = strcmputf8i(a.name, b.name)
+    if comparison == 0 and a.name ~= b.name then
+        return a.name < b.name and -1 or 1
+    end
+    return comparison
+end
+
+local function SortPlayers(players, key, descending)
+    table.sort(players, function(a, b)
+        if key == "player" then
+            local comparison = CompareNames(a, b)
+            if descending then
+                return comparison > 0
+            end
+            return comparison < 0
+        end
+
+        local aValue, bValue = a[key], b[key]
+        if aValue == bValue then
+            return CompareNames(a, b) < 0
+        end
+        if aValue == nil then
+            return false
+        end
+        if bValue == nil then
+            return true
+        end
+        if descending then
+            return aValue > bValue
+        end
+        return aValue < bValue
+    end)
+end
+
+local function AverageOf(players, key)
+    local total, count = 0, 0
+    for _, entry in ipairs(players) do
+        if entry[key] ~= nil then
+            total = total + entry[key]
+            count = count + 1
+        end
+    end
+    if count == 0 then
+        return nil
+    end
+    return total / count
+end
+
+local function CreateSortHeading(parent, key, label, width, xOffset, onClick)
+    local heading = CreateFrame("Button", nil, parent)
+    heading:SetSize(width, HEADER_HEIGHT)
+    heading:SetPoint("LEFT", xOffset, 0)
+    local hover = heading:CreateTexture(nil, "HIGHLIGHT")
+    hover:SetAllPoints()
+    hover:SetColorTexture(0.47, 0.26, 0.31, 0.26)
+    heading.sortKey = key
+    heading.label = KRT.Components.CreateText(heading, KWCRaidSmallFont)
+    heading.label:SetPoint("LEFT", 0, 0)
+    heading.label:SetWidth(width - 10)
+    heading.label:SetJustifyH(key == "player" and "LEFT" or "CENTER")
+    heading.label:SetWordWrap(false)
+    heading.label:SetText(label)
+    heading.arrow = heading:CreateTexture(nil, "OVERLAY")
+    heading.arrow:SetSize(8, 8)
+    heading.arrow:SetPoint("RIGHT", -1, 0)
+    heading.arrow:SetTexture("Interface\\Buttons\\UI-SortArrow")
+    heading.arrow:Hide()
+    heading:SetScript("OnClick", function()
+        onClick(heading.sortKey)
+    end)
+    heading:SetScript("OnEnter", function()
+        GameTooltip:SetOwner(heading, "ANCHOR_RIGHT")
+        GameTooltip:AddLine("Click to sort. Click again to reverse the order.", 1, 1, 1, true)
+        GameTooltip:Show()
+    end)
+    heading:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    return heading
+end
+
+local function UpdateSortHeading(heading, key, descending)
+    heading.arrow:SetShown(heading.sortKey == key)
+    if descending then
+        heading.arrow:SetTexCoord(0, 1, 0, 1)
+    else
+        heading.arrow:SetTexCoord(0, 1, 1, 0)
+    end
+end
+
+local function HasRecordedCharacter(characters)
+    for _, dayRecord in pairs(KeepersRaidToolsAttendanceDB or {}) do
+        for _, character in ipairs(characters) do
+            if dayRecord[character] ~= nil then
+                return true
+            end
+        end
+    end
+    return false
+end
+
+--------------------------------------------------------------------------------
+-- Per-character status modal
+--------------------------------------------------------------------------------
+
+local function RenderEditModal()
+    local rows = editModal.characterRows
+
+    for index, character in ipairs(editState.characters) do
+        local row = rows[index]
+        if not row then
+            row = CreateFrame("Frame", nil, editModal)
+            row:SetHeight(MODAL_CHARACTER_HEIGHT)
+
+            row.name = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+            row.name:SetPoint("TOPLEFT", 0, 0)
+            row.name:SetJustifyH("LEFT")
+
+            row.buttons = {}
+            for order, option in ipairs(STATUS_OPTIONS) do
+                local status = option.status
+                local button = KRT.Components.CreateButton(row)
+                button:SetSize(STATUS_BUTTON_WIDTH, 22)
+                button:SetPoint("TOPLEFT", (order - 1) * (STATUS_BUTTON_WIDTH + 4), -18)
+                button:SetText(option.name)
+                button:SetScript("OnClick", function()
+                    local ok, err = KRT.AttendanceStore:SetStatus(
+                        editState.day, row.character, status)
+                    if not ok then
+                        print("|cFFFF0000KeepersRaidTools:|r " .. tostring(err))
+                        return
+                    end
+                    AttendanceUI:Refresh()
+                end)
+                row.buttons[order] = button
+            end
+
+            row.delete = KRT.Components.CreateButton(row)
+            row.delete:SetSize(STATUS_BUTTON_WIDTH, 22)
+            row.delete:SetPoint("TOPLEFT", #STATUS_OPTIONS * (STATUS_BUTTON_WIDTH + 4), -18)
+            row.delete:SetText("Delete")
+            row.delete:SetScript("OnClick", function()
+                local ok, err = KRT.AttendanceStore:DeleteStatus(editState.day, row.character)
+                if not ok then
+                    print("|cFFFF0000KeepersRaidTools:|r " .. tostring(err))
+                    return
+                end
+                AttendanceUI:Refresh()
+            end)
+
+            rows[index] = row
+        end
+
+        row.character = character
+        row:ClearAllPoints()
+        row:SetPoint("TOPLEFT", editModal, "TOPLEFT", 16,
+            -(MODAL_HEADER_HEIGHT + (index - 1) * MODAL_CHARACTER_HEIGHT))
+        row:SetPoint("RIGHT", editModal, "RIGHT", -16, 0)
+
+        local dayRecord = (KeepersRaidToolsAttendanceDB or {})[editState.day] or {}
+        local status = KRT.AttendanceStore.GetStatus(dayRecord[character])
+
+        local label = ClassColoredName(character)
+        if status == nil then
+            label = label .. " " .. Colored(MUTED_COLOR, "(no record)")
+        end
+        row.name:SetText(label)
+
+        for order, button in ipairs(row.buttons) do
+            button:SetEnabled(STATUS_OPTIONS[order].status ~= status)
+        end
+        row.delete:SetEnabled(status ~= nil)
+
+        row:Show()
+    end
+
+    for index = #editState.characters + 1, #rows do
+        rows[index]:Hide()
+    end
+
+    editModal.title:SetText(editState.title)
+    editModal.subtitle:SetText(editState.dateLabel)
+    editModal:SetHeight(MODAL_HEADER_HEIGHT
+        + #editState.characters * MODAL_CHARACTER_HEIGHT
+        + MODAL_FOOTER_HEIGHT)
+end
+
+local function EnsureEditModal()
+    if editModal then
+        return
+    end
+
+    editModal = KRT.Components.CreatePanel("KRT_AttendanceStatusModal", UIParent)
+    editModal:SetTitle("Edit Attendance")
+    editModal:SetWidth(MODAL_WIDTH)
+    editModal:SetPoint("CENTER")
+    editModal:SetFrameStrata("DIALOG")
+    editModal:SetToplevel(true)
+    editModal:SetMovable(true)
+    editModal:SetClampedToScreen(true)
+    editModal:EnableMouse(true)
+    editModal:RegisterForDrag("LeftButton")
+    editModal:SetScript("OnDragStart", editModal.StartMoving)
+    editModal:SetScript("OnDragStop", function(self)
+        self:StopMovingOrSizing()
+        self:SetUserPlaced(false)
+    end)
+    editModal:Hide()
+
+    table.insert(UISpecialFrames, "KRT_AttendanceStatusModal")
+
+    editModal.title = KRT.Components.CreateText(editModal, KWCRaidControlFont)
+    editModal.title:SetPoint("TOPLEFT", 16, -30)
+
+    editModal.subtitle = editModal:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    editModal.subtitle:SetPoint("TOPLEFT", 16, -46)
+
+    editModal.characterRows = {}
+
+    local closeButton = KRT.Components.CreateButton(editModal)
+    closeButton:SetSize(80, 22)
+    closeButton:SetPoint("BOTTOM", 0, 12)
+    closeButton:SetText("Close")
+    closeButton:SetScript("OnClick", function()
+        editModal:Hide()
+    end)
+end
+
+--- The modal holds character names and a day key -- never a roster entry table.
+--- An incoming roster sync replaces every entry table wholesale, so a captured
+--- entry would go on being edited after it stopped being the roster.
+local function OpenEditModal(entry, day, dateLabel)
+    EnsureEditModal()
+
+    editState = {
+        day = day,
+        dateLabel = dateLabel,
+        title = entry.name,
+        characters = entry.characters,
+    }
+
+    RenderEditModal()
+    editModal:Show()
+end
+
+--------------------------------------------------------------------------------
+-- Grid
+--------------------------------------------------------------------------------
+
+local DELETE_CHARACTER_DIALOG = {
+    text = "Are you sure you want to delete all attendance and recorded gear history for %s across all saved days?",
+    button1 = "Delete",
+    button2 = "Cancel",
+    timeout = 0,
+    whileDead = true,
+    hideOnEscape = true,
+    showAlert = true,
+    OnAccept = function(_, character)
+        local ok, err = KRT.AttendanceStore:DeleteCharacter(character)
+        if not ok then
+            print("|cFFFF0000KeepersRaidTools:|r " .. tostring(err))
+            return
+        end
+        AttendanceUI:Refresh()
+    end,
+}
+
+local function EnsureGridCells(row, cellCount)
+    for index = #row.cells + 1, cellCount do
+        local cell = CreateFrame("Button", nil, row)
+        cell:SetSize(CELL_WIDTH, ROW_HEIGHT)
+        cell:SetPoint("LEFT", SUMMARY_WIDTH + (index - 1) * CELL_WIDTH, 0)
+
+        cell.highlight = cell:CreateTexture(nil, "HIGHLIGHT")
+        cell.highlight:SetAllPoints()
+        cell.highlight:SetColorTexture(0.3, 0.3, 0.3, 0.5)
+
+        cell.text = cell:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        cell.text:SetAllPoints()
+        cell.text:SetJustifyH("CENTER")
+
+        row.cells[index] = cell
+    end
+end
+
+local function CreateGridRow(parent)
+    local row = CreateFrame("Frame", nil, parent)
+    row:SetHeight(ROW_HEIGHT)
+    row.selection = row:CreateTexture(nil, "BACKGROUND")
+    row.selection:SetAllPoints()
+    row.selection:SetColorTexture(0.84, 0.72, 0.47, 0.12)
+
+    row.nameButton = CreateFrame("Button", nil, row)
+    row.nameButton:SetSize(NAME_WIDTH, ROW_HEIGHT)
+    row.nameButton:SetPoint("LEFT", 0, 0)
+    local hover = row.nameButton:CreateTexture(nil, "HIGHLIGHT")
+    hover:SetAllPoints()
+    hover:SetColorTexture(0.47, 0.26, 0.31, 0.26)
+    row.name = row.nameButton:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    row.name:SetPoint("LEFT", 0, 0)
+    row.name:SetWidth(NAME_WIDTH)
+    row.name:SetJustifyH("LEFT")
+    row.name:SetWordWrap(false)
+
+    row.delete = CreateFrame("Button", nil, row)
+    row.delete:SetSize(DELETE_BUTTON_WIDTH, ROW_HEIGHT)
+    row.delete:SetPoint("LEFT", NAME_WIDTH - DELETE_BUTTON_WIDTH, 0)
+    row.delete:SetNormalFontObject(KWCRaidSmallFont)
+    row.delete:SetText(Colored("FFFF0000", "x"))
+    local hover = row.delete:CreateTexture(nil, "HIGHLIGHT")
+    hover:SetAllPoints()
+    hover:SetColorTexture(0.47, 0.26, 0.31, 0.26)
+    row.delete:SetScript("OnClick", function()
+        if not row.deleteCharacter then
+            return
+        end
+        GameTooltip:Hide()
+        StaticPopupDialogs["KRT_ATTENDANCE_DELETE_CHARACTER"] = DELETE_CHARACTER_DIALOG
+        StaticPopup_Show("KRT_ATTENDANCE_DELETE_CHARACTER", row.deleteCharacter, nil, row.deleteCharacter)
+    end)
+    row.delete:SetScript("OnEnter", function(button)
+        GameTooltip:SetOwner(button, "ANCHOR_RIGHT")
+        GameTooltip:AddLine("Delete all attendance records for " .. row.deleteCharacter .. ".", 1, 1, 1, true)
+        GameTooltip:Show()
+    end)
+    row.delete:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
+    row.percentage = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    row.percentage:SetPoint("LEFT", NAME_WIDTH, 0)
+    row.percentage:SetWidth(PCT_WIDTH)
+    row.percentage:SetJustifyH("CENTER")
+
+    row.itemLevel = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    row.itemLevel:SetPoint("LEFT", NAME_WIDTH + PCT_WIDTH, 0)
+    row.itemLevel:SetWidth(ITEM_LEVEL_WIDTH)
+    row.itemLevel:SetJustifyH("CENTER")
+
+    row.cells = {}
+    return row
+end
+
+local function CreateAverageRow(parent)
+    local row = CreateFrame("Frame", nil, parent)
+    row:SetHeight(ROW_HEIGHT)
+
+    row.name = KRT.Components.CreateText(row, KWCRaidSmallFont)
+    row.name:SetPoint("LEFT", 0, 0)
+    row.name:SetWidth(NAME_WIDTH)
+    row.name:SetJustifyH("LEFT")
+    row.name:SetText("Average")
+
+    row.percentage = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    row.percentage:SetPoint("LEFT", NAME_WIDTH, 0)
+    row.percentage:SetWidth(PCT_WIDTH)
+    row.percentage:SetJustifyH("CENTER")
+
+    row.itemLevel = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    row.itemLevel:SetPoint("LEFT", NAME_WIDTH + PCT_WIDTH, 0)
+    row.itemLevel:SetWidth(ITEM_LEVEL_WIDTH)
+    row.itemLevel:SetJustifyH("CENTER")
+
+    return row
+end
+
+local function FillGridRow(row, entry, days, reportDays, deleteCharacter)
+    local selected = false
+    for _, character in ipairs(entry.characters) do
+        if character == lastViewedCharacter then
+            selected = true
+            break
+        end
+    end
+    row.selection:SetShown(selected)
+    row.deleteCharacter = deleteCharacter
+    row.delete:SetShown(deleteCharacter ~= nil)
+    local nameWidth = NAME_WIDTH - (deleteCharacter and DELETE_BUTTON_WIDTH or 0)
+    row.nameButton:SetWidth(nameWidth)
+    row.name:SetWidth(nameWidth)
+    row.name:SetText(entry.name)
+    row.percentage:SetText(PercentageText(entry.percentage))
+    row.nameButton:SetScript("OnClick", function() OpenDetails(entry, reportDays) end)
+    local level = entry.itemLevel
+    row.itemLevel:SetText(level and string.format("%.1f", level) or "-")
+
+    EnsureGridCells(row, #days)
+    for index, cell in ipairs(row.cells) do
+        local day = days[index]
+        if day then
+            cell.text:SetText(StatusText(entry.statuses[day]))
+            cell:SetScript("OnClick", function()
+                OpenEditModal(entry, day, ColumnDate(day))
+            end)
+            cell:Show()
+        else
+            cell:Hide()
+        end
+    end
+
+    row:Show()
+end
+
+KRT:RegisterTab("Attendance", function(parent)
+    local function SetupGrid(panel)
+        gridPanel = panel
+        local overview = CreateFrame("Frame", nil, panel)
+        overview:SetAllPoints()
+        detailPanel = KRT.AttendanceDetailsUI:Build(panel, {
+            Back = function()
+                lastViewedCharacter = detailPanel.character
+                detailPanel:Hide()
+                overview:Show()
+                RefreshGrid()
+            end,
+            Edit = OpenEditModal,
+            Date = ColumnDate,
+            Status = StatusText,
+            Percentage = PercentageText,
+        })
+        OpenDetails = function(entry, days)
+            overview:Hide()
+            detailPanel:Open(entry, days)
+        end
+
+        local gridRows = {}
+        local dayCount = 0
+
+        local headerScroll = CreateFrame("ScrollFrame", nil, overview)
+        headerScroll:SetHeight(HEADER_HEIGHT)
+        headerScroll:SetPoint("TOPLEFT", 20, -10)
+        headerScroll:SetPoint("RIGHT", panel, "RIGHT", -26, 0)
+
+        local header = CreateFrame("Frame", nil, headerScroll)
+        header:SetSize(SUMMARY_WIDTH, HEADER_HEIGHT)
+        headerScroll:SetScrollChild(header)
+
+        local sortKey, sortDescending = "player", false
+        local function SelectSort(key)
+            if key == sortKey then
+                sortDescending = not sortDescending
+            else
+                sortKey = key
+                sortDescending = key ~= "player"
+            end
+            RefreshGrid()
+        end
+
+        local summaryHeadings = {
+            CreateSortHeading(header, "player", "Player", NAME_WIDTH, 0, SelectSort),
+            CreateSortHeading(header, "percentage", "PCT", PCT_WIDTH, NAME_WIDTH, SelectSort),
+            CreateSortHeading(header, "itemLevel", "Latest ilvl", ITEM_LEVEL_WIDTH,
+                NAME_WIDTH + PCT_WIDTH, SelectSort),
+        }
+
+        local dayHeadings = {}
+
+        local scrollFrame = CreateFrame("ScrollFrame", nil, overview, "UIPanelScrollFrameTemplate")
+        scrollFrame:SetPoint("TOPLEFT", headerScroll, "BOTTOMLEFT", 0, -4)
+        scrollFrame:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", -26, 8)
+
+        local scrollChild = CreateFrame("Frame", nil, scrollFrame)
+        scrollChild:SetSize(panel:GetWidth() - 60, GRID_HEIGHT)
+        scrollFrame:SetScrollChild(scrollChild)
+
+        local horizontalScrollBar = CreateFrame("Slider", nil, overview, "UIPanelScrollBarTemplate")
+        horizontalScrollBar:SetOrientation("HORIZONTAL")
+        horizontalScrollBar:SetPoint("BOTTOMLEFT", overview, "BOTTOMLEFT", 36, 8)
+        horizontalScrollBar:SetPoint("BOTTOMRIGHT", overview, "BOTTOMRIGHT", -42, 8)
+        horizontalScrollBar:SetHeight(16)
+        horizontalScrollBar:SetValueStep(1)
+        horizontalScrollBar.scrollStep = CELL_WIDTH
+        horizontalScrollBar.ThumbTexture:SetSize(24, 18)
+        horizontalScrollBar.ThumbTexture:SetTexCoord(0.80, 0.125, 0.20, 0.125, 0.80, 0.875, 0.20, 0.875)
+        local scrollLeft = horizontalScrollBar.ScrollUpButton
+        local scrollRight = horizontalScrollBar.ScrollDownButton
+        scrollLeft:ClearAllPoints()
+        scrollLeft:SetPoint("RIGHT", horizontalScrollBar, "LEFT", 0, 0)
+        scrollRight:ClearAllPoints()
+        scrollRight:SetPoint("LEFT", horizontalScrollBar, "RIGHT", 0, 0)
+        for _, button in ipairs({ scrollLeft, scrollRight }) do
+            button:GetNormalTexture():SetRotation(math.pi / 2)
+            button:GetPushedTexture():SetRotation(math.pi / 2)
+            button:GetDisabledTexture():SetRotation(math.pi / 2)
+            button:GetHighlightTexture():SetRotation(math.pi / 2)
+        end
+        horizontalScrollBar:Hide()
+
+        local function SetHorizontalScroll(value)
+            scrollFrame:SetHorizontalScroll(value)
+            headerScroll:SetHorizontalScroll(value)
+            local _, maximum = horizontalScrollBar:GetMinMaxValues()
+            scrollLeft:SetEnabled(value > 0)
+            scrollRight:SetEnabled(maximum - value > 0.005)
+        end
+
+        horizontalScrollBar:SetScript("OnValueChanged",
+            function(_, value) SetHorizontalScroll(value) end)
+
+        local function UpdateHorizontalScroll()
+            local viewportWidth = scrollFrame:GetWidth()
+            local contentWidth = math.max(viewportWidth, SUMMARY_WIDTH + dayCount * CELL_WIDTH)
+            local scrollRange = math.max(0, contentWidth - viewportWidth)
+            local offset = math.min(scrollFrame:GetHorizontalScroll(), scrollRange)
+            header:SetWidth(contentWidth)
+            scrollChild:SetWidth(contentWidth)
+            headerScroll:UpdateScrollChildRect()
+            scrollFrame:UpdateScrollChildRect()
+            horizontalScrollBar:SetMinMaxValues(0, scrollRange)
+            horizontalScrollBar:SetValue(offset)
+            horizontalScrollBar:SetShown(scrollRange > 0)
+            scrollFrame:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", -26, scrollRange > 0 and 32 or 8)
+            SetHorizontalScroll(offset)
+        end
+
+        overview:SetScript("OnSizeChanged", UpdateHorizontalScroll)
+
+        local averageRow = CreateAverageRow(scrollChild)
+
+        local sectionLabel = scrollChild:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+        sectionLabel:SetJustifyH("LEFT")
+        sectionLabel:SetText("Not on roster")
+        sectionLabel:Hide()
+
+        local emptyLabel = overview:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+        emptyLabel:SetPoint("TOPLEFT", scrollFrame, "TOPLEFT", 4, -4)
+        emptyLabel:SetText("No attendance records yet. A pull countdown creates the first one.")
+
+        RefreshGrid = function()
+            local report = BuildReport()
+            if detailPanel:IsShown() then
+                for _, rows in ipairs({ report.players, report.unrostered }) do
+                    for _, entry in ipairs(rows) do
+                        for _, character in ipairs(entry.characters) do
+                            if character == detailPanel.character then
+                                detailPanel:SetEntry(entry, report.days, character)
+                                return
+                            end
+                        end
+                    end
+                end
+                detailPanel:Hide()
+                overview:Show()
+            end
+            local days = report.days
+            dayCount = #days
+
+            for index = #dayHeadings + 1, dayCount do
+                local heading = KRT.Components.CreateText(header, KWCRaidSmallFont)
+                heading:SetPoint("LEFT", SUMMARY_WIDTH + (index - 1) * CELL_WIDTH, 0)
+                heading:SetWidth(CELL_WIDTH)
+                heading:SetJustifyH("CENTER")
+                dayHeadings[index] = heading
+            end
+            UpdateHorizontalScroll()
+
+            SortPlayers(report.players, sortKey, sortDescending)
+            for _, heading in ipairs(summaryHeadings) do
+                UpdateSortHeading(heading, sortKey, sortDescending)
+            end
+
+            for index, heading in ipairs(dayHeadings) do
+                if days[index] then
+                    heading:SetText(ColumnDate(days[index]))
+                    heading:Show()
+                else
+                    heading:Hide()
+                end
+            end
+
+            local placed, yOffset = 0, 0
+            local function PlaceRow(entry, deleteCharacter)
+                placed = placed + 1
+                local row = gridRows[placed]
+                if not row then
+                    row = CreateGridRow(scrollChild)
+                    gridRows[placed] = row
+                end
+                row:ClearAllPoints()
+                row:SetPoint("TOPLEFT", 0, -yOffset)
+                row:SetPoint("RIGHT", scrollChild, "RIGHT", 0, 0)
+                FillGridRow(row, entry, days, report.days, deleteCharacter)
+                yOffset = yOffset + ROW_HEIGHT
+            end
+
+            for _, entry in ipairs(report.players) do
+                PlaceRow(entry)
+            end
+
+            averageRow:SetShown(#report.players > 0)
+            if #report.players > 0 then
+                averageRow:ClearAllPoints()
+                averageRow:SetPoint("TOPLEFT", 0, -yOffset)
+                averageRow:SetPoint("RIGHT", scrollChild, "RIGHT", 0, 0)
+                local percentage = AverageOf(report.players, "percentage")
+                averageRow.percentage:SetText(PercentageText(math.floor(percentage + 0.5)))
+                local itemLevel = AverageOf(report.players, "itemLevel")
+                averageRow.itemLevel:SetText(itemLevel and string.format("%.1f", itemLevel) or "-")
+                yOffset = yOffset + ROW_HEIGHT
+            end
+
+            if #report.unrostered > 0 then
+                sectionLabel:ClearAllPoints()
+                sectionLabel:SetPoint("TOPLEFT", 0, -yOffset - 4)
+                sectionLabel:Show()
+                yOffset = yOffset + SECTION_HEIGHT
+
+                for _, entry in ipairs(report.unrostered) do
+                    PlaceRow(entry, entry.characters[1])
+                end
+            else
+                sectionLabel:Hide()
+            end
+
+            for index = placed + 1, #gridRows do
+                gridRows[index]:Hide()
+            end
+
+            scrollChild:SetHeight(math.max(GRID_HEIGHT, yOffset))
+
+            if placed == 0 then
+                emptyLabel:Show()
+            else
+                emptyLabel:Hide()
+            end
+        end
+
+        panel:SetScript("OnShow", function()
+            RefreshGrid()
+        end)
+    end
+
+    local function SetupRecords(panel)
+        KRT.RecordsUI:Build(panel)
+    end
+
+    local function SetupSettings(panel)
+        local contentHeader = KRT.Components.GetHeader(panel, "Take Attendance In")
+        contentHeader:SetPoint("TOPLEFT", 0, -10)
+
+        local checkboxes = {}
+        local yOffset = -38
+        for index, info in ipairs(CONTENT_CHECKBOXES) do
+            local checkbox = KRT.Components.GetCheckbox(panel, info.label, function(value)
+                WriteSettingPath(AttendanceSettings(), info.path, value)
+            end)
+            checkbox:SetPoint("TOPLEFT", 0, yOffset)
+            checkboxes[index] = checkbox
+            yOffset = yOffset - 32
+        end
+
+        panel:SetScript("OnShow", function()
+            local settings = AttendanceSettings()
+            for index, info in ipairs(CONTENT_CHECKBOXES) do
+                checkboxes[index]:SetValue(ReadSettingPath(settings, info.path))
+            end
+        end)
+    end
+
+    local function SetupDatabase(panel)
+        KRT.AttendanceDatabaseUI:Build(panel)
+    end
+
+    return KRT.Components.GetSubTabGroup(parent, {
+        { name = "Attendance", setup = SetupGrid },
+        { name = "Records", setup = SetupRecords },
+        { name = "Database", setup = SetupDatabase },
+        { name = "Settings", setup = SetupSettings },
+    })
+end)
+
+--- A hidden grid is rebuilt by its own OnShow, and Build's un-rostered walk is
+--- the costly one, so it is never rebuilt out of sight. The modal is a separate
+--- top-level frame and answers to its own visibility.
+function AttendanceUI:Refresh()
+    if RefreshGrid and gridPanel and gridPanel:IsVisible() then
+        RefreshGrid()
+    end
+
+    if not editModal or not editModal:IsShown() then
+        return
+    end
+
+    local db = KeepersRaidToolsAttendanceDB or {}
+    if not db[editState.day] then
+        editModal:Hide()
+        return
+    end
+    if not HasRecordedCharacter(editState.characters) then
+        editModal:Hide()
+        return
+    end
+    RenderEditModal()
+end
