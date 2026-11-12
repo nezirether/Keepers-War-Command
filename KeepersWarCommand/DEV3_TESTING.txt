@@ -1,0 +1,18 @@
+PRIVATE DEV3 — Guild honor sync and Addon Checker cleanup
+
+Changes:
+- Version metadata now 1.5.0-dev.3 (previous build reported dev.1).
+- Addon Checker no longer spams chat after a successful check; status labels simplified.
+- Leaderboard Refresh honor now requests snapshots from online DEV3 peers.
+- DEV3 responds to honor snapshot requests; login requests delayed 18 seconds.
+- Older clients may not answer requests, but their existing honor broadcasts remain compatible.
+- No invented leaderboard data or unsafe automatic record migration.
+
+Test with two DEV3 clients in same guild:
+1. Both log in, wait 20 seconds, open /kt PvP Leaderboard.
+2. Click Refresh honor and wait a few seconds. Both characters should appear if they expose lifetime HK data.
+3. Test /kt addons and Check Online Guildmates; no success chat spam.
+4. Confirm version shown is 1.5.0-dev.3.
+5. Repeat with a v1.4.0 client and note that its old behavior may require it to send normal honor updates.
+
+Do not replace stable v1.4.0 guild release until testing is complete.

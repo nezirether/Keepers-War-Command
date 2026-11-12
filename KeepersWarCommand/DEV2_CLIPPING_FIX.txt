@@ -1,0 +1,7 @@
+DEV2 PRIVATE TEST - UI CLIPPING / OVERLAY FIX
+- War Command now uses FULLSCREEN_DIALOG strata so action bars and HUD overlays do not draw over its content.
+- Window scales down automatically to fit the current viewport with bottom HUD clearance.
+- Default position is raised slightly and window is clamped to the screen.
+- Existing saved user scale remains unchanged; fit is applied at display time.
+- CTA command, sync and all data logic unchanged from DEV1.
+Test at Chopper's UI scale and resolution. Confirm no action bars show through.

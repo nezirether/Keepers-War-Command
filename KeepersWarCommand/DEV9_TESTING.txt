@@ -1,0 +1,26 @@
+KEEPERS WAR COMMAND 1.5.0 DEV9 — OFFLINE RECOVERY (PRIVATE)
+
+DEV9 expands automatic catch-up to paced, paginated snapshot responses.
+- On login, roster updates, periodic 5-minute timer: request shared CTA/bounty records, deletion tombstones and honor.
+- Each peer replays up to 100 locally retained CTA/bounty records per request, paced 0.20 seconds apart.
+- Each peer replays up to 200 retained deletion markers per request, paced 0.12 seconds apart.
+- Command event history accompanies CTA snapshots, with idempotent event IDs.
+- Original SavedVariables are preserved. No external website or service.
+
+IMPORTANT LIMITATIONS
+- Addons cannot run while every member is offline. Recovery needs at least one online peer with the data.
+- Historical succession events may be rejected if the original commander has already returned online: current DEV8 validation checks current offline state. This is NOT solved.
+- Peer command events are not cryptographically authenticated. Roster rank and sender checks reduce but do not eliminate spoofing.
+- Full multiplayer testing with 5-10 real clients has NOT been performed.
+- The 100-record and 200-tombstone limits rotate between requests; massive histories require additional cycles.
+- A snapshot can only recover fields present in the existing compact wire format; detailed CTA metadata and local-only War Room reports are not included.
+
+TEST PLAN
+1. Two DEV9 clients, create >24 CTAs/bounties, log one out, edit/delete records. Log in and wait 15-45 seconds.
+2. Verify record edits and deletion markers; confirm deleted records do not reappear after further sync.
+3. Create >60 deletion markers and verify recovery on a fresh client.
+4. Disconnect a Commander with assigned Lieutenant, verify succession; reconnect Commander and verify role convergence (known limitation above).
+5. Verify honor requests, 5-minute reconciliation and /kt autosync status.
+6. Repeat with 5-10 real guild clients and watch for rate limiting or UI stutter.
+
+KEEP v1.4.0 as guild stable until in-game testing is complete.

@@ -1,0 +1,28 @@
+KEEPERS WAR COMMAND 1.5.0 DEV7 — PRIVATE TEST
+
+Scope: tasks 1 and 2 ONLY. All other public-release tasks deferred.
+
+Changes:
+- Commander takeover messages must originate from a roster-verified rank 0/1 officer.
+- Incoming takeover must name the actual previous commander as lieutenant.
+- Takeover revision must advance by exactly one and CTA must be active.
+- Reject implausible future timestamps and keep newest pending transfer only.
+- Stagger board-sync responses across 0.4–3.4 seconds to reduce burst traffic.
+- Version strings updated to dev.7.
+
+LIMITATIONS / REQUIRED LIVE TESTS:
+- NO live 5–10-client guild test has been performed by this build process.
+- The current commander protocol does not reliably replay an older transfer to a late-joining peer because a relay is not the original commander.
+- Concurrent officer takeovers are not yet conflict-resolved across all clients.
+- PvP honor/achievement synchronization still requires real-client verification.
+- Do not publish until these tests pass.
+
+Live test matrix (all clients DEV7):
+1. 5–10 clients log in; no one presses sync; verify all CTAs/bounties/honor records.
+2. Creator creates CTA; officer assumes command; creator becomes lieutenant on all clients.
+3. Nonofficer attempts takeover; confirm rejected on all clients.
+4. Two officers assume simultaneously; record any divergent results (known risk).
+5. Delete CTA/bounty, relog stale client; ensure tombstones win.
+6. Offline member rejoins; verify board, deletion, command and PvP consistency.
+7. Disconnect/reconnect and compare /kt sync against automatic reconciliation.
+Keep v1.4.0 stable until the full matrix passes.

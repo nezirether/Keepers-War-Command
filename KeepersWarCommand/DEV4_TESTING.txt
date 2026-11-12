@@ -1,0 +1,20 @@
+DEV4 PRIVATE TEST — UNIFIED GUILD SYNC
+
+/kt sync or Settings > Sync Health > Sync All Guild Data
+Requests board records, deletion tombstones and current peer honor in one action.
+Compatible online clients respond automatically; no player interaction required.
+Both channels retain independent 30-second request cooldowns.
+
+TEST
+1. Install DEV4 on two guild characters.
+2. On A: /kt sync. On B: do nothing.
+3. Check CTA/bounty records and honor leaderboard on A.
+4. Delete a test record on B, then sync A; verify deletion.
+5. Repeat with one client offline, then online.
+6. Compare /kt addons versions and check for Lua errors.
+
+LIMITS
+Older clients may not answer honor requests; addon presence does not prove stats received.
+No guaranteed delivery when no updated peer is online.
+This build does not add acknowledgements or forced updates to offline clients.
+The Refresh honor button remains an independent diagnostic action.

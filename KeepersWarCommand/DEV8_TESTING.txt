@@ -1,0 +1,12 @@
+DEV8 PRIVATE TEST — COMMAND HIERARCHY
+
+1. Install DEV8 on two officers and the CTA creator. Verify creator starts as Commander.
+2. Have both officers click Assume Command. Both should appear as Co-Commanders.
+3. Have a Commander click Assign LT and enter the exact character name.
+4. Disconnect the Commander; ensure two roster scans confirm offline and LT is promoted.
+5. Reconnect: old Commander remains LT; use Restore Commander to hand seat back.
+6. Put Warchief in group; verify Warlord label, including when Warchief is also Commander.
+7. Test unauthorized guild member forged command events (should reject).
+8. Reconnect a stale client; verify event replay and no duplicate command seats.
+
+KNOWN LIMITATIONS: Group membership is determined locally; it is not shared as a verified group roster. Command succession depends on guild roster accuracy and two offline scans. Event replay has no reliable causal ordering across independently created clients, so simultaneous cross-client changes need live testing. No simulated 5-10 client test has been completed. DEV7 peers do not understand DEV8 E packets. This is NOT a public release.
