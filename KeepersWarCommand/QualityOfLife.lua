@@ -82,10 +82,10 @@ K.On('CHAT_MSG_ADDON',function(prefix,msg,channel,sender)
  if not value then return end
  local points=tonumber(value)
  if not points or points>100000 or not KWCDB or not KWCDB.pvp then return end
- local name=sender:match('^[^-]+')
- if not name or (K.PvP and name:lower()==K.PvP.PlayerName():lower()) then return end
+ local name=K.PvP and K.PvP.PeerCanonical(sender)
+ if not name or K.SameGuildMember(sender,UnitName('player')) then return end
  local p=KWCDB.pvp[name] or {}
- p.achievementPoints=points
+ p.achievementPoints=math.max(tonumber(p.achievementPoints) or 0,points)
  KWCDB.pvp[name]=p
  if K.UI and K.UI.Refresh then K.UI.Refresh() end
 end)
@@ -154,7 +154,7 @@ if originalSighting then O.AddSighting=function(id,...)
 end end
 local originalRespond=O.Respond
 if originalRespond then O.Respond=function(id,status,...)
- local me=UnitName('player') or '';local before=(KWCDB.responses or {})[id] and KWCDB.responses[id][me]
+ local me=K.CurrentGuildMember(UnitName('player'));local before=(KWCDB.responses or {})[id] and KWCDB.responses[id][me]
  local result=originalRespond(id,status,...)
  local after=(KWCDB.responses or {})[id] and KWCDB.responses[id][me]
  if after and after~=before and after=='Coming' then Q.Record('RESPONSE') end

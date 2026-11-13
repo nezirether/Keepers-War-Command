@@ -1,0 +1,6 @@
+# Bundled library notices
+
+- AceComm-3.0 and CallbackHandler-1.0 are embedded components. See the Ace3 license text in each library folder.
+- ChatThrottleLib and LibStub retain their public-domain notices in source.
+- LibSerialize and LibDeflate retain their license notices in source.
+- LibSharedMedia-3.0 identifies LGPL 2.1 in its header. Its source and a copy of the license are included.

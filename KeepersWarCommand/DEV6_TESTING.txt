@@ -1,6 +1,0 @@
-KEEPERS WAR COMMAND v1.5.0 DEV6 — PRIVATE TEST ONLY
-
-CHANGE: One-time migration enables autoGuildSync and autoScout on first load of DEV6, even when older builds had them OFF. Subsequent /kt autosync off and /kt autoscout off choices persist.
-Auto sync: login, guild roster changes, periodic reconciliation, and existing record updates.
-TEST: Install over DEV5 without deleting SavedVariables. /kt autosync and /kt autoscout should both report ON. /reload and check again. Turn each OFF, /reload, and verify OFF persists.
-All existing data and sync protocols preserved. Compatible clients required for complete synchronization.

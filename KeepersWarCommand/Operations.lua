@@ -2,6 +2,7 @@ local K=KWC;local O={};K.Operations=O
 local function add(t,author,body,id)
  for _,e in ipairs(t) do if e.id==id then return e end end
  local kind=t==KWCDB.ops and 'C' or 'B'
+ if K.Sync and K.Sync.IsBoardDeleted and K.Sync.IsBoardDeleted(kind,id,author) then return nil end
  if KWCDB.deletions and KWCDB.deletions[kind..':'..id] then return nil end
  local e={id=id,author=author,text=K.Clean(body,165),time=K.Now(),created=time(),status="ACTIVE"};table.insert(t,1,e)
  while #t>100 do table.remove(t) end;return e
@@ -45,7 +46,7 @@ local function replySnapshot()
   local list=activeEntries(kind)
   for i=1,math.min(12,#list) do
    local e=list[i]
-   K.Send(kind,e.id..':'..K.Clean(e.text,155))
+   if K.SameGuildMember(e.author,UnitName('player')) then K.Send(kind,e.id..':'..K.Clean(e.text,155)) end
   end
  end
 end
@@ -137,6 +138,7 @@ function O.NormalizePriority(value)
  return 'NORMAL'
 end
 function O.UpdateCTA(id,zone,horde,alliance,objective,priority,notes)
+ if K.GuildScope and not K.GuildScope() then return end
  local e=get('CTA',id)
  if not ownerOrOfficer(e) then K.Say('Only the poster or an officer may edit.');return end
  local h,a=tonumber(horde),tonumber(alliance)
@@ -145,43 +147,99 @@ function O.UpdateCTA(id,zone,horde,alliance,objective,priority,notes)
  if zone=='' or objective=='' then K.Say('Zone and objective are required.');return end
  local level=O.NormalizePriority(priority)
  e.details={zone=zone,horde=h,alliance=a,objective=objective,priority=level,urgent=level=='URGENT',notes=notes}
- e.text='['..level..'] '..zone..' | H:'..h..' A:'..a..' | '..objective..(notes~='' and ' | '..notes or '')
+ e.text='['..level..'] '..zone..' | H:A '..h..':'..a..' | '..objective..(notes~='' and ' | '..notes or '')
  e.revision=(e.revision or 0)+1;e.updated=K.Now();e.updatedBy=UnitName('player')
  e.modifiedAt=time();syncUpdate('CTA',e);K.Log('CTA','Updated '..e.id);K.UI.Refresh()
 end
 -- DEV8: independent command seats. Concurrent officer claims are additive.
 local function key(name) return tostring(name or ''):lower():match('^[^-]+') end
 function O.Commanders(e)
- if not e then return {} end
+ if not e or e.recoveredOnly then return {} end
  local seats=e.commandSeats
  if type(seats)~='table' then return {e.commander or e.author} end
  local names={};for name,active in pairs(seats) do if active then names[#names+1]=name end end
  table.sort(names);return names
 end
-function O.Commander(e) return table.concat(O.Commanders(e),', ') end
+-- CTA leadership is derived, never transferred. The creator remains Commander.
+-- Responding guild officers are Co-Commanders; rank zero is War Chief.
+local function normalizeCTAName(n)
+ if type(n)~='string' then return '' end
+ return (n:match('^[^-]+') or n):lower()
+end
+-- Display-only identity resolution: never modify the saved CTA author.
+-- A short name is expanded only when exactly one guild roster member matches.
+local function fullCTAName(name)
+ if type(name)~='string' or name=='' then return '?' end
+ local raw=name:match('^[^-]+') or name
+ local own=UnitName and UnitName('player')
+ if own and own:lower()==raw:lower() and K.PvP and K.PvP.PlayerName then
+  local full=K.PvP.PlayerName()
+  if type(full)=='string' and full:find(' ') then return full end
+ end
+ local found=nil
+ for _,r in pairs((KWCDB and KWCDB.roster) or {}) do
+  local n=type(r)=='table' and r.name
+  if type(n)=='string' then
+   local matches=n:lower()==raw:lower() or (not raw:find(' ',1,true) and n:lower():sub(1,#raw+1)==raw:lower()..' ')
+   if matches then
+    if found and found:lower()~=n:lower() then return raw end
+    found=n
+   end
+  end
+ end
+ return found or raw
+end
+O.CTAFullName=fullCTAName
+function O.CTALeadership(e)
+ local result={creator=e and (e.author or e.commander) or '?',officers={},warchief=nil}
+ if not e then return result end
+ result.creator=fullCTAName(result.creator)
+ local responses=(KWCDB.responses or {})[e.id] or {}
+ local found={}
+ for name,status in pairs(responses) do
+  if status=='Coming' then
+   local record=K.RosterRecord(name)
+   local rank=record and record.rankIndex
+   local full=fullCTAName(record and record.name or name)
+   local id=normalizeCTAName(full)
+   if not found[id] then
+    found[id]=true
+    if rank==0 or K.IsGuildWarchief(name) then
+     result.warchief=full
+    elseif rank==1 and normalizeCTAName(full)~=normalizeCTAName(result.creator) then
+     result.officers[#result.officers+1]=full
+    end
+   end
+  end
+ end
+ table.sort(result.officers)
+ return result
+end
+function O.Commander(e) return e and (e.author or e.commander) or '?' end
 function O.IsCommander(e,name)
- for _,v in ipairs(O.Commanders(e)) do if key(v)==key(name) then return true end end
+ if e and e.recoveredOnly then return false end
+ for _,v in ipairs(O.Commanders(e)) do if K.SameGuildMember(v,name) then return true end end
  return false
 end
 function O.CanAssumeCommand(e)
- return e and (e.status or 'ACTIVE')=='ACTIVE' and K.IsOfficer() and not O.IsCommander(e,UnitName('player'))
+ return e and not e.recoveredOnly and (e.status or 'ACTIVE')=='ACTIVE' and K.IsOfficer() and not O.IsCommander(e,UnitName('player'))
 end
 function O.ApplyCommandEvent(e,event)
+ if e and e.recoveredOnly then return false end
  if not e or not event or not event.id or not event.actor then return false end
  e.commandEvents=e.commandEvents or {}
  if e.commandEvents[event.id] then return false end
  local typ=event.type;local actor=event.actor;local target=event.target
+ if not K.IsMember(actor) then return false end
  if typ=='A' then
   if not (K.IsSenderOfficer and K.IsSenderOfficer(actor)) then return false end
  elseif typ=='L' then
-  if not O.IsCommander(e,actor) or not target or target=='' then return false end
+  if not O.IsCommander(e,actor) or not K.IsMember(target) then return false end
  elseif typ=='P' then
   if not target or not O.IsCommander(e,target) then return false end
-  if key(actor)~=key((e.lieutenants or {})[target]) then return false end
-  -- Replay is based on the event chain, not today's online status.
-  -- Live generation of P still requires confirmed offline in TrySuccession.
+  if not K.SameGuildMember(actor,(e.lieutenants or {})[target]) or not K.CommandIsOffline(target) then return false end
  elseif typ=='R' then
-  if not O.IsCommander(e,actor) or not target or target=='' then return false end
+  if not O.IsCommander(e,actor) or not K.IsMember(target) then return false end
  else return false end
  e.commandSeats=e.commandSeats or {[e.commander or e.author]=true}
  e.lieutenants=e.lieutenants or {}
@@ -255,6 +313,7 @@ function O.Warlord()
  return nil
 end
 function O.UpdateBounty(id,target,location,reason,reward)
+ if K.GuildScope and not K.GuildScope() then return end
  local e=get('BOUNTY',id)
  if not ownerOrOfficer(e) then K.Say('Only the poster or an officer may edit.');return end
  target=K.Clean(target,36);location=K.Clean(location,35);reason=K.Clean(reason,48);reward=K.Clean(reward,25)
@@ -264,15 +323,19 @@ function O.UpdateBounty(id,target,location,reason,reward)
  e.revision=(e.revision or 0)+1;e.updated=K.Now();e.updatedBy=UnitName('player')
  e.modifiedAt=time();syncUpdate('BOUNTY',e);K.Log('BOUNTY','Updated '..e.id);K.UI.Refresh()
 end
+local function rememberSighting(entry,who,zone,note)
+ entry.sightings=entry.sightings or {}
+ table.insert(entry.sightings,1,{who=who,zone=zone,note=note,at=K.Now(),receivedAt=time()})
+ while #entry.sightings>15 do table.remove(entry.sightings) end
+end
 function O.AddSighting(id,zone,note)
+ if K.GuildScope and not K.GuildScope() then return end
  local e=get('BOUNTY',id)
  if not e or (e.status or 'ACTIVE')~='ACTIVE' then K.Say('Active bounty not found.');return end
  zone=K.Clean(zone,38);note=K.Clean(note,50)
  if zone=='' then K.Say('Location required.');return end
  local who=UnitName('player') or '?'
- e.sightings=e.sightings or {}
- table.insert(e.sightings,1,{who=who,zone=zone,note=note,at=K.Now()})
- while #e.sightings>15 do table.remove(e.sightings) end
+ rememberSighting(e,who,zone,note)
  K.Send('SIGHT',id..':'..zone..','..note)
  K.Log('SIGHTING',who..' saw '..(e.details and e.details.target or e.text)..' at '..zone)
  K.UI.Refresh()
@@ -300,6 +363,7 @@ function O.Stats()
  return result
 end
 function O.CreateCTA(text,details)
+ if K.GuildScope and not K.GuildScope() then return end
  if not IsInGuild() then K.Say('You must be in a guild.');return end
  text=K.Clean(text,155);if text=='' then K.Say('Usage: /kt cta Hillsbrad - Defend Tarren Mill');return end
  local id=tostring(time())..'-'..tostring(math.random(1000,9999));add(KWCDB.ops,UnitName('player'),text,id)
@@ -309,6 +373,7 @@ function O.CreateCTA(text,details)
  K.Send('CTA',id..':'..text);if KWCDB.settings.autoGuildReports then K.Say('CTA ready: use CTA Board > Guild report to prepare a chat draft.') end;K.Log('CTA',text);K.Say('CTA published locally and broadcast attempted.');K.UI.Refresh()
 end
 function O.AddBounty(text,details)
+ if K.GuildScope and not K.GuildScope() then return end
  if not IsInGuild() then K.Say('You must be in a guild.');return end
  text=K.Clean(text,155);if text=='' then return end
  local id=tostring(time())..'-'..tostring(math.random(1000,9999));add(KWCDB.bounties,UnitName('player'),text,id);if details then KWCDB.bounties[1].details=details end;if K.Sync then K.Sync.Broadcast('BOUNTY',KWCDB.bounties[1]) end;K.Send('BOUNTY',id..':'..text);if KWCDB.settings.autoGuildReports then K.Say('Bounty ready: use Bounty Board > Guild report to prepare a chat draft.') end;K.UI.Refresh()
@@ -327,7 +392,7 @@ function O.DetailedCTA(zone,objective,horde,alliance,priority,coords,notes)
  end
  priority=O.NormalizePriority(priority)
  coords=K.Clean(coords,18);notes=K.Clean(notes,35)
- local text='['..priority..'] '..zone..' | H:'..h..' A:'..a..' | '..objective
+ local text='['..priority..'] '..zone..' | H:A '..h..':'..a..' | '..objective
  if coords~='' then text=text..' | '..coords end
  if notes~='' then text=text..' | '..notes end
  O.CreateCTA(text,{zone=zone,objective=objective,horde=h,alliance=a,priority=priority,urgent=priority=='URGENT',notes=notes,coords=coords})
@@ -348,14 +413,13 @@ local function findEntry(kind,id)
  for _,e in ipairs(t) do if e.id==id then return e end end
 end
 local function isOwner(e,sender)
- local a=tostring(e.author or ''):lower():match('^[^-]+')
- local b=tostring(sender or ''):lower():match('^[^-]+')
- return a==b
+ return K.SameGuildMember(e.author,sender)
 end
 local function canManage(e,sender)
  return isOwner(e,sender) or (K.IsSenderOfficer and K.IsSenderOfficer(sender))
 end
 function O.Edit(kind,id,newText)
+ if K.GuildScope and not K.GuildScope() then return end
  if kind~='CTA' and kind~='BOUNTY' then return end
  local e=findEntry(kind,id)
  if not e then K.Say('Entry not found.');return end
@@ -370,6 +434,7 @@ function O.Edit(kind,id,newText)
  K.UI.Refresh()
 end
 function O.ChangeStatus(kind,id,status)
+ if K.GuildScope and not K.GuildScope() then return end
  local allowed={CTA={RESOLVED=true,CANCELLED=true,ACTIVE=true},BOUNTY={CANCELLED=true,ACTIVE=true,COMPLETED=true}}
  if not allowed[kind] or not allowed[kind][status] then return end
  local e=findEntry(kind,id)
@@ -383,6 +448,7 @@ function O.ChangeStatus(kind,id,status)
  K.UI.Refresh()
 end
 function O.Delete(kind,id)
+ if K.GuildScope and not K.GuildScope() then return end
  if kind~='CTA' and kind~='BOUNTY' then return false end
  local e=findEntry(kind,id)
  if not e then K.Say('Entry not found.');return false end
@@ -398,6 +464,7 @@ function O.CanDelete(e)
  return e and canManage(e,UnitName('player') or '') or false
 end
 function O.ClaimBounty(id)
+ if K.GuildScope and not K.GuildScope() then return end
  local e=findEntry('BOUNTY',id);if not e or (e.status and e.status~='ACTIVE') then return end
  local who=UnitName('player') or '?'
  e.claims=e.claims or {};e.claims[who]=K.Now()
@@ -405,15 +472,44 @@ function O.ClaimBounty(id)
  K.Say('Claim submitted. Poster or officer must confirm completion.')
  K.UI.Refresh()
 end
+-- Preserve the counts, while visually identifying which faction has the advantage.
+function O.FactionText(e)
+ local raw=tostring(e and e.text or '')
+ local d=e and e.details
+ local h,a=d and tonumber(d.horde),d and tonumber(d.alliance)
+ if not h or not a then
+  local x,y=raw:match('H:(%d+)%s+A:(%d+)')
+  if x then h,a=tonumber(x),tonumber(y) end
+ end
+ if not h or not a then return raw end
+ raw=raw:gsub('H:%d+%s+A:%d+','H:A '..h..':'..a)
+ raw=raw:gsub('H:A%s+%d+:%d+','H:A '..h..':'..a)
+ local color=h>a and 'ffff5555' or a>h and 'ff5599ff' or 'ffb9c2cc'
+ return raw:gsub('H:A '..h..':'..a,'|c'..color..'H:A '..h..':'..a..'|r',1)
+end
+local function saveResponse(id,who,status)
+ local identity=K.CurrentGuildMember(who)
+ if not identity then return false end
+ local responses=KWCDB.responses[id] or {}
+ KWCDB.responses[id]=responses
+ for prior in pairs(responses) do
+  if prior~=identity and K.SameGuildMember(prior,identity) then responses[prior]=nil end
+ end
+ responses[identity]=status
+ return true
+end
 function O.Respond(id,status)
+ if K.GuildScope and not K.GuildScope() then return end
  if not id or (status~='Coming' and status~='Maybe' and status~='Busy') then return end
- local who=UnitName('player') or '?';KWCDB.responses[id]=KWCDB.responses[id] or {};KWCDB.responses[id][who]=status
+ local entry=findEntry('CTA',id)
+ if not entry or (entry.status or 'ACTIVE')~='ACTIVE' then return end
+ if not saveResponse(id,UnitName('player'),status) then return end
  K.Send('RESPONSE',id..':'..status);K.Say('CTA response saved: '..status..'. Guild broadcast attempted.');K.UI.Refresh()
 end
 K.On('CHAT_MSG_ADDON',function(prefix,msg,channel,sender)
  if prefix~='KWC3' or channel~='GUILD' or type(msg)~='string' or type(sender)~='string' then return end
  -- Guild addon channel already restricts delivery to guild; roster cache may be stale on login.
- if #msg>250 then return end
+ if #msg>250 or not K.IsMember(sender) then return end
  local version,kind,payload=msg:match('^(%d+);([A-Z]+);(.+)$');if version~='2' then return end
  if kind=='SYNC' then if payload=='REQ' then replySnapshot() end;return end
  local id,body=payload:match('^([^:]+):(.+)$');if kind~='STATUS' and kind~='CLAIM' and kind~='UPDATE' and (not id or not body) then return end
@@ -422,8 +518,12 @@ K.On('CHAT_MSG_ADDON',function(prefix,msg,channel,sender)
   if e and (e.status or 'ACTIVE')=='ACTIVE' then
    local zone,note=body:match('^([^,]*),(.*)$')
    if zone and zone~='' then
-    e.sightings=e.sightings or {};table.insert(e.sightings,1,{who=sender,zone=K.Clean(zone,38),note=K.Clean(note,50),at=K.Now()})
-    while #e.sightings>15 do table.remove(e.sightings) end
+    zone,note=K.Clean(zone,38),K.Clean(note,50)
+    for _,sighting in ipairs(e.sightings or {}) do
+     if sighting.zone==zone and sighting.note==note and sighting.receivedAt
+      and time()-sighting.receivedAt<300 and K.SameGuildMember(sighting.who,sender) then return end
+    end
+    rememberSighting(e,sender,zone,note)
    end
   end
   K.UI.Refresh();return
@@ -432,14 +532,14 @@ K.On('CHAT_MSG_ADDON',function(prefix,msg,channel,sender)
   -- Lua patterns lack alternation, so parse then validate the kind.
   if not k then k,entryId,rev,description=payload:match('^([A-Z]+),([^,]+),(%d+),(.+)$') end
   local e=(k=='CTA' or k=='BOUNTY') and findEntry(k,entryId)
-  if e and canManage(e,sender) and tonumber(rev)>(e.revision or 0) then
+  if e and not e.boardVersioned and canManage(e,sender) and tonumber(rev)>(e.revision or 0) then
    e.text=K.Clean(description,155);e.revision=tonumber(rev);e.updated=K.Now();e.updatedBy=sender
   end
   K.UI.Refresh();return
  elseif kind=='EDIT' then
   local k,entryId= id:match('^([A-Z]+),(.+)$')
   local e=(k=='CTA' or k=='BOUNTY') and findEntry(k,entryId)
-  if e and canManage(e,sender) and body~='' then
+  if e and not e.boardVersioned and canManage(e,sender) and body~='' then
    e.text=K.Clean(body,155);e.updated=K.Now();e.updatedBy=sender
    K.UI.Refresh()
   end
@@ -448,18 +548,20 @@ K.On('CHAT_MSG_ADDON',function(prefix,msg,channel,sender)
   local k,entryId,status=payload:match('^([A-Z]+),([^,]+),([A-Z]+)$')
   local allowed={CTA={RESOLVED=true,CANCELLED=true,ACTIVE=true},BOUNTY={COMPLETED=true,CANCELLED=true,ACTIVE=true}}
   local e=(allowed[k] and allowed[k][status]) and findEntry(k,entryId)
-  if e and canManage(e,sender) then e.status=status;e.updated=K.Now();e.updatedBy=sender end
+  if e and not e.boardVersioned and canManage(e,sender) then e.status=status;e.updated=K.Now();e.updatedBy=sender end
   K.UI.Refresh();return
  elseif kind=='CLAIM' then
   local entryId,claimant=payload:match('^([^,]+),([^,]+)$')
   local e=findEntry('BOUNTY',entryId)
-  if e and (e.status or 'ACTIVE')=='ACTIVE' and claimant and claimant:lower()==sender:match('^[^-]+'):lower() then
+  if e and (e.status or 'ACTIVE')=='ACTIVE' and claimant and K.SameGuildMember(claimant,sender) then
    e.claims=e.claims or {};e.claims[claimant]=K.Now()
   end
   K.UI.Refresh();return
  elseif kind=='RESPONSE' then
+  local entry=findEntry('CTA',id)
+  if not entry or (entry.status or 'ACTIVE')~='ACTIVE' then return end
   if body~='Coming' and body~='Busy' and body~='Maybe' then return end
-  KWCDB.responses[id]=KWCDB.responses[id] or {};KWCDB.responses[id][sender]=body
+  if not saveResponse(id,sender,body) then return end
  elseif (kind=='CTA' or kind=='BOUNTY') then
   local created=add(kind=='CTA' and KWCDB.ops or KWCDB.bounties,sender,body,id);if not created then return end;K.Log(kind,'From '..sender..': '..body)
   if kind=='CTA' and KWCDB.settings.alerts~=false then K.Say('CALL TO ARMS: '..body) end

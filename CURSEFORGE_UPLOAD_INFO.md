@@ -1,0 +1,24 @@
+# CurseForge upload information
+
+- Project name: Keepers War Command
+- Game: World of Warcraft
+- Class: Addons
+- Categories: Guild, PvP
+- Flavor: Forever
+- Game version: 1.60.1 (Interface 16001)
+- Release type: Alpha
+- Display name: Keepers War Command 1.6.0-alpha.1
+- Short description: Guild coordination for World of Warcraft: Forever, with PvP operations, raid tools, a group finder and a profession directory.
+- Project text: CURSEFORGE_DESCRIPTION.md
+- File changelog: CURSEFORGE_CHANGELOG.md
+- Support: https://github.com/nezirether/Keepers-War-Command/issues
+
+Publication is pending confirmation of redistribution rights for the imported
+Raid Tools code and the two alert textures. Use the project owner's confirmed
+license selection. The repository currently declares no project-wide license.
+
+Once cleared, sign in to the CurseForge author dashboard and open the project
+you own. Create it only if it does not already exist. Paste the project text,
+then upload the named ZIP with Alpha and Forever 1.60.1 selected. Check the
+file preview and submit. If the exact flavor or version is unavailable,
+leave the upload pending. Confirm approval and public visibility in Files.
