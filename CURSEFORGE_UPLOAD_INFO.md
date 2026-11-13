@@ -13,11 +13,9 @@
 - File changelog: CURSEFORGE_CHANGELOG.md
 - Support: https://github.com/nezirether/Keepers-War-Command/issues
 
-Publication is pending confirmation of redistribution rights for the imported
-Raid Tools code and the two alert textures. Use the project owner's confirmed
-license selection. The repository currently declares no project-wide license.
+The project owner confirmed ownership of the Raid Tools code and both alert textures. Bundled libraries retain their own licenses. The repository currently declares no project-wide license.
 
-Once cleared, sign in to the CurseForge author dashboard and open the project
+Sign in to the CurseForge author dashboard and open the project
 you own. Create it only if it does not already exist. Paste the project text,
 then upload the named ZIP with Alpha and Forever 1.60.1 selected. Check the
 file preview and submit. If the exact flavor or version is unavailable,
