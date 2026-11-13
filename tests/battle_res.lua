@@ -1,8 +1,8 @@
 -- Run from the repository root with Lua 5.1.
-local function session(settings)
+local function session(settings,initialGroup)
  local env=setmetatable({KWC={},KeepersRaidTools={defaults={}}},{__index=_G})
  local frames,events={},{}
- local combat,grouped,down=false,false,false
+ local combat,grouped,down=false,initialGroup,false
  local cursorX,cursorY=0,0
  local timer,info
  local noop=function() end
@@ -14,8 +14,8 @@ local function session(settings)
  function api:RegisterApplyCallback(_,fn) self.apply=fn end
  env.UIParent={GetWidth=function() return 1000 end,GetHeight=function() return 800 end,GetEffectiveScale=function() return 0.8 end}
  env.InCombatLockdown=function() return combat end
- env.IsInGroup=function() return grouped end
- env.IsInRaid=function() return false end
+ env.IsInGroup=function() return grouped~=nil end
+ env.IsInRaid=function() return grouped=="raid" end
  env.GetCursorPosition=function() return cursorX*0.8,cursorY*0.8 end
  env.IsMouseButtonDown=function() return down end
  env.GetTime=function() return 110 end
@@ -86,7 +86,7 @@ local function session(settings)
   cursor=function(x,y,value) cursorX,cursorY,down=x,y,value end,
   update=function() for _,f in ipairs(frames) do if f:IsShown() and f.scripts.OnUpdate then f.scripts.OnUpdate() end end end,
   combat=function(value) combat=value;events[value and "PLAYER_REGEN_DISABLED" or "PLAYER_REGEN_ENABLED"]() end,
-  group=function(value) grouped=value end,
+  group=function(value) grouped=value;events.GROUP_ROSTER_UPDATE() end,
   charges=function(value) info=value;if timer then timer() end end,
   tick=function() assert(timer);timer() end,
  }
@@ -99,12 +99,23 @@ local function center(frame,x,y)
 end
 local settings={}
 local br,frame,game=session(settings)
-assert(not frame:IsShown())
+assert(not settings.widgetEnabled and not frame:IsShown())
+br:SetWidgetEnabled(true)
+br:SetPreview(true)
+br:SetWidgetUnlocked(true)
+assert(not frame:IsShown() and not br:IsPreviewShown())
+game.group("party")
+assert(not frame:IsShown() and not br:CanConfigurePosition())
+game.group("raid")
+assert(frame:IsShown() and br:CanConfigurePosition())
 br:SetPreview(true)
 assert(frame:IsShown() and frame.strata=="FULLSCREEN_DIALOG")
-br:SetPreview(false)
-assert(not frame:IsShown())
+game.group(nil)
+assert(not frame:IsShown() and not br:IsPreviewShown())
+game.group("raid")
 br:SetWidgetEnabled(false)
+assert(not frame:IsShown())
+br:SetWidgetEnabled(true)
 br:SetWidgetUnlocked(true)
 assert(frame:IsShown() and frame.hint:IsShown() and frame.outline:IsShown())
 game.cursor(500,650,true)
@@ -114,15 +125,15 @@ frame.scripts.OnMouseUp(frame,"LeftButton")
 center(frame,605,503)
 assert(math.abs(settings.widgetPosition.nx-0.605)<1e-6)
 br:SetWidgetUnlocked(false)
-assert(not frame:IsShown() and settings.lockFrames)
+assert(frame:IsShown() and settings.lockFrames)
 for _,scale in ipairs({50,100,150,200}) do
  br:SetWidgetScale(scale)
  assert(br:GetWidgetScale()==scale and frame.scale==scale/100)
  center(frame,605,503)
 end
-local reloaded,restored=session(settings)
+local reloaded,restored=session(settings,"raid")
 center(restored,605,503)
-assert(restored.scale==2 and not restored:IsShown())
+assert(restored.scale==2 and restored:IsShown())
 reloaded:SetWidgetUnlocked(true)
 reloaded:SetWidgetUnlocked(false)
 reloaded:ResetPosition()
@@ -130,8 +141,9 @@ assert(settings.widgetPosition==nil)
 center(restored,500,653)
 reloaded:SetWidgetScale(90)
 reloaded:ResetWidgetDefaults()
-assert(settings.widgetEnabled and settings.lockFrames and settings.widgetScale==100 and not settings.widgetPosition)
+assert(not settings.widgetEnabled and settings.lockFrames and settings.widgetScale==100 and not settings.widgetPosition)
 
+br:SetWidgetEnabled(true)
 br:SetWidgetUnlocked(true)
 game.cursor(500,653,true)
 frame.scripts.OnMouseDown(frame,"LeftButton")
@@ -150,7 +162,9 @@ game.combat(false)
 assert(frame.scale==2 and settings.lockFrames and not settings.widgetPosition)
 center(frame,500,653)
 
-game.group(true)
+game.group("party")
+assert(not frame:IsShown())
+game.group("raid")
 br:OnEnable()
 br:SetWidgetEnabled(false)
 settings.rosterRowEnabled=false
@@ -162,12 +176,18 @@ br:SetWidgetEnabled(true)
 assert(frame:IsShown() and frame.desatOverlay:IsShown() and frame.cooldown.cooldownDuration==60)
 game.charges({currentCharges=2,maxCharges=2,cooldownStartTime=100,cooldownDuration=60})
 assert(br:GetTimerText()=="" and frame.icon:IsShown() and not frame.cooldown.cooldownDuration)
+game.combat(true)
+game.group(nil)
+game.tick()
+assert(not frame:IsShown())
+game.combat(false)
+assert(not frame:IsShown())
 br.eventFrame.scripts.OnEvent(nil,"ENCOUNTER_END")
 assert(not select(2,br:GetChargeState()))
 br:OnDisable()
 
-local legacy={widgetPosition={point="TOP",relativePoint="TOP",x=20,y=-100},widgetScale=100}
-local legacyBR,legacyFrame,legacyGame=session(legacy)
+local legacy={widgetPosition={point="TOP",relativePoint="TOP",x=20,y=-100},widgetScale=100,widgetEnabled=true}
+local legacyBR,legacyFrame,legacyGame=session(legacy,"raid")
 center(legacyFrame,520,653)
 assert(legacy.widgetPosition.nx==0.52)
 legacyBR:SetWidgetUnlocked(true)
