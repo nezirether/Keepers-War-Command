@@ -3,14 +3,55 @@ local K=KWC
 local A={};K.BountyAlerts=A
 local seen={}
 local banner=CreateFrame('Frame','KWC_BountyAlertBanner',UIParent)
-banner:SetSize(370,90);banner:SetPoint('TOP',UIParent,'TOP',0,-135)
-banner:SetFrameStrata('DIALOG');banner:Hide()
-local bg=banner:CreateTexture(nil,'BACKGROUND');bg:SetAllPoints();bg:SetColorTexture(0.16,0.04,0.04,0.94)
-local title=banner:CreateFontString(nil,'OVERLAY','GameFontNormalLarge');title:SetPoint('TOP',0,-12);title:SetText('BOUNTY TARGET SPOTTED')
-local detail=banner:CreateFontString(nil,'OVERLAY','GameFontHighlight');detail:SetPoint('CENTER',0,-5);detail:SetWidth(340)
-local close=CreateFrame('Button',nil,banner,'UIPanelCloseButton');close:SetPoint('TOPRIGHT',0,0)
+banner:SetSize(800,320)
+banner:SetFrameStrata('FULLSCREEN_DIALOG');banner:SetFrameLevel(200);banner:SetClampedToScreen(true);banner:Hide()
+local function alertSettings() return KWCDB and KWCDB.settings end
+local placement=K.AlertFrameControls.Attach(banner,alertSettings,'bountyAlert',210)
+local art=banner:CreateTexture(nil,'BACKGROUND');art:SetAllPoints()
+art:SetTexture('Interface\\AddOns\\KeepersWarCommand\\Textures\\BountyAlertFrame.tga')
+-- Sample only the artwork above the transparent padding.
+art:SetTexCoord(0,1,0,410/512)
+local function line(size,y,r,g,b)
+ local text=banner:CreateFontString(nil,'OVERLAY')
+ text:SetFont(STANDARD_TEXT_FONT or 'Fonts\\FRIZQT__.TTF',size,'OUTLINE')
+ text:SetTextColor(r,g,b)
+ text:SetPoint('TOP',banner,'TOP',0,-y)
+ text:SetWidth(540)
+ text:SetJustifyH('CENTER')
+ return text
+end
+local title=line(28,121,1,0.78,0.36)
+local targetText=line(28,158,1,0.94,0.82)
+targetText:SetMaxLines(1)
+local rewardText=line(24,195,1,0.87,0.57)
+rewardText:SetMaxLines(2)
+local locationText=line(22,251,0.93,0.89,0.84)
+locationText:SetMaxLines(1)
+local close=CreateFrame('Button',nil,banner,'UIPanelCloseButton')
+close:SetPoint('CENTER',banner,'TOPLEFT',756,-86)
+close:SetScript('OnClick',function() banner:Hide() end)
+local moveHint=banner:CreateFontString(nil,'OVERLAY','GameFontNormalSmall')
+moveHint:SetPoint('BOTTOM',banner,'TOP',0,0)
+moveHint:SetText('DRAG TO MOVE  -  /kt bountyalert lock')
+local function refreshLock() moveHint:SetShown(alertSettings() and alertSettings().bountyAlertUnlocked==true) end
 local elapsed=0
-banner:SetScript('OnUpdate',function(self,dt) elapsed=elapsed+dt;if elapsed>=7 then self:Hide() end end)
+banner:SetScript('OnUpdate',function(self,dt)
+ if alertSettings() and alertSettings().bountyAlertUnlocked then return end
+ elapsed=elapsed+dt;if elapsed>=A.GetDuration() then self:Hide() end
+end)
+local function showBanner()
+ placement.Initialize();refreshLock();elapsed=0;banner:Show()
+end
+local function showSighting(name,reward,zone,friendly)
+ title:SetText(friendly and 'FRIENDLY BOUNTY TEST' or 'BOUNTY TARGET SPOTTED')
+ targetText:SetText(name)
+ rewardText:SetText(reward~='' and ('Reward: '..reward) or 'Reward unspecified')
+ locationText:SetText(zone or '')
+ showBanner()
+ if PlaySound and (not K.QOL or (K.QOL.Enabled('bountySound') and K.QOL.Enabled('alertSound'))) then
+  pcall(PlaySound,8959,'Master')
+ end
+end
 local function normalized(name)
  if type(name)~='string' then return '' end
  return (name:lower():match('^%s*(.-)%s*$') or ''):match('^([^%-]+)') or ''
@@ -33,19 +74,22 @@ local function check(unit)
  local enemy=UnitCanAttack and UnitCanAttack('player',unit)
  local friendlyTest=KWCDB.settings.bountyAlertTest==true
  if not enemy and not friendlyTest then return end
- local name=UnitName(unit);local key=normalized(name);if key=='' then return end
+ local name,realm=UnitName(unit);local key=normalized(name);if key=='' then return end
  for _,b in ipairs(KWCDB.bounties or {}) do
   if (b.status or 'ACTIVE')=='ACTIVE' then
    local target=b.details and b.details.target
    -- Legacy bounties only have free-form text; do not guess a target from that text.
    if bountyMatches(target,name) then
     local now=time();if now-(seen[key] or 0)<90 then return end;seen[key]=now
-    local reward=b.details and b.details.reward or ''
-    title:SetText(enemy and 'BOUNTY TARGET SPOTTED' or 'TEST MODE - FRIENDLY BOUNTY')
-    detail:SetText(name..(reward~='' and ('  |  Reward: '..tostring(reward)) or ''))
-    elapsed=0;banner:Show()
-    K.Say((enemy and 'BOUNTY SPOTTED: ' or 'TEST FRIENDLY BOUNTY: ')..name..' in '..tostring(GetRealZoneText and GetRealZoneText() or 'unknown zone')..'. Open Bounty Board to record a sighting.')
-    if PlaySound and (not K.QOL or (K.QOL.Enabled('bountySound') and K.QOL.Enabled('alertSound'))) then pcall(PlaySound,8959,'Master') end
+    local details=b.details
+    local fullName=realm and realm~='' and not name:find('-',1,true) and name..'-'..realm or name
+    local zone=GetRealZoneText and GetRealZoneText()
+    if not zone or zone=='' then
+     local sighting=b.sightings and b.sightings[1]
+     zone=(sighting and sighting.zone) or details.location
+    end
+    showSighting(fullName,tostring(details.reward or ''),zone,not enemy)
+    K.Say((enemy and 'BOUNTY SPOTTED: ' or 'TEST FRIENDLY BOUNTY: ')..name..' in '..tostring(zone or 'unknown zone')..'. Open Bounty Board to record a sighting.')
     return
    end
   end
@@ -89,7 +133,27 @@ function A.Diagnose()
  K.Say('Bounty diagnostic: target='..tostring(name)..', exists='..tostring(exists)..', player='..tostring(player)..', enemy='..tostring(enemy)..', enabled='..tostring(A.Status())..', friendlyTest='..tostring(A.TestMode())..', activeMatches='..matches)
  if exists then check(unit) end
 end
-function A.Demo() title:SetText('BOUNTY ALERT TEST');detail:SetText('Display and sound test (no player detected)');elapsed=0;banner:Show();if PlaySound then pcall(PlaySound,8959,'Master') end end
+local function duration(value)
+ return math.max(3,math.min(30,tonumber(value) or 7))
+end
+function A.GetDuration()
+ local v=alertSettings()
+ return duration(v and v.bountyAlertDuration)
+end
+function A.SetDuration(value)
+ local v=alertSettings()
+ if v then v.bountyAlertDuration=duration(value) end
+end
+function A.Demo() showSighting('Example Target','1g','Hillsbrad Foothills',false) end
+function A.SetUnlocked(value)
+ local v=alertSettings();if not v then return end
+ placement.SetUnlocked(value)
+ if value then A.Demo() else banner:Hide() end
+ refreshLock()
+end
+A.SetScale=placement.SetScale
+A.ResetPosition=placement.Reset
+K.On('PLAYER_ENTERING_WORLD',function() placement.Initialize();refreshLock() end)
 
 -- Some client builds do not consistently fire nameplate events for already-visible units.
 -- Scan only exposed units, never perform automated targeting or hidden-player discovery.

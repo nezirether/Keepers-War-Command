@@ -1,1 +1,0 @@
-DEV15: PvP-only pending honor reports while two-part roster identity resolves. Periodic local honor refresh every 5 minutes. /kt pvpdiag shows pending count. No bounty/alert modules modified. Test with two DEV15 clients, then /kt pvpdiag on both. This is not a live multiplayer validation.

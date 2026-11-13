@@ -1,5 +1,0 @@
-DEV10 partial security hardening. Not public-release ready.
-Known limitation: unauthenticated addon messages cannot cryptographically establish event origin; offline author snapshots from relays are now rejected, which limits offline recovery.
-Pending command events retry every 15s, but causal conflict resolution and guaranteed delivery are NOT implemented.
-Offline succession replay no longer checks current offline state, but historical events still lack signed evidence.
-Test with real WoW clients before deployment.

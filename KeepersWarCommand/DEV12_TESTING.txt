@@ -1,8 +1,0 @@
-DEV12 PRIVATE TEST: PvP identity and sync diagnostics
-1. Back up KWCDB SavedVariables. Install without deleting them.
-2. On Chopper, check for one full-name row and his correct lifetime HKs.
-3. On both clients, /kt pvpdiag before and after Refresh honor.
-4. Check sent/received counts. A send result is not proof of delivery.
-5. Confirm Addon Checker detects both clients and peer row appears.
-6. Verify names with identical HKs are NOT merged unless identity is roster-supported.
-Not verified in live WoW Forever; no guild testers available.

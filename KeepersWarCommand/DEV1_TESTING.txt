@@ -1,4 +1,0 @@
-PRIVATE TEST ONLY - v1.5.0 DEV1
-Creator becomes Commander. Top two guild ranks may optionally Assume Command; former commander becomes Lieutenant. Command changes broadcast to online guild members and are included in subsequent snapshot sync.
-TEST: two guild clients with same build; create CTA; verify creator; officer takeover; former commander lieutenant; /reload both; late login sync. Test non-officer cannot assume command. Verify CTA edit/delete still works.
-LIMITATIONS: officer permissions depend on accurate guild roster; no automatic commander succession; no live in-game validation.

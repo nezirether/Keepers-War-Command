@@ -1,1 +1,0 @@
-PvP leaderboard displays only confirmed two-part Forever character names. Short-only legacy records are retained but hidden until roster resolution. Bounty alerts and bounty matching unchanged. Keep SavedVariables. Verify after guild roster loads.

@@ -2,18 +2,79 @@
 ## Title: Keepers of Trogdor | War Command
 ## Notes: Guild operations, scouting, PvP, bounties, CTAs and guild synchronization
 ## Author: Keepers of Trogdor
-## Version: 1.5.0-dev.15
-## SavedVariables: KWCDB
+## Version: 1.6.0-alpha.1
+## SavedVariables: KWCDB, KeepersRaidToolsDB, KeepersRaidToolsAttendanceDB, KeepersRaidToolsRosterDB, KRTForeverNotesDB
 ## OptionalDeps: Overlord, WarEffortScout
 Core.lua
+Network.lua
+RaidToolsBridge.lua
+Modules/RaidTools/Libs/LibStub/LibStub.lua
+Modules/RaidTools/Libs/CallbackHandler-1.0/CallbackHandler-1.0.lua
+Modules/RaidTools/Libs/AceComm-3.0/ChatThrottleLib.lua
+Modules/RaidTools/Libs/AceComm-3.0/AceComm-3.0.lua
+Modules/RaidTools/Libs/LibSerialize/LibSerialize.lua
+Modules/RaidTools/Libs/LibDeflate/LibDeflate.lua
+Modules/RaidTools/Libs/LibSharedMedia-3.0/LibSharedMedia-3.0.lua
+Modules/RaidTools/ForeverCompat.lua
+Modules/RaidTools/KeepersRaidTools.lua
+Modules/RaidTools/ConfigFrame.lua
+Modules/RaidTools/Comms.lua
+Modules/RaidTools/SpellData.lua
+Modules/RaidTools/Modules/EncounterPhases/Registry.lua
+Modules/RaidTools/Modules/EncounterPhases/Runtime.lua
+Modules/RaidTools/BossData/Registry.lua
+Modules/RaidTools/Modules/EncounterPhases/Planning.lua
+Modules/RaidTools/BossData/Lairs/NymrissaWavecaller.lua
+Modules/RaidTools/BossData/TheVenomousAbyss/Sszorak.lua
+Modules/RaidTools/BossData/TheVenomousAbyss/TheTwinFangs.lua
+Modules/RaidTools/BossData/TheVenomousAbyss/TheCoiledAltar.lua
+Modules/RaidTools/BossData/TheVenomousAbyss/EntombedSentinels.lua
+Modules/RaidTools/BossData/TheVenomousAbyss/VashnikTheMalignant.lua
+Modules/RaidTools/BossData/TheVenomousAbyss/Nekzali.lua
+Modules/RaidTools/BossData/TheVenomousAbyss/Ulatek.lua
+Modules/RaidTools/BossData/TheVenomousAbyss/TheLostExplorers.lua
+Modules/RaidTools/Modules/GearAudit.lua
+Modules/RaidTools/Modules/GroupInspect.lua
+Modules/RaidTools/Modules/DontRelease.lua
+Modules/RaidTools/Modules/ReadyScreen.lua
+Modules/RaidTools/Modules/ReadyScreenFrame.lua
+Modules/RaidTools/Modules/ReadyCheck.lua
+Modules/RaidTools/Modules/AutoInvite.lua
+Modules/RaidTools/Modules/BattleResCounter.lua
+Modules/RaidTools/Modules/CooldownRoster.lua
+Modules/RaidTools/Modules/CombatTimer.lua
+Modules/RaidTools/Modules/CombatToolsConfig.lua
+Modules/RaidTools/Modules/Notes/ForeverNotepad.lua
+Modules/RaidTools/Modules/Attendance/AttendanceStore.lua
+Modules/RaidTools/Modules/Attendance/RosterValidation.lua
+Modules/RaidTools/Modules/Attendance/Roster.lua
+Modules/RaidTools/Modules/Attendance/AttendanceDatabase.lua
+Modules/RaidTools/Modules/Attendance/AttendanceReport.lua
+Modules/RaidTools/Modules/Attendance/AttendanceSync.lua
+Modules/RaidTools/Modules/Attendance/AttendanceWiring.lua
+Modules/RaidTools/Modules/Attendance/RecordsUI.lua
+Modules/RaidTools/Modules/Attendance/AttendanceDatabaseUI.lua
+Modules/RaidTools/Modules/Attendance/AttendanceDetailsUI.lua
+Modules/RaidTools/Modules/Attendance/AttendanceUI.lua
+Modules/RaidTools/Modules/Attendance/RosterUI.lua
 WarRoom.lua
 AutoScout.lua
 Recruiter.lua
 Roster.lua
 Operations.lua
+CTAJoin.lua
+RaidCommand.lua
+RaidSignup.lua
+GuildService.lua
+AlertFrameControls.lua
 BountyAlerts.lua
-GuildmateAlerts.lua
 Sync.lua
+GuildLFGModel.lua
+GuildLFG.lua
+GuildServices.lua
+GuildProfessions.lua
+GuildServicesSync.lua
+GuildServicesUI.lua
 PvP.lua
 Companions.lua
 AddonChecker.lua
@@ -21,3 +82,4 @@ QualityOfLife.lua
 WorldPvPDeaths.lua
 UI.lua
 BountyContextMenu.lua
+RaidToolsHost.lua

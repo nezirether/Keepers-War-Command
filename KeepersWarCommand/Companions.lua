@@ -15,7 +15,7 @@ function C.OverlordSnapshot()
  local o=rawget(_G,'Overlord')
  local fronts=field(field(o,'Fronts'),'Registry')
  if type(fronts)~='table' then return nil,'Objective registry unavailable (version mismatch)' end
- local result={fronts=0,objectives=0,contested=0,heldHorde=0,heldAlliance=0,zones={}}
+ local result={fronts=0,objectives=0,contested=0,heldHorde=0,heldAlliance=0}
  local safe=0
  for _,front in pairs(fronts) do
   safe=safe+1;if safe>30 then break end
@@ -30,10 +30,6 @@ function C.OverlordSnapshot()
       if status=='in_progress' then result.contested=result.contested+1 end
       if owner=='Horde' then result.heldHorde=result.heldHorde+1 end
       if owner=='Alliance' then result.heldAlliance=result.heldAlliance+1 end
-      local name=field(zone,'name')
-      if type(name)=='string' and name~='' and #result.zones<12 then
-       result.zones[#result.zones+1]={name=name,status=type(status)=='string' and status or 'unknown',owner=type(owner)=='string' and owner or 'unclaimed'}
-      end
      end
     end
    end
@@ -53,12 +49,4 @@ function C.Report()
  local snapshot,err=C.OverlordSnapshot()
  K.Say('Overlord: '..(snapshot and (snapshot.objectives..' objectives, '..snapshot.contested..' contested') or err))
  K.Say('War Effort: '..C.WarEffortStatus())
-end
-function C.OpenOverlord()
- if not C.Overlord() then K.Say('Overlord is not loaded.');return end
- if ChatFrame_OpenChat then ChatFrame_OpenChat('/ov show') end
-end
-function C.OpenWarEffort()
- if not C.WarEffort() then K.Say('War Effort is not loaded.');return end
- if ChatFrame_OpenChat then ChatFrame_OpenChat('/we') end
 end
