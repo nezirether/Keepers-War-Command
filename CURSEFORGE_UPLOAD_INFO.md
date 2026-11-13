@@ -22,3 +22,10 @@ you own. Create it only if it does not already exist. Paste the project text,
 then upload the named ZIP with Alpha and Forever 1.60.1 selected. Check the
 file preview and submit. If the exact flavor or version is unavailable,
 leave the upload pending. Confirm approval and public visibility in Files.
+
+## Prepared local file
+
+- Filename: KeepersWarCommand-1.6.0-alpha.1.zip
+- SHA-256: 295d53f1aade86fd3d81dcf6518f243f7652760c96e7e2c80a0c967f1a74dca8
+- Package source: 731f81a8cfa06a53f527f8341942b11a697a3499
+- Interface: 16001. 78 TOC references and 99 packaged files.
