@@ -162,6 +162,26 @@ K.On('ADDON_LOADED',function(addon)
   pcall(C_ChatInfo.RegisterAddonMessagePrefix,PREFIX)
  end
 end)
+local SHARING_MIGRATION=1
+local function migrateSharing()
+ local db,_,actor=S.Context()
+ if not db then return end
+ local settings=KWCDB.settings
+ -- Character identity is local. The actual sharing preference stays guild scoped.
+ local character=UnitGUID and UnitGUID('player')
+ if not character or (issecretvalue and issecretvalue(character)) then character=actor end
+ settings.guildServicesSharingMigration=settings.guildServicesSharingMigration or {}
+ local migrations=settings.guildServicesSharingMigration
+ if (migrations[character] or 0)>=SHARING_MIGRATION then return end
+ if not S.SetSharing(true) then return end
+ migrations[character]=SHARING_MIGRATION
+ K.Say('Guild Services profession and recipe sharing was enabled. You can turn it off in Preferences.')
+ if K.UI and K.UI.LFGRefresh then K.UI.LFGRefresh() end
+end
+for _,event in ipairs({'PLAYER_LOGIN','PLAYER_ENTERING_WORLD','GUILD_ROSTER_UPDATE','PLAYER_GUILD_UPDATE',
+ 'INITIAL_CLUBS_LOADED','CLUB_ADDED','CLUB_REMOVED','CLUB_UPDATED'}) do
+ K.On(event,migrateSharing)
+end
 local recipePending=false
 local function schedule(recipes)
  recipePending=recipePending or recipes

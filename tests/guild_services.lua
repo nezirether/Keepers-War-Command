@@ -32,7 +32,9 @@ for _,size in ipairs({2,5,10,25,50}) do
  A.Refresh(true)
  n.run(2)
  for _,p in ipairs(n.packets) do assert(p.prefix~="KWPRO1") end
- assert(A.SetSharing(true))
+ a.event("PLAYER_LOGIN")
+ assert(A.IsSharing(),"login did not enable sharing")
+ b.event("PLAYER_LOGIN")
  n.run(12)
  local db=B.Context()
  assert(db.characters[a.name:lower()].professions.Alchemy.recipes[1].id==1234)
@@ -74,7 +76,53 @@ for _,size in ipairs({2,5,10,25,50}) do
  a.guildID=2;a.event("PLAYER_GUILD_UPDATE")
  assert(not A.IsSharing(),"sharing consent followed the character into another guild")
 end
-print("PASS: profession APIs, private defaults, scoped consent, stale/forged packets, withdrawal, reload and offline recovery")
+print("PASS: profession APIs, automatic sharing, scoped consent, stale/forged packets, withdrawal, reload and offline recovery")
+
+for _,previous in ipairs({"fresh","off","on"}) do
+ local n=network(2,false)
+ local a=n.client(1)
+ local A=setup(a)
+ local db,guild,actor=A.Context()
+ if previous~="fresh" then assert(A.SetSharing(previous=="on")) end
+ a.guildID=nil
+ a.event("PLAYER_GUILD_UPDATE")
+ a.event("PLAYER_LOGIN")
+ assert(not A.Context() and not a.e.KWCDB.settings.guildServicesSharingMigration)
+ assert(db.characters[actor]==nil or db.characters[actor].sharing==(previous=="on"))
+ a.guildID=tonumber(guild)
+ local getRoster=a.e.GetNumGuildMembers
+ a.e.GetNumGuildMembers=function() return 0 end
+ a.event("INITIAL_CLUBS_LOADED")
+ assert(not A.Context() and not a.e.KWCDB.settings.guildServicesSharingMigration)
+ a.e.GetNumGuildMembers=getRoster
+ a.event("GUILD_ROSTER_UPDATE")
+ assert(A.IsSharing() and a.e.KWCDB.settings.guildServicesSharingMigration[actor]==1)
+ local notices=0
+ for _,message in ipairs(a.logs) do
+  if message:find("profession and recipe sharing was enabled",1,true) then notices=notices+1 end
+ end
+ assert(notices==1)
+ assert(A.SetSharing(false))
+ a.event("PLAYER_ENTERING_WORLD")
+ assert(not A.IsSharing())
+ a.online=false
+ local reload=n.client(1,a.e.KWCDB)
+ local R=setup(reload)
+ reload.event("PLAYER_LOGIN")
+ reload.event("PLAYER_ENTERING_WORLD")
+ assert(not R.IsSharing())
+ for _,message in ipairs(reload.logs) do
+  assert(not message:find("profession and recipe sharing was enabled",1,true))
+ end
+ reload.guildID=2
+ reload.event("PLAYER_GUILD_UPDATE")
+ assert(not R.IsSharing())
+ assert(not next(R.Context().characters))
+ reload.guildID=tonumber(guild)
+ reload.event("PLAYER_GUILD_UPDATE")
+ assert(not R.IsSharing())
+end
+print("PASS: fresh and existing sharing migration, delayed guild and roster, one notice, reload opt-out and guild switch")
 
 local n=network(2,false)
 local c=n.client(1)
