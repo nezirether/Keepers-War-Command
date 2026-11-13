@@ -403,11 +403,11 @@ function L.Draw(parent,label,button,edit,surface,redraw)
  lastReadiness,lastReadyGuild,lastActor=status,guild,actor
  local rawButton=button
  local makeButton=button
- button=function(p,caption,x,y,w,action)
+ button=function(p,caption,x,y,w,action,help)
   return makeButton(p,caption,x,y,w,function()
    local _,current,currentActor=readiness()
    if guild==current and actor==currentActor then action() else redraw() end
-  end)
+  end,help)
  end
  if guild~=viewGuild then
   viewGuild=guild;selected=nil;editing=nil;draft=nil;filter={};tab='Browse Groups'
@@ -471,7 +471,8 @@ function L.Draw(parent,label,button,edit,surface,redraw)
   end)
   local level=input(parent,label,edit,'Level',filter.level,311,y+10,71,function(v) filter.level=tonumber(v) end)
   button(parent,'Apply',390,y,65,function() filter.level=tonumber(level:GetText());selected=nil;redraw() end)
-  button(parent,'Refresh',463,y,83,function() K.Sync.Request(true);redraw() end)
+  button(parent,'Refresh',463,y,83,function() K.Sync.Request(true);redraw() end,
+   'Request current listings from compatible guildmates.')
   y=y-48
   local p=prefs()
   p.activity,p.role=filter.activity,filter.role
@@ -521,13 +522,18 @@ function L.Draw(parent,label,button,edit,surface,redraw)
     if y < -1400 then break end
     if K.IsMember(name) and r.status=='open' then
      label(parent,displayName(name),20,y-8,350)
-     if inviteTarget(r.id,name) then button(parent,'Invite',420,y,124,function() L.Invite(r.id,name);redraw() end) end
+     if inviteTarget(r.id,name) then
+      button(parent,'Invite',420,y,124,function() L.Invite(r.id,name);redraw() end,'Send this interested guildmate a party invitation.')
+     end
      y=y-39
     end
    end
   elseif r.status=='open' then
-   button(parent,r.interested and 'Withdraw Interest' or 'Interested',18,y,175,function() L.Interest(r.id,not r.interested);redraw() end)
-   if type(whisperAPI())=='function' then button(parent,'Whisper Leader',208,y,170,function() L.Whisper(r.id) end) end
+   button(parent,r.interested and 'Withdraw Interest' or 'Interested',18,y,175,function() L.Interest(r.id,not r.interested);redraw() end,
+    r.interested and 'Remove your interest from this listing.' or 'Let the listing owner know you want to join.')
+   if type(whisperAPI())=='function' then
+    button(parent,'Whisper Leader',208,y,170,function() L.Whisper(r.id) end,'Open a whisper to the listing owner.')
+   end
    y=y-48
   end
  end

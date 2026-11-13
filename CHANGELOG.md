@@ -1,3 +1,10 @@
+# 1.6.1 (Private test)
+
+- Added Home shortcuts, simplified sidebar headings, and added tooltips for shared actions and settings.
+- Added a Trogdor minimap launcher with saved visibility and position controls.
+- Enabled Guild Services sharing once per character after verification, with an opt-out in Preferences.
+- Made the Battle Resurrection indicator raid-only, with an off default for new installations and existing preferences retained.
+
 # 1.6.0-alpha.1
 
 Development testing for WoW Forever 1.60.1.

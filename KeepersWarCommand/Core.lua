@@ -1,5 +1,5 @@
 local F=CreateFrame('Frame')
-KWC={version='1.6.0-alpha.1',listeners={}};local K=KWC
+KWC={version='1.6.1',listeners={}};local K=KWC
 function K.Say(s) print('|cffffb54d[Keepers]|r '..tostring(s)) end
 function K.Clean(s,n) return tostring(s or ''):gsub('[\r\n|]',' '):sub(1,n or 180) end
 function K.Now() return date('%Y-%m-%d %H:%M') end

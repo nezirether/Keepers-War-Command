@@ -65,6 +65,8 @@ function methods:GetWidth() return self.width end
 function methods:GetHeight() return self.height end
 function methods:SetWidth(w) self.width = w end
 function methods:SetHeight(h) self.height = h end
+function methods:SetVerticalScroll(value) self.verticalScroll=value end
+function methods:GetVerticalScroll() return self.verticalScroll or 0 end
 function methods:SetAlpha(alpha) self.alpha = alpha end
 function methods:SetChecked(value) self.checked = value end
 function methods:GetChecked() return self.checked end
@@ -76,7 +78,11 @@ function methods:HookScript(event, cb)
     self.scripts[event] = function(...) if prior then prior(...) end; cb(...) end
 end
 function methods:Show() self.shown = true; if self.scripts.OnShow then self.scripts.OnShow(self) end end
-function methods:Hide() self.shown = false end
+function methods:Hide()
+    local wasShown=self.shown
+    self.shown=false
+    if wasShown and self.scripts.OnHide then self.scripts.OnHide(self) end
+end
 function methods:IsShown() return self.shown end
 function methods:SetShown(show) if show then self:Show() else self:Hide() end end
 function methods:SetupMenu(callback) self.menu = callback end
@@ -333,6 +339,39 @@ end
 
 local ui=env.KWC.UI
 env.KWC.IsOfficer=function() return true end
+ui.Toggle()
+assert(control("Button","Home").kwcPage=="Home")
+assert(control("Button","Find a Group") and control("Button","Guild Overview"))
+local sidebar=control("Button","Home"):GetParent():GetParent()
+sidebar.scripts.OnMouseWheel(sidebar,-10)
+assert(sidebar:GetVerticalScroll()>0)
+sidebar.scripts.OnMouseWheel(sidebar,10)
+assert(sidebar:GetVerticalScroll()==0)
+click("Find a Group")
+assert(not control("Button","Find a Group"))
+click("Home")
+click("PvP Operations")
+assert(control("Button","War Room").kwcPage=="War Room")
+click("Home")
+click("Settings")
+assert(control("Button","View Guild Roster"))
+assert(control("Button","Sharing unavailable").enabled==false)
+click("View Guild Roster")
+assert(control("Button","Check addon versions"))
+click("Home")
+click("Guild Services")
+assert(not control("Button","Find a Group"))
+ui.Toggle()
+ui.Toggle()
+assert(control("Button","Find a Group"))
+click("Raid Operations")
+assert(control("Button","Raid Sign-Ups"))
+ui.Toggle("Raid Tools: Battle Resurrection")
+assert(control("Button","Show Preview").enabled==false)
+local lock=assert(control("Button","Unlock Position"))
+assert(lock.enabled==false)
+print("PASS: Home, shortcut and sidebar navigation, Preferences access and unavailable controls")
+
 ui.Toggle("Raid Tools")
 assert(control("Button","Raid Operations").kwcPage=="Raid Tools")
 assert(not control("Button","War Intelligence"))
@@ -606,6 +645,15 @@ rosterCount=2
 lfgEvent("GUILD_ROSTER_UPDATE")
 advanceWho(1)
 assert(control("Button","> Browse Groups") and control("Button","Create Listing"))
+click("Preferences")
+assert(env.KWC.GuildServices.IsSharing() and control("Button","Sharing On"))
+click("Sharing On")
+assert(not env.KWC.GuildServices.IsSharing() and control("Button","Sharing Off"))
+click("Hide Minimap Icon")
+assert(not env.KWC.MinimapLauncher.IsVisible() and control("Button","Show Minimap Icon"))
+click("Show Minimap Icon")
+assert(env.KWC.MinimapLauncher.IsVisible())
+click("Looking for Group")
 -- A populated roster can coexist with an unresolved local character.
 local oldRoster=env.GetGuildRosterInfo
 local oldName,oldFull,oldGet=env.UnitName,env.UnitFullName,env.GetUnitName

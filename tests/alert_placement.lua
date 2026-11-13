@@ -60,6 +60,8 @@ local function newSession(settings,artLoads)
  end
  function frameMethods:SetDontSavePosition(value) self.dontSavePosition=value end
  function frameMethods:SetScript(event,fn) self.scripts[event]=fn end
+ function frameMethods:SetEnabled(enabled) self.enabled=enabled end
+ function frameMethods:SetAlpha(alpha) self.alpha=alpha end
  function frameMethods:HookScript(event,fn) self.hooks[event]=fn end
  function frameMethods:IsShown() return self.shown end
  function frameMethods:Show() self.shown=true end
@@ -377,6 +379,9 @@ assert(session.soundCount()==0)
 print('PASS: legacy settings, full bounty name, reward, location fallback, duration, sound, close and proximity removal')
 
 -- Drive the real navigation and settings callbacks using mock widgets.
+env.KWC.GuildServices={Context=function() end}
+env.KWC.GuildReadiness=function() return 'Not currently in a guild' end
+setfenv(assert(loadfile('KeepersWarCommand/MinimapLauncher.lua')),env)()
 setfenv(assert(loadfile('KeepersWarCommand/UI.lua')),env)()
 local function currentControl(text)
  for i=#session.frames,1,-1 do

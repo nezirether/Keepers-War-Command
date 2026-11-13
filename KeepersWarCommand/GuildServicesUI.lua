@@ -53,10 +53,10 @@ function S.Draw(parent,label,button,edit,surface,redraw)
   return
  end
  local makeButton=button
- button=function(p,caption,x,y,w,action)
+ button=function(p,caption,x,y,w,action,help)
   return makeButton(p,caption,x,y,w,function()
    if guild==K.GuildScope() then action() else redraw() end
-  end)
+  end,help)
  end
  for i,name in ipairs(tabs) do
   button(parent,(tab==name and '> ' or '')..name,18+(i-1)*180,-60,169,function() tab=name;redraw() end)
@@ -76,7 +76,7 @@ function S.Draw(parent,label,button,edit,surface,redraw)
   label(parent,'Shares this character’s profession skills and observed learned recipes with this guild.',18,-319,530)
   button(parent,S.IsSharing() and 'Sharing On' or 'Sharing Off',18,-360,155,function()
    S.SetSharing(not S.IsSharing());redraw()
-  end)
+  end,'Share this character’s profession skills and observed learned recipes with this guild.')
   button(parent,'Refresh Directory',190,-360,165,function()
    S.Refresh(true);K.Sync.Request(true);redraw()
   end)

@@ -2,7 +2,7 @@ local K=KWC;local U={};K.UI=U
 local scrollChild
 local navButtons={}
 local navScroll,navChild=nil,nil
-local frame,body,scroll,header,active=nil,nil,nil,nil,'Overview'
+local frame,body,scroll,header,active=nil,nil,nil,nil,'Home'
 local boardFilter={CTA='ACTIVE',BOUNTY='ACTIVE'}
 local recruitmentRefresh, recruitmentQuery, recruitmentPitch
 local pvpView='lifetime'
@@ -32,6 +32,11 @@ end
 
 local render
 local surface
+local function navigate(page)
+ if page~=active then scroll:SetVerticalScroll(0) end
+ active=page
+ render()
+end
 local editingKind,editingId=nil,nil
 local pendingBountyTarget=nil
 local achievementPage=1
@@ -69,7 +74,18 @@ local function label(p,t,x,y,w,font)
  end
  return f
 end
-local function button(p,t,x,y,w,cb)
+local function tooltip(control,title,help)
+ if control.SetMotionScriptsWhileDisabled then control:SetMotionScriptsWhileDisabled(true) end
+ control:HookScript('OnEnter',function(self)
+  if not GameTooltip then return end
+  GameTooltip:SetOwner(self,'ANCHOR_RIGHT')
+  GameTooltip:SetText(title)
+  GameTooltip:AddLine(type(help)=='function' and help() or help,0.87,0.89,0.93,true)
+  GameTooltip:Show()
+ end)
+ control:HookScript('OnLeave',function() if GameTooltip then GameTooltip:Hide() end end)
+end
+local function button(p,t,x,y,w,cb,help)
  local b=CreateFrame('Button',nil,p);b:SetSize(w,34);b:SetPoint('TOPLEFT',x,y)
  local isNav=(p==navChild and w>=180)
  local function colors(hover)
@@ -98,6 +114,7 @@ local function button(p,t,x,y,w,cb)
  b:SetScript('OnLeave',function(self)self.kwcHovered=false;paint(false) end)
  if isNav then b.kwcPaint=paint;navButtons[#navButtons+1]=b end
  b:SetScript('OnClick',cb)
+ if help then tooltip(b,t,help) end
  return b
 end
 -- DEV39: consistent native KWC settings rows, with accessible status text.
@@ -273,7 +290,7 @@ render=function()
  if InCombatLockdown and InCombatLockdown() then U.needsRefresh=true;return end
  if not frame or not frame:IsShown() or not KWCDB then return end
  for _,nav in ipairs(navButtons) do if nav.kwcPaint then nav.kwcPaint(nav.kwcHovered or false) end end
- if type(active)~='string' then active='Overview' end
+ if type(active)~='string' then active='Home' end
  header:SetText(string.upper(pageTitle(active)));reset();local d=KWCDB
  if raidTabFor(active)==active then
   for i,tab in ipairs(raidTabs) do
@@ -289,7 +306,22 @@ render=function()
    end
   end
  end
- if active=='Overview' then
+ if active=='Home' then
+  label(body,'Home',18,-14,540,'GameFontNormalLarge')
+  local shortcuts={
+   {'Find a Group','Looking for Group','Browse guild groups or start your own listing.'},
+   {'PvP Operations','War Room','View guild PvP activity, scouting, and operations.'},
+   {'Raid Operations','Raid Tools','Open assignments, sign-ups, and raid tools.'},
+   {'Guild Services','Guild Services','Find guildmates by profession or known recipe.'},
+   {'Settings','Settings','Manage sharing, the minimap launcher, and window size.'},
+   {'Guild Overview','Overview','See the guild activity dashboard and group counts.'},
+  }
+  for i,item in ipairs(shortcuts) do
+   local y=-61-(i-1)*62
+   button(body,item[1],18,y,193,function() navigate(item[2]) end)
+   label(body,item[3],224,y-7,327)
+  end
+ elseif active=='Overview' then
   -- DEV28: UI-only command dashboard. Reads existing data; no writes or sync.
   local st=K.Operations.Stats()
   local ops=KWCDB.ops or {}
@@ -464,7 +496,7 @@ render=function()
    K.PvP.RefreshHonor()
    K.PvP.RequestGuildHonor()
    if K.GuildService then K.GuildService.Request() end
-  end)
+  end,'Refreshes your Forever PvP totals and requests current totals from compatible guildmates.')
   local lifetime=pvpView=='lifetime'
   label(body,lifetime and 'Lifetime honorable kills. Tiers are internal guild titles.' or
    'Forever character history. Players without reported totals are unranked.',18,-100,539)
@@ -602,18 +634,25 @@ render=function()
   local br=rt and rt.BattleResCounter
   local cfg=br and rt:GetSetting('battleResCounter')
   if cfg then
-   local function control(text,x,y,w,action)
-    button(body,text,x,y,w,function()action();render() end)
+   local function control(text,x,y,w,action,help)
+    return button(body,text,x,y,w,function()action();render() end,help)
    end
    label(body,'The indicator shows Rebirth charges and cooldowns. Cast Rebirth from your spell bar.',18,-107,530)
-   control(cfg.widgetEnabled and 'Disable button' or 'Enable button',18,-145,255,function()br:SetWidgetEnabled(not cfg.widgetEnabled) end)
-   control(br:IsPreviewShown() and 'Hide Preview' or 'Show Preview',292,-145,255,function()
+   control(cfg.widgetEnabled and 'Disable button' or 'Enable button',18,-145,255,function()br:SetWidgetEnabled(not cfg.widgetEnabled) end,
+    'Show the Battle Resurrection button while in a raid.')
+   local function positionHelp()
+    if not br:CanConfigurePosition() then return 'Enable the button and join a raid to move or preview it outside combat.' end
+    return 'Unlock the indicator to drag it, then lock it to keep the position.'
+   end
+   local preview=control(br:IsPreviewShown() and 'Hide Preview' or 'Show Preview',292,-145,255,function()
     if br:IsPreviewShown() and not cfg.lockFrames then br:SetWidgetUnlocked(false) end
     br:SetPreview(not br:IsPreviewShown())
-   end)
-   control(cfg.lockFrames and 'Unlock Position' or 'Lock Position',18,-190,255,function()br:SetWidgetUnlocked(cfg.lockFrames) end)
+   end,positionHelp)
+   local lock=control(cfg.lockFrames and 'Unlock Position' or 'Lock Position',18,-190,255,function()br:SetWidgetUnlocked(cfg.lockFrames) end,positionHelp)
+   setActionEnabled(preview,br:CanConfigurePosition())
+   setActionEnabled(lock,not cfg.lockFrames or br:CanConfigurePosition())
    control('Reset Position',292,-190,255,function()br:ResetPosition() end)
-   label(body,'Unlock to show the indicator and drag it. Lock when finished.',18,-233,525)
+   label(body,'Show the Battle Resurrection button while in a raid.',18,-233,525)
    local size=br:GetWidgetScale()
    control('Size -',18,-263,120,function()br:SetWidgetScale(size-10) end)
    label(body,('Size: %g%%'):format(size),157,-272,130)
@@ -835,7 +874,8 @@ render=function()
  elseif active=='CTA Board' then
   label(body,'Calls to arms',18,-16,530,'GameFontNormalLarge')
   button(body,'+ New CTA',12,-48,165,function()active='CTA Entry';render() end)
-  button(body,'Report to Guild',190,-48,170,function()K.Operations.ListActive('CTA',true) end)
+  button(body,'Report to Guild',190,-48,170,function()K.Operations.ListActive('CTA',true) end,
+   'Posts the active Calls to Arms to guild chat.')
   button(body,'Attendance History',372,-48,182,function()active='CTA Attendance';render() end)
   for i,v in ipairs({'ACTIVE','RESOLVED','ALL'}) do
    button(body,v,12+(i-1)*165,-92,155,function()boardFilter.CTA=v;render() end)
@@ -1071,24 +1111,29 @@ render=function()
   local gap,minimum=12,155
   local columns=math.max(1,math.min(3,math.floor((available+gap)/(minimum+gap))))
   local width=math.floor((available-(columns-1)*gap)/columns)
-  local function action(index,caption,callback)
+  local function action(index,caption,callback,help)
    local column=(index-1)%columns
    local row=math.floor((index-1)/columns)
-   return button(body,caption,12+column*(width+gap),-50-row*42,width,callback)
+   return button(body,caption,12+column*(width+gap),-50-row*42,width,callback,help)
   end
   action(1,'New Bounty',function() active='Bounty Entry';render() end)
   local sighting=action(2,'Report Sighting',function()
    if not activeBounty(selectedBounty) then return end
    editingId=selectedBounty;active='Report Sighting';render()
+  end,function()
+   return activeBounty(selectedBounty) and 'Open the zone and notes form for this bounty.' or 'Select an active bounty first.'
   end)
   local selected=activeBounty(selectedBounty)
   setActionEnabled(sighting,selected~=nil)
   bountyCapture=action(3,'Capture Target',function()
    if U.GetBountyPlayerName('target') then U.OpenBountyForUnit('target') end
+  end,function()
+   return U.GetBountyPlayerName('target') and 'Use your current player target in the new bounty form.' or 'Target a valid player first.'
   end)
   setActionEnabled(bountyCapture,U.GetBountyPlayerName('target')~=nil)
   local nextRow=-50-math.ceil(3/columns)*42
-  button(body,'Report to Guild',12,nextRow,155,function()K.Operations.ListActive('BOUNTY',true) end)
+  button(body,'Report to Guild',12,nextRow,155,function()K.Operations.ListActive('BOUNTY',true) end,
+   'Posts the active bounties to guild chat.')
   local target=selected and ((selected.details and selected.details.target) or selected.text)
   single(body,target and ('Selected: '..target) or 'Select an active bounty to report a sighting.',180,nextRow-9,365)
   local filterY=nextRow-45
@@ -1193,7 +1238,8 @@ render=function()
   end
   local queued,sent,errors,dropped=K.Net.Status()
   label(body,('Transport (all protocols): %d queued / %d accepted / %d errors / %d dropped'):format(queued,sent,errors,dropped),12,-470,580)
-  button(body,'Sync All Guild Data',12,-510,190,function()if K.Sync then K.Sync.RequestAll(false) end;render() end)
+  button(body,'Sync All Guild Data',12,-510,190,function()if K.Sync then K.Sync.RequestAll(false) end;render() end,
+   'Requests current shared records from compatible guildmates. Private settings stay local.')
   button(body,'Refresh Diagnostics',216,-510,190,function()render() end)
   local pvp=K.PvP.Diagnostics()
   label(body,('PvP honor queued: %d  /  PvP records applied: %d  /  PvP rejections: %d'):format(pvp.sent,pvp.received,pvp.rejected),12,-560,580)
@@ -1237,7 +1283,7 @@ render=function()
   end
   button(body,'Back to Settings',12,-555,190,function()active='Settings';render() end)
  elseif active=='Settings' then
-  label(body,'SETTINGS / GUILD DATA',12,-12,565,'GameFontNormalLarge')
+  label(body,'Preferences',12,-12,565,'GameFontNormalLarge')
   label(body,'WINDOW SIZE',12,-410,540,'GameFontNormal')
   label(body,'Current: '..math.floor(U.GetScale()*100+0.5)..'%  |  Choose a size below or use /kt scale 90',12,-440,550)
   button(body,'75%',12,-475,100,function()U.SetScale(0.75);render() end)
@@ -1246,10 +1292,29 @@ render=function()
   button(body,'115%',348,-475,100,function()U.SetScale(1.15);render() end)
   button(body,'125%',460,-475,100,function()U.SetScale(1.25);render() end)
 
-  label(body,'Roster and Chronicle remain available here. Background data collection stays active.',12,-52,560)
+  label(body,'Guild tools',12,-58,560,'GameFontNormal')
   button(body,'View Guild Roster',12,-100,220,function()active='Guild Roster';render() end)
   button(body,'View Chronicle',250,-100,220,function()active='Chronicle';render() end)
-  label(body,'Guild roster data still supports recruiting, guild checks and other features.',12,-153,560)
+  label(body,'Guild Services sharing',12,-149,540,'GameFontNormal')
+  local services=K.GuildServices
+  local _,guild,actor=services.Context()
+  local ready=guild~=nil
+  local sharing=button(body,ready and (services.IsSharing() and 'Sharing On' or 'Sharing Off') or 'Sharing unavailable',
+   12,-174,220,function()
+    local _,currentGuild,currentActor=services.Context()
+    if ready and guild==currentGuild and actor==currentActor then services.SetSharing(not services.IsSharing()) end
+    render()
+   end,function()
+    if ready then return 'Share this character’s profession skills and observed learned recipes with this guild.' end
+    local state=K.GuildReadiness()
+    return state=='Ready' and 'The Guild Services data format is unsupported.' or state
+   end)
+  setActionEnabled(sharing,ready)
+  local minimap=K.MinimapLauncher
+  button(body,minimap.IsVisible() and 'Hide Minimap Icon' or 'Show Minimap Icon',12,-226,220,function()
+   minimap.SetVisible(not minimap.IsVisible());render()
+  end)
+  button(body,'Reset Minimap Position',250,-226,220,minimap.ResetPosition)
   label(body,'!cta / !bounties request reports locally; use the board to send.',12,-275,550)
   button(body,'Addon Checker',272,-365,245,function()active='Addon Checker';K.AddonChecker.Request();render() end)
   button(body,'Sync Health Monitor',12,-365,245,function()active='Sync Health';render() end)
@@ -1400,7 +1465,12 @@ K.On('PLAYER_TARGET_CHANGED',function()
   setActionEnabled(bountyCapture,U.GetBountyPlayerName('target')~=nil)
  end
 end)
-function U.LFGRefresh() if active=='Looking for Group' or active=='Guild Services' or active=='Overview' then render() end end
+function U.LFGRefresh()
+ if active=='Looking for Group' or active=='Guild Services' or active=='Overview' or active=='Settings' then render() end
+end
+K.On('GROUP_ROSTER_UPDATE',function()
+ if active=='Raid Tools: Battle Resurrection' then render() end
+end)
 function U.RaidRefresh() if active=='Raid Tools: Command' then render() end end
 function U.CheckerRefresh() if active=='Addon Checker' or active=='Guild Roster' then U.Refresh() end end
 function U.RecruitmentRefresh()
@@ -1536,18 +1606,14 @@ function U.Toggle(page)
    navY=navY-25
   end
   local function item(text,page)
-   local b=button(navChild,text,5,navY,194,function()
-    scroll:SetVerticalScroll(0)
-    active=page
-    render()
-   end)
+   local b=button(navChild,text,5,navY,194,function() navigate(page) end)
    b:SetHeight(32)
    b.kwcPage=page
    navY=navY-38
   end
-  section('DASHBOARD')
-  item('Overview','Overview')
-  section('PVP OPERATIONS')
+  section('HOME')
+  item('Home','Home')
+  section('PVP')
   item('War Room','War Room')
   item('Calls to Arms','CTA Board')
   item('Bounty Board','Bounty Board')
@@ -1579,7 +1645,14 @@ function U.Toggle(page)
   end)
   frame:Hide()
  end
- if type(page)=='string' and page~='' then if page~=active then scroll:SetVerticalScroll(0) end;active=page;frame:Show() else if frame:IsShown() then frame:Hide() else frame:Show() end end
+ if type(page)=='string' and page~='' then
+  if page~=active then scroll:SetVerticalScroll(0) end
+  active=page;frame:Show()
+ elseif frame:IsShown() then
+  frame:Hide()
+ else
+  active='Home';scroll:SetVerticalScroll(0);navScroll:SetVerticalScroll(0);frame:Show()
+ end
  if not frame:IsShown() and K.RaidTools and K.RaidTools.Close then K.RaidTools.Close() end
  if frame:IsShown() then frame:SetScale(fitScale(U.GetScale())) end
  if frame:IsShown() and K.Sync and K.Sync.OnWindowOpened then K.Sync.OnWindowOpened() end
