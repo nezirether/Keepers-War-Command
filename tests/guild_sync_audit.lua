@@ -5,11 +5,12 @@ local epoch = 1794592800
 local modules = {
     "Core.lua","Network.lua","AutoScout.lua","Roster.lua","Operations.lua",
     "CTAJoin.lua","RaidCommand.lua","RaidSignup.lua","GuildService.lua",
-    "Sync.lua","PvP.lua","AddonChecker.lua","QualityOfLife.lua",
+    "Sync.lua","PvP.lua","AddonChecker.lua",
 }
 local chunks = {}
 local baseline = ... == "baseline"
 local baselineRef = "390b208b8ab41fcb4184cd4270c8123df0d4dee5"
+table.insert(modules,baseline and "QualityOfLife.lua" or "AlertSounds.lua")
 if not baseline then
     table.insert(modules,"GuildLFGModel.lua")
     table.insert(modules,"GuildLFG.lua")
@@ -276,9 +277,10 @@ assert(p.honor.lifetime~=99999)
 packet(holder,"KWC3","2;HONOR;9000",member)
 packet(holder,"KWC3","2;HONOR;10",member)
 assert(p.honor.lifetime==9000, "stale honor regressed lifetime HKs")
+p.achievementPoints=23
 packet(holder,"KWC3","2;ACHPTS;45",member)
 packet(holder,"KWC3","2;ACHPTS;5",member)
-assert(p.achievementPoints==45, "stale points regressed achievement totals")
+assert(p.achievementPoints==(baseline and 45 or 23), "legacy points must remain unchanged after retirement")
 local active={id="replayed-sight",author=author.name,text="active",status="ACTIVE"}
 B.KWCDB.bounties[1]=active
 for _=1,30 do packet(holder,"KWC3","2;SIGHT;replayed-sight:Audit Zone,same",member) end

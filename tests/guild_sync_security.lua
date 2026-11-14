@@ -49,8 +49,9 @@ assert(#sight.sightings == 1, "duplicate sightings consumed history")
 
 packet(peer, "KWC3", "2;HONOR;9000", member)
 packet(peer, "KWC3", "2;HONOR;10", member)
+local p = B.KWCDB.pvp[member.name]
+p.achievementPoints=23
 packet(peer, "KWC3", "2;ACHPTS;45", member)
 packet(peer, "KWC3", "2;ACHPTS;5", member)
-local p = B.KWCDB.pvp[member.name]
-assert(p.honor.lifetime == 9000 and p.achievementPoints == 45)
+assert(p.honor.lifetime == 9000 and p.achievementPoints == 23)
 print("PASS: guild RSVP and command authorization, revision convergence, replay guards, and stale statistics")

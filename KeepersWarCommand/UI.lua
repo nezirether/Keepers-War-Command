@@ -42,8 +42,6 @@ local function navigate(page)
 end
 local editingKind,editingId=nil,nil
 local pendingBountyTarget=nil
-local achievementPage=1
-local achievementFilter='All'
 local selectedCTA=nil
 local selectedBounty=nil
 local bountyCapture
@@ -546,8 +544,6 @@ render=function()
   recruitmentRefresh()
  elseif active=='CTA Attendance' then
   if K.GuildService then K.GuildService.DrawCTA(body,label,button) end
- elseif active=='Commendations' then
-  if K.GuildService then K.GuildService.DrawCommendations(body,label) end
  elseif active=='PvP Leaderboard' then
   label(body,'PvP leaderboard',18,-16,530,'GameFontNormalLarge')
   local views={{'lifetime','All-Time HKs'},{'world','World PvP'},{'battleground','Battlegrounds'}}
@@ -1128,39 +1124,6 @@ render=function()
     button(body,'Bounty',470,y-4,88,function()U.OpenBountyForName(e.killer) end)
    end
   end
- elseif active=='Achievements' then
-  local q=K.QOL
-  local unlocked,total=q.Summary()
-  label(body,'GUILD PvP ACHIEVEMENTS',12,-12,550,'GameFontNormalLarge')
-  label(body,'Unlocked '..unlocked..' / '..total..'  |  Achievement Points: '..q.Points(),12,-48,570)
-  label(body,'Earn points through addon actions and lifetime honorable kill milestones.',12,-72,575)
-  local categories={'All','PvP Kills','Calls to Arms','Bounty Board','Bounty Claims','Scouting','Reinforcements'}
-  for i,cat in ipairs(categories) do
-   local row=math.floor((i-1)/4);local col=(i-1)%4
-   button(body,(achievementFilter==cat and '* ' or '')..cat,12+col*145,-108-row*40,138,function()achievementFilter=cat;achievementPage=1;render() end)
-  end
-  local filtered={}
-  for _,a in ipairs(q.Catalog()) do if achievementFilter=='All' or achievementFilter=='Unlocked' or a.category==achievementFilter then filtered[#filtered+1]=a end end
-  if achievementFilter=='Unlocked' then
-   local earned={};for _,a in ipairs(filtered) do if q.Unlocked(a.id) then earned[#earned+1]=a end end
-   filtered=earned
-  end
-  local perPage=12
-  local pages=math.max(1,math.ceil(#filtered/perPage))
-  achievementPage=math.max(1,math.min(achievementPage,pages))
-  label(body,achievementFilter..'  |  Page '..achievementPage..' / '..pages..'  |  '..#filtered..' achievements',12,-199,570,'GameFontNormal')
-  button(body,'< Previous',12,-229,130,function()achievementPage=math.max(1,achievementPage-1);render() end)
-  button(body,'Next >',158,-229,130,function()achievementPage=math.min(pages,achievementPage+1);render() end)
-  button(body,'Unlocked only',304,-229,175,function()achievementFilter='Unlocked';achievementPage=1;render() end)
-  for i=(achievementPage-1)*perPage+1,math.min(#filtered,achievementPage*perPage) do
-   local a=filtered[i];local n=i-(achievementPage-1)*perPage
-   local y=-285-(n-1)*65
-   local current=q.Count(a.kind);local earned=q.Unlocked(a.id)
-   label(body,(earned and '|cff66dd88[UNLOCKED]|r ' or '|cff999999[LOCKED]|r ')..a.title,12,y,560,'GameFontNormal')
-   local description=a.description:gsub('CTAs posted','Calls to Arms posted')
-   label(body,description..'   |   '..(a.points or 5)..' pts   |   Progress: '..math.min(current,a.required)..' / '..a.required,24,y-26,545)
-  end
-  if #filtered==0 then label(body,'No unlocked achievements in this view yet.',12,-285,550) end
  elseif active=='Bounty Entry' then
   label(body,'NEW BOUNTY  /  All guild members can submit',12,-12,565,'GameFontNormalLarge')
   button(body,'View Bounty Board',350,-40,190,function()active='Bounty Board';render() end)
@@ -1904,7 +1867,6 @@ function U.Toggle(page)
   item('Raid Operations','Raid Tools')
   section('GUILD')
   item('Recruitment','Recruitment')
-  item('Commendations','Commendations')
   item('Looking for Group','Looking for Group')
   item('Guild Services','Guild Services')
   item('Guild Roster','Guild Roster')

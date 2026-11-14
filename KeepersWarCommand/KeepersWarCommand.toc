@@ -79,7 +79,7 @@ GuildServicesUI.lua
 PvP.lua
 Companions.lua
 AddonChecker.lua
-QualityOfLife.lua
+AlertSounds.lua
 WorldPvPDeaths.lua
 UI.lua
 MinimapLauncher.lua
