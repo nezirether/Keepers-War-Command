@@ -51,6 +51,7 @@ local selectedAAR=nil
 local C=K.UITheme
 local FONT=C.font
 local settingsQuery,settingsCategory='',''
+local alertSelection='death'
 local settingIndex={
  {'Window Scale','Interface & Minimap','Change the size of the War Command window.','Settings',-410,'Account-wide'},
  {'Minimap Launcher','Interface & Minimap','Show or hide the launcher and reset its position.','Settings',-226,'Account-wide'},
@@ -59,10 +60,10 @@ local settingIndex={
  {'Sync Health','Sync & Network','Inspect board, PvP, and transport outcomes.','Sync Health',-12},
  {'Auto Scout','World PvP','Share observed enemy activity with guildmates.','Settings',-274,'Account-wide','autoscout',264},
  {'Alert Sound','Alerts','Turn all alert sounds on or off.','Alerts',-53,'Account-wide'},
- {'Guild Death Alerts','Alerts','Manage popup, sound, position, size, and duration.','Alerts',-109,'Account-wide'},
- {'Smart Mode','World PvP','Set the death threshold, detection window, and quiet period.','Alerts',-298,'Account-wide','guild death'},
- {'Bounty Alerts','Alerts','Manage bounty target popup, sound, and preview.','Alerts',-553,'Account-wide'},
- {'Call to Arms and Report Reminders','Alerts','Manage chat alerts and report reminders.','Alerts',-800,'Account-wide','cta'},
+ {'Guild Death Alerts','Alerts','Manage popup, sound, position, size, and duration.','Alerts',-95,'Account-wide',nil,253,'death'},
+ {'Smart Mode','World PvP','Set the death threshold, detection window, and quiet period.','Alerts',-640,'Account-wide','guild death',253,'death'},
+ {'Bounty Alerts','Alerts','Manage bounty target popup, sound, and preview.','Alerts',-95,'Account-wide',nil,253,'bounty'},
+ {'Call to Arms Chat Alerts','Alerts','Show incoming Calls to Arms in chat.','Alerts',-102,'Account-wide','cta',253,'calls'},
  {'Battle Resurrection','Raids','Enable the raid-only indicator and adjust its layout.','Raid Tools: Battle Resurrection',-14,'Account-wide','battle rez brez'},
  {'Ready Check','Raids','Manage readiness notifications and display.','Raid Tools: Ready Check Advanced',-14},
  {'Combat Tools','Raids','Configure raid combat displays.','Raid Tools: Combat Tools',-14},
@@ -70,15 +71,18 @@ local settingIndex={
  {'Death Protection','Raids','Adjust raid release protection.','Raid Tools: Don\'t Release',-14},
  {'Addon Checker','Advanced','View versions reported by compatible guildmates.','Addon Checker',-12},
  {'Ready Check Sounds','Raids','Configure readiness sound and notification preferences.','Raid Tools: Ready Check Advanced',-14},
- {'Guild Death Broadcast','World PvP','Control guild-wide death reports.','Alerts',-339,'Account-wide',nil,274},
- {'Hide Death Alerts in Combat','World PvP','Suppress the local popup during combat.','Alerts',-339,'Account-wide'},
- {'Death Alert Display','Alerts','Preview, move, resize, and time the death popup.','Alerts',-175,'Account-wide','test preview'},
- {'Bounty Alert Display','Alerts','Preview, move, resize, and time the bounty popup.','Alerts',-619,'Account-wide','test preview'},
- {'Friendly Bounty Test Mode','Alerts','Allow friendly targets in the existing bounty test mode.','Alerts',-742,'Account-wide'},
+ {'Guild Death Broadcast','World PvP','Control guild-wide death reports.','Alerts',-601,'Account-wide',nil,253,'death'},
+ {'Hide Death Alerts in Combat','World PvP','Suppress the local popup during combat.','Alerts',-562,'Account-wide',nil,253,'death'},
+ {'Death Alert Display','Alerts','Preview, move, resize, and time the death popup.','Alerts',-340,'Account-wide','test preview position',253,'death'},
+ {'Bounty Alert Display','Alerts','Preview, move, resize, and time the bounty popup.','Alerts',-340,'Account-wide','test preview position',253,'bounty'},
+ {'Friendly Bounty Test Mode','Alerts','Allow friendly targets in the existing bounty test mode.','Alerts',-523,'Account-wide',nil,253,'bounty'},
+ {'Report reminders','General','Show local report reminders in chat.','Alerts',-102,'Account-wide',nil,253,'reminders'},
+ {'Guild LFG Notices','Guild & Sharing','Configure interest, invitation, and matching notices.','Looking for Group',-167,'Account-wide'},
 }
 local function openSetting(entry)
  if InCombatLockdown and InCombatLockdown() then return end
  active=entry[4]
+ if entry[9] then alertSelection=entry[9] end
  pendingSetting,focusedSetting=entry,entry
  render()
 end
@@ -228,7 +232,7 @@ end
 local function pageTitle(page)
  if raidTabFor(page)==page then return 'Raid Operations' end
  local names={
-  Home='Command Center',Settings='Settings Center',['Settings Search']='Settings Search',
+  Home='Command Center',Settings='Settings Center',Alerts='Alert Command Center',['Settings Search']='Settings Search',
   ['CTA Board']='Calls to Arms',['CTA Entry']='New Call to Arms',
   ['CTA Details']='Call to Arms Details',['CTA Roster']='Call to Arms Roster',
   ['CTA Attendance']='Call to Arms Attendance',
@@ -1390,10 +1394,11 @@ render=function()
    label(row,entry[3],24,-48,517)
    results[#results+1]=row
   end
-  local empty=label(body,'No settings match this search.',12,-180,541)
+  local firstResultY=-212
+  local empty=label(body,'No settings match this search.',12,firstResultY-8,541)
   local function showSettings()
    local term=settingsQuery:lower():gsub('^%s+',''):gsub('%s+$','')
-   local y=-172
+   local y=firstResultY
    for i,entry in ipairs(settingIndex) do
     local keywords=table.concat({entry[1],entry[2],entry[3],entry[7] or ''},' '):lower()
     local matches=true
@@ -1407,15 +1412,15 @@ render=function()
      y=y-83
     end
    end
-   empty:SetShown(y==-172)
+   empty:SetShown(y==firstResultY)
    local height=math.max(500,16-y)
    body:SetHeight(height);scrollChild:SetHeight(height)
    scroll:SetVerticalScroll(0)
   end
-  local categories={'All Settings','Interface & Minimap','Alerts','World PvP','Raids','Guild & Sharing','Sync & Network','Advanced'}
+  local categories={'All Settings','General','Interface & Minimap','Alerts','World PvP','Raids','Guild & Sharing','Sync & Network','Advanced'}
   for i,category in ipairs(categories) do
    local value=i==1 and '' or category
-   button(body,category,12+((i-1)%4)*137,-89-math.floor((i-1)/4)*38,130,function()
+   button(body,category,12+((i-1)%3)*183,-89-math.floor((i-1)/3)*38,175,function()
     settingsCategory=value;render()
    end,nil,settingsCategory==value)
   end
@@ -1479,82 +1484,163 @@ render=function()
   settingLink(body,'World PvP Settings',272,-525,245,9)
   body:SetHeight(580);scrollChild:SetHeight(580)
  elseif active=='Alerts' then
-  label(body,'ALERTS',12,-12,550,'GameFontNormalLarge')
-  local settings=d.settings
-  local q=K.QOL
-  local function toggle(text,enabled,x,y,change)
-   button(body,text..': '..(enabled and 'ON' or 'OFF'),x,y,255,function()
+  label(body,'Alert Command Center',12,-12,550,'GameFontNormalLarge')
+  button(body,'Settings Center',400,-7,155,function()navigate('Settings') end)
+  local settings,q=d.settings,K.QOL
+  local deaths,bounty=K.WorldPvPDeaths,K.BountyAlerts
+  local panelX,panelWidth=253,303
+  local function toggle(text,enabled,x,y,width,change,help)
+   button(body,text..': '..(enabled and 'ON' or 'OFF'),x,y,width,function()
     change(not enabled);render()
-   end)
+   end,help,enabled)
   end
-  if q then toggle('All alert sounds',q.Enabled('alertSound'),12,-53,function()q.Toggle('alertSound') end) end
-
-  local function popup(title,api,key,y,enabled,soundEnabled,setSound,duration)
-   label(body,title,12,y,555,'GameFontNormal')
-   toggle('Popup',enabled,12,y-25,api.SetEnabled)
-   toggle('Sound',soundEnabled,282,y-25,setSound)
-   local unlocked=settings[key..'Unlocked']
-   button(body,unlocked and 'Lock position' or 'Unlock & move',12,y-66,255,function()api.SetUnlocked(not unlocked);render() end)
-   button(body,'Test alert',282,y-66,255,api.Demo)
-
-   local pct=math.floor((tonumber(settings[key..'Scale']) or 1)*100+0.5)
-   button(body,'Size -',12,y-107,100,function()api.SetScale((pct-10)/100);render() end)
-   label(body,'Size: '..pct..'%',125,y-116,142)
-   button(body,'Size +',282,y-107,100,function()api.SetScale((pct+10)/100);render() end)
-   button(body,'Reset position',397,y-107,140,function()api.ResetPosition();render() end)
-
-   button(body,'Time -',12,y-148,100,function()api.SetDuration(math.max(3,duration-1));render() end)
-   label(body,'Duration: '..duration..'s',125,y-157,150)
-   button(body,'Time +',282,y-148,100,function()api.SetDuration(math.min(30,duration+1));render() end)
+  if q then
+   toggle('All alert sounds',q.Enabled('alertSound'),12,-53,224,function()q.Toggle('alertSound') end,
+    'Master sound switch for supported War Command alerts.')
   end
 
-  local deaths=K.WorldPvPDeaths
-  if deaths and deaths.SetDuration then
-   popup('GUILD DEATH ALERTS',deaths,'worldPvPDeath',-109,settings.worldPvPDeathAlerts~=false,
-    settings.worldPvPDeathSound~=false,deaths.SetSound,tonumber(settings.worldPvPDeathDuration) or 8)
-   toggle('Smart Mode',settings.worldPvPDeathSmart~=false,12,-298,deaths.SetSmart)
-   toggle('Chat alerts',settings.worldPvPDeathChat~=false,282,-298,deaths.SetChat)
-   toggle('Hide in combat',not not settings.worldPvPDeathSuppressInCombat,12,-339,deaths.SetCombatSuppression)
-   toggle('Guild broadcast',settings.worldPvPDeathBroadcast~=false,282,-339,function(value)settings.worldPvPDeathBroadcast=value end)
-   local smart=deaths.GetBattleSettings()
-   label(body,'Unique deaths (2–20)',12,-389,166)
-   label(body,'Detection window (15–180s)',190,-389,174)
-   label(body,'Quiet period (15–300s)',370,-389,167)
-   local threshold=edit(body,tostring(smart.threshold),12,-409,164)
-   local window=edit(body,tostring(smart.window),190,-409,164)
-   local quiet=edit(body,tostring(smart.quiet),370,-409,164)
-   for _,field in ipairs({threshold,window,quiet}) do field:SetNumeric(true) end
-   button(body,'Apply Smart Mode settings',12,-447,255,function()
-    deaths.SetBattleSettings({threshold=threshold:GetText(),window=window:GetText(),quiet=quiet:GetText()})
+  local function status(value)
+   if value==nil then return 'Unavailable' end
+   return value and 'Enabled' or 'Disabled'
+  end
+  local function raidStatus(key,field)
+   local rt=KeepersRaidTools
+   local cfg=rt and rt.GetSetting and rt:GetSetting(key)
+   return cfg and status(cfg[field]==true) or 'Unavailable'
+  end
+  local function countLFG()
+   local prefs=settings.guildLFG or {}
+   local count=0
+   for _,key in ipairs({'interest','invitation','matching'}) do
+    if prefs[key] then count=count+1 end
+   end
+   return count..' of 3 enabled'
+  end
+  local function guildBroadcast(value) settings.worldPvPDeathBroadcast=value end
+  local function callsToArms(value) settings.alerts=value end
+  local function reminders(value) settings.autoGuildReports=value end
+  local cards={
+   {'death','Guild Death','Popup for reported guild deaths.',status(deaths and settings.worldPvPDeathAlerts~=false),deaths and deaths.Demo},
+   {'bounty','Bounty Spotted','Popup when a bounty target is seen.',status(bounty and q and bounty.Status()),bounty and bounty.Demo},
+   {'calls','Calls to Arms','Incoming announcements in chat.',status(settings.alerts~=false)},
+   {'reminders','Report reminders','Local reminders in chat.',status(not not settings.autoGuildReports)},
+   {'lfg','Guild LFG notices','Interest, invites, and matching.',countLFG(),nil,'Looking for Group'},
+   {'ready','Ready Check','Raid readiness feedback.',raidStatus('readyCheck','enabled'),nil,'Raid Tools: Ready Check Advanced'},
+   {'combat','Combat displays','Cooldowns and encounter timers.',raidStatus('combatTimer','enabled')..' timer',nil,'Raid Tools: Combat Tools'},
+   {'rez','Battle Resurrection','Raid-only indicator.',raidStatus('battleResCounter','widgetEnabled'),nil,'Raid Tools: Battle Resurrection'},
+   {'release','Death Protection','Existing release protection.',raidStatus('dontRelease','enabled'),nil,"Raid Tools: Don't Release"},
+  }
+  for i,card in ipairs(cards) do
+   local y=-100-(i-1)*114
+   local selected=alertSelection==card[1]
+   surface(body,12,y,224,107,selected and 0.18 or 0.12)
+   label(body,card[2],21,y-6,205,'GameFontNormal')
+   label(body,card[3],21,y-24,205)
+   local state=label(body,card[4],21,y-49,205)
+   state:SetTextColor(unpack(card[4]=='Enabled' and C.gold or C.muted))
+   local caption=card[1]=='death' and 'Configure Death' or card[1]=='bounty' and 'Configure Bounty' or 'Configure '..card[2]
+   button(body,caption,21,y-66,card[5] and 116 or 205,function()
+    if card[6] then navigate(card[6]);return end
+    alertSelection=card[1]
+    pendingSetting,focusedSetting=nil,nil
+    scroll:SetVerticalScroll(0)
     render()
-   end)
-   button(body,'Reset Defaults',282,-447,255,function()
-    confirmReset('Reset Guild Death Smart Mode settings?',deaths.ResetBattleSettings)
-   end)
-   label(body,('Suppresses death popups after %d unique deaths in %ds. Each new report extends the %ds quiet period.')
-    :format(smart.threshold,smart.window,smart.quiet),12,-495,545)
-  else
-   label(body,'Guild death alerts are unavailable.',12,-109,550)
+   end,'Open '..card[2]..' configuration.',selected)
+   if card[5] then
+    button(body,'Test Alert',143,y-66,84,card[5],'Play the existing local preview.')
+   end
   end
 
-  local bounty=K.BountyAlerts
-  if bounty and bounty.GetDuration and q then
-   popup('BOUNTY TARGET SPOTTED',bounty,'bountyAlert',-553,bounty.Status(),
-    q.Enabled('bountySound'),function()q.Toggle('bountySound') end,bounty.GetDuration())
-   toggle('Friendly bounty test mode',bounty.TestMode(),12,-742,bounty.SetTestMode)
+  local title
+  for _,card in ipairs(cards) do if card[1]==alertSelection then title=card[2];break end end
+  local isBounty=alertSelection=='bounty'
+  local api=deaths
+  if isBounty then api=bounty end
+  local popup=alertSelection=='death' or isBounty
+  surface(body,panelX,-53,panelWidth,popup and (isBounty and 525 or 760) or 130,0.115)
+  local x=panelX+10
+  label(body,title,x,-63,280,'GameFontNormal')
+  if not popup then
+   local calls=alertSelection=='calls'
+   toggle(calls and 'Incoming Calls to Arms' or 'Report reminders',
+    calls and settings.alerts~=false or (not calls and not not settings.autoGuildReports),x,-102,280,
+    calls and callsToArms or reminders,'Show this type of message in local chat.')
+  elseif not (api and api.SetDuration and (not isBounty or q)) then
+   label(body,'This alert is unavailable.',x,-101,280)
   else
-   label(body,'Bounty alerts are unavailable.',12,-553,550)
+   local key=isBounty and 'bountyAlert' or 'worldPvPDeath'
+   local enabled=not isBounty and settings.worldPvPDeathAlerts~=false
+   local sound=not isBounty and settings.worldPvPDeathSound~=false
+   if isBounty then enabled=bounty.Status();sound=q.Enabled('bountySound') end
+   toggle('Show popup',enabled,x,-95,280,api.SetEnabled,'Show this alert on screen.')
+   toggle('Play sound',sound,x,-136,280,isBounty and function()q.Toggle('bountySound') end or deaths.SetSound,
+    'Use the existing alert sound when master alert sounds are on.')
+
+   label(body,'Appearance',x,-181,280,'GameFontNormal')
+   local scale=math.floor((tonumber(settings[key..'Scale']) or 1)*100+0.5)
+   local duration=isBounty and api.GetDuration() or tonumber(settings.worldPvPDeathDuration) or 8
+   local function stepper(name,value,y,change,help)
+    label(body,name..'  '..value,x,y-8,166)
+    button(body,name..' -',x+168,y,54,function()change(-1);render() end,help)
+    button(body,name..' +',x+226,y,54,function()change(1);render() end,help)
+   end
+   stepper('Size',scale..'%',-204,function(delta)api.SetScale((scale+delta*10)/100) end,'Adjust popup scale.')
+   stepper('Time',duration..'s',-243,function(delta)
+    api.SetDuration(delta<0 and math.max(3,duration-1) or math.min(30,duration+1))
+   end,'Adjust popup duration.')
+
+   label(body,'Screen Position',x,-288,280,'GameFontNormal')
+   local unlocked=settings[key..'Unlocked']
+   local position=settings[key..'Position']
+   local place='Default position'
+   if type(position)=='table' and type(position.nx)=='number' and type(position.ny)=='number' then
+    place=('Saved: %.0f%% from left, %.0f%% from bottom'):format(position.nx*100,position.ny*100)
+   end
+   label(body,unlocked and 'Positioning mode: drag the preview, then lock it.' or place,x,-313,280)
+   button(body,unlocked and 'Lock position' or 'Move Alert',x,-340,134,function()
+    api.SetUnlocked(not unlocked);render()
+   end,'Drag the existing preview to save its position.',unlocked)
+   button(body,'Reset Position',x+144,-340,136,function()api.ResetPosition();render() end,'Restore the default position.')
+   surface(body,x,-381,280,68,0.065)
+   local artwork=body:CreateTexture(nil,'ARTWORK')
+   artwork:SetPoint('TOPLEFT',body,'TOPLEFT',x+62,-383)
+   artwork:SetSize(156,62)
+   artwork:SetTexture('Interface\\AddOns\\KeepersWarCommand\\Textures\\'..(isBounty and 'BountyAlertFrame.tga' or 'DeathAlertFrame.tga'))
+   artwork:SetTexCoord(0,1,0,410/512)
+   button(body,'Test preview',x,-455,280,api.Demo,'Play a local preview without reporting an event.')
+
+   label(body,'Behavior',x,-499,280,'GameFontNormal')
+   if isBounty then
+    toggle('Friendly bounty test mode',bounty.TestMode(),x,-523,280,bounty.SetTestMode,
+     'Allow friendly bounty targets in the existing test mode.')
+   else
+    toggle('Chat alerts',settings.worldPvPDeathChat~=false,x,-523,280,deaths.SetChat,'Show qualifying death reports in chat.')
+    toggle('Hide in combat',not not settings.worldPvPDeathSuppressInCombat,x,-562,280,deaths.SetCombatSuppression,
+     'Suppress the local popup during combat.')
+    toggle('Guild broadcast',settings.worldPvPDeathBroadcast~=false,x,-601,280,guildBroadcast,
+     'Share qualifying guild death reports.')
+    toggle('Smart Mode',settings.worldPvPDeathSmart~=false,x,-640,280,deaths.SetSmart,
+     'Suppress repeated death popups during heavy guild PvP activity.')
+    local smart=deaths.GetBattleSettings()
+    label(body,'Deaths (2–20)',x,-682,89)
+    label(body,'Window (s)',x+96,-682,89)
+    label(body,'Quiet (s)',x+192,-682,88)
+    local threshold=edit(body,tostring(smart.threshold),x,-702,86)
+    local window=edit(body,tostring(smart.window),x+96,-702,86)
+    local quiet=edit(body,tostring(smart.quiet),x+192,-702,88)
+    for _,field in ipairs({threshold,window,quiet}) do field:SetNumeric(true) end
+    button(body,'Apply Smart Mode settings',x,-738,164,function()
+     deaths.SetBattleSettings({threshold=threshold:GetText(),window=window:GetText(),quiet=quiet:GetText()})
+     render()
+    end,'Window: 15–180 seconds. Quiet period: 15–300 seconds.')
+    button(body,'Reset Defaults',x+172,-738,108,function()
+     confirmReset('Reset Guild Death Smart Mode settings?',deaths.ResetBattleSettings)
+    end)
+    label(body,('%d unique deaths in %ds suppress popups. Each new report extends the %ds quiet period.')
+     :format(smart.threshold,smart.window,smart.quiet),x,-782,280)
+   end
   end
-
-  label(body,'CALL TO ARMS & REPORT REMINDERS',12,-800,550,'GameFontNormal')
-  toggle('Incoming Calls to Arms',settings.alerts~=false,12,-825,function(value)settings.alerts=value end)
-  toggle('Report reminders',not not settings.autoGuildReports,282,-825,function(value)settings.autoGuildReports=value end)
-  label(body,'Call to Arms announcements and report reminders appear in chat.',12,-869,550)
-
-  label(body,'RAID TOOLS',12,-912,550,'GameFontNormal')
-  button(body,'Ready-check notifications',12,-937,255,function()active='Raid Tools: Ready Check Advanced';render() end)
-  button(body,'Combat displays',282,-937,255,function()active='Raid Tools: Combat Tools';render() end)
-  button(body,'Death protection',12,-978,255,function()active="Raid Tools: Don't Release";render() end)
+  body:SetHeight(1135);scrollChild:SetHeight(1135)
  elseif active=='Guild Roster' then
   button(body,'Back to Settings',12,-53,180,function()active='Settings';render() end)
   label(body,'GUILD ROSTER  /  Live game roster',12,-12,560,'GameFontNormalLarge')
@@ -1700,13 +1786,13 @@ function U.Toggle(page)
   dragHeader:SetScript('OnDragStart',function()frame:StartMoving() end)
   dragHeader:SetScript('OnDragStop',function()frame:StopMovingOrSizing() end)
   local border=frame:CreateTexture(nil,'BACKGROUND',nil,-4);border:SetAllPoints(frame);border:SetColorTexture(unpack(C.steel))
-  local backdrop=frame:CreateTexture(nil,'BACKGROUND',nil,-3);backdrop:SetPoint('TOPLEFT',2,-2);backdrop:SetPoint('BOTTOMRIGHT',-2,2);backdrop:SetColorTexture(unpack(C.panel))
+  local backdrop=frame:CreateTexture(nil,'BACKGROUND',nil,-3);backdrop:SetPoint('TOPLEFT',2,-2);backdrop:SetPoint('BOTTOMRIGHT',-2,2);backdrop:SetColorTexture(unpack(C.charcoal))
   local sidebar=frame:CreateTexture(nil,'BACKGROUND',nil,-2)
   sidebar:SetPoint('TOPLEFT',frame,'TOPLEFT',8,-57);sidebar:SetPoint('BOTTOMLEFT',frame,'BOTTOMLEFT',8,12)
-  sidebar:SetWidth(211);sidebar:SetColorTexture(0.082,0.082,0.09,1)
+  sidebar:SetWidth(211);sidebar:SetColorTexture(unpack(C.graphite))
   local sidebarAccent=frame:CreateTexture(nil,'ARTWORK')
   sidebarAccent:SetPoint('TOPLEFT',frame,'TOPLEFT',218,-58);sidebarAccent:SetPoint('BOTTOMLEFT',frame,'BOTTOMLEFT',218,14)
-  sidebarAccent:SetWidth(1);sidebarAccent:SetColorTexture(unpack(C.steel))
+  sidebarAccent:SetWidth(1);sidebarAccent:SetColorTexture(unpack(C.bronze))
   local stripe=frame:CreateTexture(nil,'OVERLAY');stripe:SetPoint('TOPLEFT',frame,'TOPLEFT',2,-48);stripe:SetPoint('TOPRIGHT',frame,'TOPRIGHT',-2,-48);stripe:SetHeight(2);stripe:SetColorTexture(unpack(C.crimson))
   local mark=frame:CreateTexture(nil,'ARTWORK')
   mark:SetPoint('TOPLEFT',12,-8);mark:SetSize(32,32)

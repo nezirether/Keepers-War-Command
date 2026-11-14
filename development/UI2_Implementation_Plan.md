@@ -57,3 +57,5 @@ Use only local presentation for tests. Verify that previews send zero guild mess
 ### Approval and protection
 
 Keep edits in presentation code. Preserve detection, combat-log handling, death and bounty processing, dispatch, synchronization, networking, authorization, existing defaults, and SavedVariables schema. The concept directory stays outside the packaged addon. No automatic publishing, merging, or release.
+
+The implementation layers the approved palette and alert cards onto the existing UI 2.0 window and feature screens. The position pane displays the stored coordinates or default placement and uses the current popup for actual drag testing. Guild LFG and raid cards link to the corresponding feature pages. The current window saves its scale and keeps its drag position while the frame is loaded. Cross-session main-window position persistence would require additional storage and is outside this revision.

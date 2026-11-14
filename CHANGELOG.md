@@ -1,5 +1,6 @@
 # 1.7.0 (UI 2.0 private test)
 
+- Added the Alert Command Center with an alert card list, a focused configuration pane, existing artwork, and local popup previews.
 - Added the Command Center, a shared graphite and crimson theme, and direct links to guild tools.
 - Added local Settings Search with categories and links to the existing controls.
 - Refreshed the PvP boards, Raid Operations, Guild LFG, Guild Services, recruitment, roster, Addon Checker, and sync diagnostics.
