@@ -47,3 +47,7 @@ The in-game Bounty Board screenshot exposed incorrect source coordinates for the
 ## Shared War Room styling approved in game
 
 The Trogdor War Kommand 0.2.0 screenshot is the visual reference for this revision. KWC uses its native steel rails and corners, grain, bronze icons and labels, and crimson primary buttons. The Alerts entry opens the reference layout with KWC's existing alert handlers. Full alert settings and search still open the detailed KWC controls. Other pages keep their existing data, controls, and navigation and inherit the shared frame and presentation. Mounted raid controls use the same textures.
+
+## Follow-up to the first War Room screenshots
+
+The accepted Alerts window remains the visual reference. The regular shell now uses the reference width and a full brand heading. The Command Center, Bounty Board, Calls to Arms, War Room, PvP Leaderboard, Raid Operations overview, and Settings use the wider content area for icon cards, visible action groups, and clearer empty states. Settings shows window and sharing side by side. Detail forms and mounted panels keep their existing control widths inside a centered bordered workspace. Full screen-by-screen in-game comparison is still pending.
