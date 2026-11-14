@@ -72,7 +72,7 @@ local settingIndex={
  {'Ready Check Sounds','Raids','Configure readiness sound and notification preferences.','Raid Tools: Ready Check Advanced',-14},
  {'Guild Death Broadcast','World PvP','Control guild-wide death reports.','Alerts',-339,'Account-wide',nil,274},
  {'Hide Death Alerts in Combat','World PvP','Suppress the local popup during combat.','Alerts',-339,'Account-wide'},
- {'Death Alert Display','Alerts','Preview, move, resize, and time the death popup.','Alerts',-175,'Account-wide','test preview'),
+ {'Death Alert Display','Alerts','Preview, move, resize, and time the death popup.','Alerts',-175,'Account-wide','test preview'},
  {'Bounty Alert Display','Alerts','Preview, move, resize, and time the bounty popup.','Alerts',-619,'Account-wide','test preview'},
  {'Friendly Bounty Test Mode','Alerts','Allow friendly targets in the existing bounty test mode.','Alerts',-742,'Account-wide'},
 }
