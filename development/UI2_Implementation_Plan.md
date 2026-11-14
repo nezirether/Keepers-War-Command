@@ -29,3 +29,31 @@ Review each UI diff against this inventory. Run feature and security suites on t
 - Settings search, full Call to Arms labels, layout callbacks, minimap interactions, and the production TOC load path are covered by the automated suites. Existing tests exercise guild readiness, LFG flows, roster matching, recruitment, alerts, raid forms, and synchronization handlers.
 - Check actual clipping and tooltip placement at a small and normal UI scale, with long guild names and large rosters. Exercise window dragging, scroll interactions, combat entry and exit, minimap clicks, and the existing popup previews in Forever.
 - Verify explicit board actions, guild sharing, LFG invites, Raid Operations, and version reports with real players running compatible builds. Confirm the saved settings and identity behavior after reload or a guild switch.
+
+## Phase 0B — Concept art and approval
+
+The previously packaged UI 2.0 build at `8e2e79e` is the comparison build. The owner approved the [design package](../design/UI2/README.md) on November 13, 2026. The eight full-window concepts, tokens, and component states guide this revision.
+
+Review Command Center, Settings Center, Alert Command Center, War Room, Bounty Board, Guild LFG, Guild Services, and Raid Operations. Use a dark graphite and blackened steel shell, deep crimson selection, muted bronze headings, and readable off-white body text. Use the original Trogdor mark and existing alert artwork as references. The concepts use illustrative records and settings to demonstrate the layouts.
+
+## Phase 4B — Alert Command Center
+
+Add a dedicated Alerts destination within Settings Center. Cards show the alert name, purpose, effective state, and a Configure action. Keep display state and sound state distinct. Offer a local test for Guild Death and Bounty Spotted. Show why an action is unavailable when a module or required context is missing. Link existing pages and search results to the relevant card or configuration.
+
+| Existing alert | Configuration and test scope |
+| --- | --- |
+| Guild Death | Popup, sound, size, duration, position, chat alerts, combat suppression, guild broadcast, and Smart Mode including threshold, detection window, quiet period, and its existing reset. Test via the local death preview. |
+| Bounty Spotted | Popup, sound, size, duration, position, and existing friendly bounty test mode. Test via the local bounty preview. |
+| Calls to Arms and report reminders | Separate cards linking to their existing local chat settings. No positioning controls or live event tests. |
+| Guild LFG notices | Link existing interest, invitation, and matching notification controls. No positioning controls or live event tests. |
+| Raid alerts and displays | Link Ready Check notifications, Death Protection, and existing combat display settings, including Battle Resurrection. Retain their native controls and permissions. |
+
+Keep the existing global alert sound option. Omit sound selection, per-alert volume, and appearance controls where the current APIs do not expose them. Reuse existing alert artwork and the current scale, duration, and positioning ranges.
+
+For Guild Death and Bounty Spotted, use the existing unlock and preview path for **Move Alert**. Show a positioning message with drag and lock instructions, save through the existing drag-release mechanism, and use the existing Reset Position call. The configuration pane should show the current values and update immediately. Retain confirmation only where the existing section reset calls for it. Use readable toggles, optional tooltips, and clear disabled states.
+
+Use only local presentation for tests. Verify that previews send zero guild messages, create zero synchronization records, and leave gameplay and PvP statistics alone. If an alert has no safe preview, omit the test action or show a clearly labeled presentation-only sample. Never use a live trigger to test.
+
+### Approval and protection
+
+Keep edits in presentation code. Preserve detection, combat-log handling, death and bounty processing, dispatch, synchronization, networking, authorization, existing defaults, and SavedVariables schema. The concept directory stays outside the packaged addon. No automatic publishing, merging, or release.
