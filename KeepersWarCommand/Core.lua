@@ -279,7 +279,8 @@ SlashCmdList.KEEPERSWARCOMMAND=function(s)
  elseif cmd=='deathhistory' then K.UI.Toggle('World PvP Deaths')
  elseif cmd=='guilddebug' then K.GuildDebug()
  elseif cmd=='lfgdebug' then K.GuildLFG.Debug(arg)
- elseif cmd=='alerts' then K.UI.Toggle('Alerts')
+ elseif cmd=='alerts' then
+  if K.AlertOverview then K.AlertOverview.Toggle() else K.UI.Toggle('Alerts') end
  elseif cmd=='raid' then if K.RaidCommand then K.RaidCommand.Toggle() end
  elseif cmd=='warroom' then K.UI.Toggle('War Room')
  elseif cmd=='scout' then K.UI.Toggle('Scout Network')

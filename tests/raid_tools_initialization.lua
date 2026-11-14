@@ -339,6 +339,11 @@ end
 
 local ui=env.KWC.UI
 env.KWC.IsOfficer=function() return true end
+env.SlashCmdList.KEEPERSWARCOMMAND("alerts")
+assert(env.KWCWarRoomAlerts and env.KWCWarRoomAlerts:IsShown())
+assert(control("Button","Configure") and control("Button","Test alert"))
+env.SlashCmdList.KEEPERSWARCOMMAND("alerts")
+assert(not env.KWCWarRoomAlerts:IsShown())
 ui.Toggle()
 assert(control("Button","Command Center").kwcPage=="Home")
 assert(not control("Button","Commendations") and not env.KWC.GuildService.DrawCommendations)

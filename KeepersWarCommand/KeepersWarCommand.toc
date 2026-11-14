@@ -82,6 +82,7 @@ AddonChecker.lua
 AlertSounds.lua
 WorldPvPDeaths.lua
 UI.lua
+AlertOverview.lua
 MinimapLauncher.lua
 BountyContextMenu.lua
 RaidToolsHost.lua

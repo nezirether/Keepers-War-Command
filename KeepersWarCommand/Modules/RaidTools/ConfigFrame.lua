@@ -15,16 +15,16 @@ local FONT = theme.font
 local PRIMARY, MUTED = theme.cream, theme.muted
 local STEEL, GRAPHITE, PANEL = theme.steel, theme.graphite, theme.panel
 
-local function ControlFont(name, size, color)
+local function ControlFont(name, size, color, face)
     local font = CreateFont(name)
-    if not font:SetFont(FONT, size, "") then font:SetFont(theme.fallbackFont, size, "") end
+    if not font:SetFont(face or FONT, size, "") then font:SetFont(theme.fallbackFont, size, "") end
     font:SetTextColor(unpack(color))
     return font
 end
 local normal = ControlFont("KWCRaidControlFont", 14, PRIMARY)
 local disabled = ControlFont("KWCRaidDisabledFont", 14, MUTED)
 ControlFont("KWCRaidSmallFont", 13, PRIMARY)
-ControlFont("KWCRaidHeadingFont", 18, theme.gold)
+ControlFont("KWCRaidHeadingFont", 18, theme.gold, theme.headingFont)
 
 -- The template argument is a template name; custom fonts are applied as objects.
 function Components.CreateText(parent, font)
@@ -56,7 +56,7 @@ function Components.CreateButton(parent, name)
     button:SetDisabledFontObject(disabled)
     button:SetPushedTextOffset(0, -1)
     function button:SetSelected(selected)
-        fill:SetColorTexture(unpack(selected and theme.crimson or GRAPHITE))
+        fill:SetTexture(theme.warRoomArt .. (selected and "Crimson.tga" or "Grain.tga"))
     end
     button:SetSelected(false)
     return button

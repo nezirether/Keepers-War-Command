@@ -43,3 +43,7 @@ The ease-of-access build followed the browser concept layout and simplified most
 ### Concept artwork crop correction
 
 The in-game Bounty Board screenshot exposed incorrect source coordinates for the crimson fill and three icons. The fill sampled typography and the icons sampled adjacent artwork. The corrected assets use the crimson swatch and the isolated skull, target, and gear from the board. Their exported silhouettes were inspected on a dark background.
+
+## Shared War Room styling approved in game
+
+The Trogdor War Kommand 0.2.0 screenshot is the visual reference for this revision. KWC uses its native steel rails and corners, grain, bronze icons and labels, and crimson primary buttons. The Alerts entry opens the reference layout with KWC's existing alert handlers. Full alert settings and search still open the detailed KWC controls. Other pages keep their existing data, controls, and navigation and inherit the shared frame and presentation. Mounted raid controls use the same textures.

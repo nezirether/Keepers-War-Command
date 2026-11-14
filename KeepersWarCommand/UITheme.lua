@@ -9,5 +9,7 @@ local T={
  sidebar={25/255,25/255,29/255,1},
  card={29/255,30/255,34/255,1},buttonEdge={76/255,73/255,80/255,1},
  metal='Interface\\AddOns\\KeepersWarCommand\\Textures\\CommandSteel.tga',
+ warRoomArt='Interface\\AddOns\\KeepersWarCommand\\Textures\\WarRoom\\',
+ headingFont='Fonts\\FRIZQT__.TTF',
 }
 KWC.UITheme=T
