@@ -10,24 +10,21 @@ local CONTROL_MAX_WIDTH = 350
 
 local Components = {}
 
-local FONT = "Fonts\\FRIZQT__.TTF"
-local PRIMARY = {0.91, 0.94, 0.98}
-local MUTED = {0.64, 0.69, 0.76}
-local STEEL = {0.23, 0.27, 0.34, 1}
-local GRAPHITE = {0.075, 0.09, 0.12, 1}
-local PANEL = {0.043, 0.053, 0.072, 1}
-local CRIMSON = {0.30, 0.11, 0.15, 1}
+local theme = KWC.UITheme
+local FONT = theme.font
+local PRIMARY, MUTED = theme.cream, theme.muted
+local STEEL, GRAPHITE, PANEL = theme.steel, theme.graphite, theme.panel
 
-local function ControlFont(name, size, color)
+local function ControlFont(name, size, color, face)
     local font = CreateFont(name)
-    font:SetFont(FONT, size, "")
+    if not font:SetFont(face or FONT, size, "") then font:SetFont(theme.fallbackFont, size, "") end
     font:SetTextColor(unpack(color))
     return font
 end
 local normal = ControlFont("KWCRaidControlFont", 14, PRIMARY)
 local disabled = ControlFont("KWCRaidDisabledFont", 14, MUTED)
 ControlFont("KWCRaidSmallFont", 13, PRIMARY)
-ControlFont("KWCRaidHeadingFont", 18, PRIMARY)
+ControlFont("KWCRaidHeadingFont", 18, theme.gold, theme.headingFont)
 
 -- The template argument is a template name; custom fonts are applied as objects.
 function Components.CreateText(parent, font)
@@ -59,8 +56,9 @@ function Components.CreateButton(parent, name)
     button:SetDisabledFontObject(disabled)
     button:SetPushedTextOffset(0, -1)
     function button:SetSelected(selected)
-        fill:SetColorTexture(unpack(selected and CRIMSON or GRAPHITE))
+        fill:SetTexture(theme.warRoomArt .. (selected and "Crimson.tga" or "Grain.tga"))
     end
+    button:SetSelected(false)
     return button
 end
 

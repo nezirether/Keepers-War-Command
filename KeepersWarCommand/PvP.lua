@@ -500,8 +500,7 @@ K.On('CHAT_MSG_ADDON',function(prefix,msg,channel,sender)
      type(h.lifetime)=='number' and h.lifetime>=0 and h.lifetime<=100000000 then
    local at=tonumber(h.originAt or h.lastRead) or 0
    if at>0 and at<=time()+300 then
-    records[#records+1]={name=full,kills=math.floor(h.lifetime),at=math.floor(at),
-      points=type(p.achievementPoints)=='number' and math.floor(p.achievementPoints) or -1}
+    records[#records+1]={name=full,kills=math.floor(h.lifetime),at=math.floor(at)}
    end
   end
  end
@@ -516,7 +515,8 @@ K.On('CHAT_MSG_ADDON',function(prefix,msg,channel,sender)
  for i=first,math.min(#records,first+limit-1) do
   local r=records[i]
   C_Timer.After((i-first)*0.18,function()
-   reply('PVPCACHE',table.concat({r.name,r.kills,r.at,r.points},';'))
+   -- Keep the legacy packet shape. The final field denotes unavailable points.
+   reply('PVPCACHE',table.concat({r.name,r.kills,r.at,-1},';'))
   end)
  end
  local names={}
@@ -556,7 +556,6 @@ K.On('CHAT_MSG_ADDON',function(prefix,msg,channel,sender)
  if not p.honor.available or (n>=(tonumber(p.honor.lifetime) or 0) and at>oldAt) then
   p.honor.lifetime=n;p.honor.available=true;p.honor.peerReported=true
   p.honor.cached=true;p.honor.originAt=at;p.honor.lastRead=at
-  if pts>=0 then p.achievementPoints=math.max(tonumber(p.achievementPoints) or 0,pts) end
   KWCDB.pvp[full]=p
   diagnostics.received=diagnostics.received+1
   diagnostics.lastPeer=sender;diagnostics.lastReason='cached '..full

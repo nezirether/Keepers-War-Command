@@ -53,13 +53,13 @@ function S.Draw(parent,label,button,edit,surface,redraw)
   return
  end
  local makeButton=button
- button=function(p,caption,x,y,w,action)
+ button=function(p,caption,x,y,w,action,help,selectedTab)
   return makeButton(p,caption,x,y,w,function()
    if guild==K.GuildScope() then action() else redraw() end
-  end)
+  end,help,selectedTab)
  end
  for i,name in ipairs(tabs) do
-  button(parent,(tab==name and '> ' or '')..name,18+(i-1)*180,-60,169,function() tab=name;redraw() end)
+  button(parent,(tab==name and '> ' or '')..name,18+(i-1)*180,-60,169,function() tab=name;redraw() end,nil,tab==name)
  end
  local rows=collect(db,actor)
  if tab=='Overview' then
@@ -76,15 +76,16 @@ function S.Draw(parent,label,button,edit,surface,redraw)
   label(parent,'Shares this character’s profession skills and observed learned recipes with this guild.',18,-319,530)
   button(parent,S.IsSharing() and 'Sharing On' or 'Sharing Off',18,-360,155,function()
    S.SetSharing(not S.IsSharing());redraw()
-  end)
+  end,'Share this character’s profession skills and observed learned recipes with this guild.')
   button(parent,'Refresh Directory',190,-360,165,function()
    S.Refresh(true);K.Sync.Request(true);redraw()
   end)
-  label(parent,'Open your own profession window to collect learned recipes.',18,-409,520)
+  label(parent,'Open your profession window to collect learned recipes.',18,-409,520)
   label(parent,'Guild roster',18,-452,520,'GameFontNormal')
   local y=-486
   for _,r in ipairs(roster) do
    if y < -3650 then break end
+   surface(parent,18,y+6,529,27,0.085)
    label(parent,r.name,18,y,198)
    label(parent,(r.rank or 'Unknown rank')..' / '..(r.level or '?')..' '..(r.class or ''),220,y,232)
    label(parent,r.online==true and 'Online' or r.online==false and 'Offline' or 'Unknown',455,y,92)

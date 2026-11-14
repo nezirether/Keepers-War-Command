@@ -1,3 +1,20 @@
+# 1.7.0 (UI 2.0 private test)
+
+- Added brushed steel and crimson treatments, a layered frame, and icon-led Command Center shortcuts.
+- Retired Achievements and Commendations. Historical data, Bounty Claims, Call to Arms attendance, and PvP statistics remain available to their existing storage and workflows.
+- Added the Alert Command Center with an alert card list, a focused configuration pane, existing artwork, and local popup previews.
+- Added the Command Center, a shared graphite and crimson theme, and direct links to guild tools.
+- Added local Settings Search with categories and links to the existing controls.
+- Refreshed the PvP boards, Raid Operations, Guild LFG, Guild Services, recruitment, roster, Addon Checker, and sync diagnostics.
+- Spelled out Call to Arms across player-facing navigation, settings, and table labels.
+
+# 1.6.1 (Private test)
+
+- Added Home shortcuts, simplified sidebar headings, and added tooltips for shared actions and settings.
+- Added a Trogdor minimap launcher with saved visibility and position controls.
+- Enabled Guild Services sharing once per character after verification, with an opt-out in Preferences.
+- Made the Battle Resurrection indicator raid-only, with an off default for new installations and existing preferences retained.
+
 # 1.6.0-alpha.1
 
 Development testing for WoW Forever 1.60.1.

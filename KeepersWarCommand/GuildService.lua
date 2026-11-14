@@ -1,4 +1,4 @@
--- DEV30 Guild Service: CTA evidence, officer-approved bounty claims, commendations.
+-- DEV30 Guild Service: CTA evidence, and officer-approved bounty claims.
 -- Separate storage and protocol. No mutations to existing CTA/bounty/PvP records.
 local K=KWC;local S={};K.GuildService=S
 local lastSample=0;local lastRequest=0;local lastPeerReply=0
@@ -91,20 +91,13 @@ function S.Totals(name)
  for id,people in pairs(d.claims) do if find('BOUNTY',id) and people[name] then b=b+1 end end
  return b,c
 end
-function S.Commendations(name)
- local b,c=S.Totals(name)
- return {{title='First Blood',earned=b>=1,progress=b,goal=1},
- {title='Bounty Hunter',earned=b>=10,progress=b,goal=10},
- {title='Answer the Call',earned=c>=10,progress=c,goal=10},
- {title='CTA Veteran',earned=c>=25,progress=c,goal=25}}
-end
 function S.DrawCTA(parent,label,button)
- label(parent,'CTA AFTER-ACTION RECORDS',12,-12,550,'GameFontNormalLarge')
- label(parent,'Observed in the CTA zone or visibly present in a group. Not a combat guarantee.',12,-51,550)
+ label(parent,'Call to Arms After-Action Records',12,-12,550,'GameFontNormalLarge')
+ label(parent,'Observed in the Call to Arms zone or visibly present in a group. Not a combat guarantee.',12,-51,550)
  local y=-100
  for _,e in ipairs(KWCDB.ops or {}) do
   if (e.status or 'ACTIVE')~='ACTIVE' then
-   label(parent,tostring(e.text or 'CTA'):sub(1,65)..'  ['..tostring(e.status)..']',12,y,550,'GameFontNormal');y=y-30
+   label(parent,tostring(e.text or 'Call to Arms'):sub(1,65)..'  ['..tostring(e.status)..']',12,y,550,'GameFontNormal');y=y-30
    local names={};for n in pairs(S.CTARecords(e.id)) do names[#names+1]=n end;table.sort(names)
    for _,n in ipairs(names) do
     local m=S.CTARecords(e.id)[n]
@@ -114,19 +107,7 @@ function S.DrawCTA(parent,label,button)
    y=y-22
   end
  end
- if y==-100 then label(parent,'No completed CTAs to display.',12,y,540) end
-end
-function S.DrawCommendations(parent,label)
- label(parent,'GUILD COMMENDATIONS',12,-12,550,'GameFontNormalLarge')
- label(parent,'Earned from observed CTA attendance and approved bounty claims.',12,-51,550)
- local name=selfName();local b,c=S.Totals(name)
- label(parent,name..'   |   '..b..' bounties   |   '..c..' CTAs',12,-95,545,'GameFontNormal')
- local y=-155
- for _,a in ipairs(S.Commendations(name)) do
-  label(parent,(a.earned and '[EARNED]  ' or '[LOCKED]  ')..a.title,12,y,530,'GameFontNormal')
-  label(parent,tostring(a.progress)..' / '..a.goal..' verified records',30,y-27,520);y=y-85
- end
- label(parent,'Legacy achievements and points remain saved; this page does not delete them.',12,y-20,550)
+ if y==-100 then label(parent,'No completed Calls to Arms to display.',12,y,540) end
 end
 K.On('CHAT_MSG_ADDON',function(prefix,msg,channel,sender)
  if prefix~='KWC3' or channel~='GUILD' or type(msg)~='string' or not K.IsMember(sender) then return end

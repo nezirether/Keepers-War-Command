@@ -1,11 +1,12 @@
 ## Interface: 16001
 ## Title: Keepers of Trogdor | War Command
-## Notes: Guild operations, scouting, PvP, bounties, CTAs and guild synchronization
+## Notes: Guild operations, scouting, PvP, bounties, Calls to Arms and guild synchronization
 ## Author: Keepers of Trogdor
-## Version: 1.6.0-alpha.1
+## Version: 1.7.0
 ## SavedVariables: KWCDB, KeepersRaidToolsDB, KeepersRaidToolsAttendanceDB, KeepersRaidToolsRosterDB, KRTForeverNotesDB
 ## OptionalDeps: Overlord, WarEffortScout
 Core.lua
+UITheme.lua
 Network.lua
 RaidToolsBridge.lua
 Modules/RaidTools/Libs/LibStub/LibStub.lua
@@ -78,8 +79,10 @@ GuildServicesUI.lua
 PvP.lua
 Companions.lua
 AddonChecker.lua
-QualityOfLife.lua
+AlertSounds.lua
 WorldPvPDeaths.lua
 UI.lua
+AlertOverview.lua
+MinimapLauncher.lua
 BountyContextMenu.lua
 RaidToolsHost.lua

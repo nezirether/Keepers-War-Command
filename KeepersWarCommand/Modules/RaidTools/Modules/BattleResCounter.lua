@@ -4,7 +4,7 @@ KRT.BattleResCounter = BattleResCounter
 KRT:RegisterModule("battleResCounter", BattleResCounter)
 
 local defaults = {
-    widgetEnabled = true,
+    widgetEnabled = false,
     widgetScale = 100,
     widgetPosition = nil,
     zeroChargeOverlay = true,
@@ -186,6 +186,11 @@ end
 local function UpdateWidget()
     if not widgetFrame then return end
     local settings = Settings()
+    if not (IsInRaid and IsInRaid()) or not settings.widgetEnabled then
+        preview = false
+        widgetFrame:Hide()
+        return
+    end
     local unlocked = not settings.lockFrames and not InCombat()
     local configuring = not InCombat() and (preview or unlocked)
     widgetFrame.outline:SetShown(unlocked)
@@ -195,11 +200,6 @@ local function UpdateWidget()
         widgetFrame:SetFrameStrata(configuring and "FULLSCREEN_DIALOG" or "MEDIUM")
         widgetFrame:SetFrameLevel(configuring and 200 or 1)
     end
-    if not configuring and (not settings.widgetEnabled or not (IsInGroup() or IsInRaid())) then
-        widgetFrame:Hide()
-        return
-    end
-
     if inEncounter then
         ShowEncounterState()
     else
@@ -290,6 +290,10 @@ end
 
 function BattleResCounter:IsPreviewShown()
     return preview
+end
+
+function BattleResCounter:CanConfigurePosition()
+    return IsInRaid and IsInRaid() and Settings().widgetEnabled and not InCombat()
 end
 
 function BattleResCounter:SetWidgetUnlocked(value)
@@ -415,6 +419,8 @@ KWC.On("PLAYER_REGEN_DISABLED", function()
 end)
 KWC.On("DISPLAY_SIZE_CHANGED", ApplyLayout)
 KWC.On("UI_SCALE_CHANGED", ApplyLayout)
+KWC.On("GROUP_ROSTER_UPDATE", UpdateWidget)
+KWC.On("PLAYER_ENTERING_WORLD", UpdateWidget)
 KWC.On("PLAYER_REGEN_ENABLED", function()
     if pendingLayout == "reset" then BattleResCounter:ResetPosition() end
     if pendingLayout then ApplyLayout() else UpdateWidget() end

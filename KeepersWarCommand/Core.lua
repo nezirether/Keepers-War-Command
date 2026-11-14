@@ -1,5 +1,5 @@
 local F=CreateFrame('Frame')
-KWC={version='1.6.0-alpha.1',listeners={}};local K=KWC
+KWC={version='1.7.0',listeners={}};local K=KWC
 function K.Say(s) print('|cffffb54d[Keepers]|r '..tostring(s)) end
 function K.Clean(s,n) return tostring(s or ''):gsub('[\r\n|]',' '):sub(1,n or 180) end
 function K.Now() return date('%Y-%m-%d %H:%M') end
@@ -277,10 +277,10 @@ SlashCmdList.KEEPERSWARCOMMAND=function(s)
   if arg:lower()=='on' then K.WorldPvPDeaths.SetEnabled(true) elseif arg:lower()=='off' then K.WorldPvPDeaths.SetEnabled(false) elseif arg:lower()=='test' then K.WorldPvPDeaths.Demo() elseif arg:lower()=='status' then K.WorldPvPDeaths.Status() elseif arg:lower()=='debug on' then K.WorldPvPDeaths.SetDebug(true);K.Say('Death alert diagnostics ON') elseif arg:lower()=='debug off' then K.WorldPvPDeaths.SetDebug(false);K.Say('Death alert diagnostics OFF') elseif arg:lower()=='unlock' then K.WorldPvPDeaths.SetUnlocked(true) elseif arg:lower()=='lock' then K.WorldPvPDeaths.SetUnlocked(false) elseif arg:lower()=='reset' then K.WorldPvPDeaths.ResetPosition() elseif arg:lower():match('^scale %d+') then K.WorldPvPDeaths.SetScale((tonumber(arg:match('%d+')) or 100)/100) elseif arg:lower()=='sound on' then KWCDB.settings.worldPvPDeathSound=true;K.Say('World PvP death sound ON') elseif arg:lower()=='sound off' then KWCDB.settings.worldPvPDeathSound=false;K.Say('World PvP death sound OFF') elseif arg:lower()=='broadcast on' then KWCDB.settings.worldPvPDeathBroadcast=true;K.Say('Death broadcasting ON') elseif arg:lower()=='broadcast off' then KWCDB.settings.worldPvPDeathBroadcast=false;K.Say('Death broadcasting OFF') else K.Say('/kt deathalert on/off | test | status | debug on/off | unlock/lock | reset | scale 50-200 | sound on/off | broadcast on/off') end
  elseif cmd=='deathreport' then K.WorldPvPDeaths.Report(arg)
  elseif cmd=='deathhistory' then K.UI.Toggle('World PvP Deaths')
- elseif cmd=='achievements' then K.UI.Toggle('Achievements')
  elseif cmd=='guilddebug' then K.GuildDebug()
  elseif cmd=='lfgdebug' then K.GuildLFG.Debug(arg)
- elseif cmd=='alerts' then K.UI.Toggle('Alerts')
+ elseif cmd=='alerts' then
+  if K.AlertOverview then K.AlertOverview.Toggle() else K.UI.Toggle('Alerts') end
  elseif cmd=='raid' then if K.RaidCommand then K.RaidCommand.Toggle() end
  elseif cmd=='warroom' then K.UI.Toggle('War Room')
  elseif cmd=='scout' then K.UI.Toggle('Scout Network')
