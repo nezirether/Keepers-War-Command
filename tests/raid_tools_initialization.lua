@@ -341,6 +341,8 @@ local ui=env.KWC.UI
 env.KWC.IsOfficer=function() return true end
 ui.Toggle()
 assert(control("Button","Home").kwcPage=="Home")
+assert(not control("Button","Commendations") and not env.KWC.GuildService.DrawCommendations)
+assert(not env.KWC.QOL.Points and not env.KWC.QOL.BroadcastPoints)
 assert(control("Button","Find a Group") and control("Button","Guild Overview"))
 local sidebar=control("Button","Home"):GetParent():GetParent()
 sidebar.scripts.OnMouseWheel(sidebar,-10)

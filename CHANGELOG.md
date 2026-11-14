@@ -1,5 +1,7 @@
 # 1.7.0 (UI 2.0 private test)
 
+- Added brushed steel and crimson treatments, a layered frame, and icon-led Command Center shortcuts.
+- Retired Achievements and Commendations. Historical data, Bounty Claims, Call to Arms attendance, and PvP statistics remain available to their existing storage and workflows.
 - Added the Alert Command Center with an alert card list, a focused configuration pane, existing artwork, and local popup previews.
 - Added the Command Center, a shared graphite and crimson theme, and direct links to guild tools.
 - Added local Settings Search with categories and links to the existing controls.

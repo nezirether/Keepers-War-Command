@@ -13,7 +13,7 @@ local Components = {}
 local theme = KWC.UITheme
 local FONT = theme.font
 local PRIMARY, MUTED = theme.cream, theme.muted
-local STEEL, GRAPHITE, PANEL, CRIMSON = theme.steel, theme.graphite, theme.panel, theme.crimson
+local STEEL, GRAPHITE, PANEL = theme.steel, theme.graphite, theme.panel
 
 local function ControlFont(name, size, color)
     local font = CreateFont(name)
@@ -56,8 +56,10 @@ function Components.CreateButton(parent, name)
     button:SetDisabledFontObject(disabled)
     button:SetPushedTextOffset(0, -1)
     function button:SetSelected(selected)
-        fill:SetColorTexture(unpack(selected and CRIMSON or GRAPHITE))
+        fill:SetTexture(selected and theme.redMetal or theme.metal)
+        fill:SetVertexColor(0.9, 0.9, 0.9)
     end
+    button:SetSelected(false)
     return button
 end
 
