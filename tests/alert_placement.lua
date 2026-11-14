@@ -382,6 +382,7 @@ print('PASS: legacy settings, full bounty name, reward, location fallback, durat
 env.KWC.GuildServices={Context=function() end}
 env.KWC.GuildReadiness=function() return 'Not currently in a guild' end
 setfenv(assert(loadfile('KeepersWarCommand/MinimapLauncher.lua')),env)()
+setfenv(assert(loadfile('KeepersWarCommand/UITheme.lua')),env)()
 setfenv(assert(loadfile('KeepersWarCommand/UI.lua')),env)()
 local function currentControl(text)
  for i=#session.frames,1,-1 do

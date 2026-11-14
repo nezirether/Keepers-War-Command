@@ -45,10 +45,8 @@ local selectedCTA=nil
 local selectedBounty=nil
 local bountyCapture
 local selectedAAR=nil
--- War Command design system: larger readable type, restrained gold headings,
--- ember accents, and distinct surfaces for navigation and action buttons.
-local C={gold={0.92,0.94,0.98},cream={0.91,0.94,0.98},muted={0.56,0.62,0.71},ember={0.38,0.75,0.62},dark={0.045,0.055,0.075}}
-local FONT='Fonts\\FRIZQT__.TTF'
+local C=K.UITheme
+local FONT=C.font
 local function activeBounty(id)
  for _,entry in ipairs((KWCDB and KWCDB.bounties) or {}) do
   if entry.id==id and (entry.status or 'ACTIVE')=='ACTIVE' then return entry end
@@ -62,15 +60,15 @@ local function label(p,t,x,y,w,font)
  local f=p:CreateFontString(nil,'OVERLAY')
  local title=font=='GameFontNormalLarge'
  local section=font=='GameFontNormal'
- f:SetFont(FONT,title and 20 or (section and 14 or 12),'')
- local color=title and C.gold or (section and C.cream or C.muted)
+ f:SetFont(FONT,title and C.size.title or (section and C.size.section or C.size.body),'')
+ local color=(title or section) and C.gold or C.cream
  f:SetTextColor(color[1],color[2],color[3],1)
  f:SetPoint('TOPLEFT',x,y);f:SetWidth(w);f:SetJustifyH('LEFT');f:SetJustifyV('TOP')
  f:SetText(tostring(t or ''))
  if title then
   local rule=p:CreateTexture(nil,'ARTWORK')
   rule:SetPoint('TOPLEFT',p,'TOPLEFT',x,y-27);rule:SetSize(math.min(w,545),1)
-  rule:SetColorTexture(0.22,0.26,0.32,0.55)
+  rule:SetColorTexture(unpack(C.steel))
  end
  return f
 end
@@ -85,25 +83,25 @@ local function tooltip(control,title,help)
  end)
  control:HookScript('OnLeave',function() if GameTooltip then GameTooltip:Hide() end end)
 end
-local function button(p,t,x,y,w,cb,help)
+local function button(p,t,x,y,w,cb,help,selected)
  local b=CreateFrame('Button',nil,p);b:SetSize(w,34);b:SetPoint('TOPLEFT',x,y)
  local isNav=(p==navChild and w>=180)
- local function colors(hover)
-  if isNav and (active==(b.kwcPage or t) or ((b.kwcPage or t)=='Raid Tools' and active:sub(1,12)=='Raid Tools: ')) then return 0.16,0.25,0.36
-  elseif hover then return 0.14,0.18,0.24
-  else return 0.075,0.09,0.12 end
+ local function isSelected()
+  if not isNav then return selected end
+  local page=b.kwcPage or t
+  return active==page or (page=='Raid Tools' and active:sub(1,12)=='Raid Tools: ')
  end
- local edge=b:CreateTexture(nil,'BACKGROUND');edge:SetAllPoints(b);edge:SetColorTexture(0.18,0.23,0.30,isNav and 0.05 or 0.48)
+ local edge=b:CreateTexture(nil,'BACKGROUND');edge:SetAllPoints(b);edge:SetColorTexture(unpack(C.steel))
  local bg=b:CreateTexture(nil,'ARTWORK');bg:SetPoint('TOPLEFT',1,-1);bg:SetPoint('BOTTOMRIGHT',-1,1)
  local function paint(hover)
-  local rr,gg,bb=colors(hover);bg:SetColorTexture(rr,gg,bb,1)
+  local color=isSelected() and C.crimson or (hover and C.hover or C.graphite)
+  bg:SetColorTexture(unpack(color))
   if isNav and b.kwcAccent then
-   local selected=(active==(b.kwcPage or t) or ((b.kwcPage or t)=='Raid Tools' and active:sub(1,12)=='Raid Tools: '))
-   b.kwcAccent:SetColorTexture(0.38,0.75,0.62,selected and 1 or 0)
+   b.kwcAccent:SetColorTexture(C.accent[1],C.accent[2],C.accent[3],isSelected() and 1 or 0)
   end
  end
  paint(false)
- local tx=b:CreateFontString(nil,'OVERLAY');tx:SetFont(FONT,12,'');tx:SetPoint('CENTER');tx:SetWidth(w-12);tx:SetJustifyH('CENTER')
+ local tx=b:CreateFontString(nil,'OVERLAY');tx:SetFont(FONT,isNav and C.size.nav or C.size.body,'');tx:SetPoint('CENTER');tx:SetWidth(w-12);tx:SetJustifyH('CENTER')
  tx:SetTextColor(C.cream[1],C.cream[2],C.cream[3]);tx:SetText(t)
  if isNav then
   tx:ClearAllPoints();tx:SetPoint('LEFT',b,'LEFT',14,0);tx:SetJustifyH('LEFT')
@@ -138,19 +136,19 @@ local function edit(p,value,x,y,w)
  e:SetScript('OnMouseDown',function(self,button) if button=='LeftButton' then self:SetFocus() end end)
  e:SetScript('OnEscapePressed',function(self) self:ClearFocus() end)
  e:SetScript('OnEnterPressed',function(self) self:ClearFocus() end)
- local bg=e:CreateTexture(nil,'BACKGROUND');bg:SetAllPoints(e);bg:SetColorTexture(0.10,0.13,0.17,0.97)
- e:SetFont(FONT,13,'');e:SetTextColor(0.95,0.96,0.98);e:SetTextInsets(9,9,0,0);e:SetText(value or '');return e
+ local bg=e:CreateTexture(nil,'BACKGROUND');bg:SetAllPoints(e);bg:SetColorTexture(unpack(C.graphite))
+ e:SetFont(FONT,C.size.field,'');e:SetTextColor(unpack(C.cream));e:SetTextInsets(9,9,0,0);e:SetText(value or '');return e
 end
 local function multilineEdit(p,value,x,y,w,h)
  local holder=CreateFrame('Frame',nil,p)
  holder:SetSize(w,h);holder:SetPoint('TOPLEFT',x,y)
- local bg=holder:CreateTexture(nil,'BACKGROUND');bg:SetAllPoints(holder);bg:SetColorTexture(0.10,0.13,0.17,0.97)
+ local bg=holder:CreateTexture(nil,'BACKGROUND');bg:SetAllPoints(holder);bg:SetColorTexture(unpack(C.graphite))
  local scroll=CreateFrame('ScrollFrame',nil,holder,'UIPanelScrollFrameTemplate')
  scroll:SetPoint('TOPLEFT',holder,'TOPLEFT',8,-7)
  scroll:SetPoint('BOTTOMRIGHT',holder,'BOTTOMRIGHT',-27,7)
  local e=CreateFrame('EditBox',nil,scroll)
- e:SetMultiLine(true);e:SetAutoFocus(false);e:SetFont(FONT,13,'')
- e:SetTextColor(0.95,0.96,0.98);e:SetWidth(w-48);e:SetHeight(h-14)
+ e:SetMultiLine(true);e:SetAutoFocus(false);e:SetFont(FONT,C.size.field,'')
+ e:SetTextColor(unpack(C.cream));e:SetWidth(w-48);e:SetHeight(h-14)
  e:SetScript('OnEscapePressed',function(self)self:ClearFocus() end)
  e:SetScript('OnTextChanged',function(self)
   local _,lineCount=self:GetText():gsub('\n','\n')
@@ -164,7 +162,7 @@ local function multilineEdit(p,value,x,y,w,h)
 end
 surface=function(p,x,y,w,h,shade)
  local t=p:CreateTexture(nil,'BACKGROUND');t:SetPoint('TOPLEFT',p,'TOPLEFT',x,y);t:SetSize(w,h)
- local v=shade or 0.09;t:SetColorTexture(v,v+0.016,v+0.038,0.98)
+ local v=shade or 0.09;t:SetColorTexture(v,v,v+0.008,1)
  return t
 end
 local function single(p,value,x,y,w,style)

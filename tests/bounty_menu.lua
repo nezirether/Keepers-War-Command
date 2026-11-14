@@ -15,6 +15,7 @@ local env = setmetatable({
     UnitName = function() return "Focus-Realm", "Realm" end,
 }, {__index = _G})
 setfenv(assert(loadfile("KeepersWarCommand/Core.lua")),env)()
+setfenv(assert(loadfile("KeepersWarCommand/UITheme.lua")),env)()
 setfenv(assert(loadfile("KeepersWarCommand/UI.lua")),env)()
 env.KWC.UI.OpenBountyForName = function(name) picked = name end
 setfenv(assert(loadfile("KeepersWarCommand/BountyContextMenu.lua")),env)()

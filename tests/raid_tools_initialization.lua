@@ -412,7 +412,7 @@ for _, texture in ipairs(display.regions) do
     if texture.sublayer==-8 then steel=texture.color end
     if texture.sublayer==-7 then graphite=texture.color end
 end
-assert(steel and steel[1]==0.23 and steel[4]==1)
+assert(steel and steel[1]==env.KWC.UITheme.steel[1] and steel[4]==1)
 assert(graphite and graphite[1]<0.1 and graphite[4]==1)
 click("New")
 assert(not display:IsShown())

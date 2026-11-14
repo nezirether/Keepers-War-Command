@@ -69,6 +69,8 @@ env.hooksecurefunc = function(object, key, after)
     local prior = object[key]
     object[key] = function(self, ...) prior(self, ...); after(self, ...) end
 end
+env.KWC=env.KWC or {}
+setfenv(assert(loadfile("KeepersWarCommand/UITheme.lua")), env)()
 setfenv(assert(loadfile(root .. "ConfigFrame.lua")), env)()
 local krt = env.KeepersRaidTools
 local ui = krt.Components

@@ -6,6 +6,7 @@
 ## SavedVariables: KWCDB, KeepersRaidToolsDB, KeepersRaidToolsAttendanceDB, KeepersRaidToolsRosterDB, KRTForeverNotesDB
 ## OptionalDeps: Overlord, WarEffortScout
 Core.lua
+UITheme.lua
 Network.lua
 RaidToolsBridge.lua
 Modules/RaidTools/Libs/LibStub/LibStub.lua
