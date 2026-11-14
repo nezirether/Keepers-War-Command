@@ -1,6 +1,6 @@
 # UI 2.0 implementation plan and feature parity inventory
 
-The base is d29369a9646a31fa22924e99a25964f038d4578c on dev/1.6.1-maintenance. The committed private 1.6.1 archive passed 19 suites, 111 Lua 5.1 syntax checks, and 79 TOC checks. A separate baseline replay is running from the UI worktree. Target 1.7.0 for private testing, following the completed 1.6.1 maintenance source.
+The base is d29369a9646a31fa22924e99a25964f038d4578c on dev/1.6.1-maintenance. The committed private 1.6.1 archive passed 19 suites, 111 Lua 5.1 syntax checks, and 79 TOC checks. All 19 baseline suites passed again from the isolated worktree. Target 1.7.0 for private testing, following the completed 1.6.1 maintenance source.
 
 | Screen | Existing actions and destinations to retain |
 | --- | --- |
@@ -22,3 +22,10 @@ Use the bundled WoW font and native widgets. Centralize presentation tokens, imp
 Core events and guild identity, Network, Sync, Operations, PvP, RaidCommand, RaidSignup, GuildLFGModel, GuildServicesSync, AlertFrameControls, death detection and all authorization and storage code are protected. Mixed UI files may change in drawing code only. The version string and TOC metadata are release bookkeeping.
 
 Review each UI diff against this inventory. Run feature and security suites on the final commit, then verify the private ZIP against committed blobs. Live Forever layout, UI scale, drag, popup rendering, combat state and multiplayer behavior still require in-game checks.
+
+## Parity and live client checks
+
+- The settings catalogue links to existing controls and feature sections. Search and filtering use session-local state. Native Raid Tools retain their original settings controls. Resets use existing APIs and require confirmation for the Battle Resurrection and Smart Mode sections.
+- Settings search, full Call to Arms labels, layout callbacks, minimap interactions, and the production TOC load path are covered by the automated suites. Existing tests exercise guild readiness, LFG flows, roster matching, recruitment, alerts, raid forms, and synchronization handlers.
+- Check actual clipping and tooltip placement at a small and normal UI scale, with long guild names and large rosters. Exercise window dragging, scroll interactions, combat entry and exit, minimap clicks, and the existing popup previews in Forever.
+- Verify explicit board actions, guild sharing, LFG invites, Raid Operations, and version reports with real players running compatible builds. Confirm the saved settings and identity behavior after reload or a guild switch.

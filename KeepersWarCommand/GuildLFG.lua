@@ -403,11 +403,11 @@ function L.Draw(parent,label,button,edit,surface,redraw)
  lastReadiness,lastReadyGuild,lastActor=status,guild,actor
  local rawButton=button
  local makeButton=button
- button=function(p,caption,x,y,w,action,help)
+ button=function(p,caption,x,y,w,action,help,selectedTab)
   return makeButton(p,caption,x,y,w,function()
    local _,current,currentActor=readiness()
    if guild==current and actor==currentActor then action() else redraw() end
-  end,help)
+  end,help,selectedTab)
  end
  if guild~=viewGuild then
   viewGuild=guild;selected=nil;editing=nil;draft=nil;filter={};tab='Browse Groups'
@@ -419,7 +419,7 @@ function L.Draw(parent,label,button,edit,surface,redraw)
  for i,name in ipairs({'Browse Groups','Create Listing','My Listings'}) do
   button(parent,(tab==name and '> ' or '')..name,18+(i-1)*182,-61,170,function()
    tab=name;editing=nil;selected=nil;redraw()
-  end)
+  end,nil,tab==name)
  end
  local y=-114
  if tab=='Create Listing' then
@@ -543,7 +543,9 @@ function L.Draw(parent,label,button,edit,surface,redraw)
  y=y-25
  for _,r in ipairs(rows) do
   if y < -3650 then label(parent,'Use the filters to narrow this list.',18,y,520);break end
-  button(parent,(r.mine and '[Mine] ' or '')..r.name,18,y,275,function() selected=r.id;redraw() end)
+  surface(parent,18,y+3,528,39,0.085)
+  button(parent,(r.mine and '[Mine] ' or '')..r.name,18,y,275,function() selected=r.id;redraw() end,
+   'Open this listing to see the details and available actions.',selected==r.id)
   label(parent,displayName(r.owner),304,y-9,108)
   label(parent,(r.groupSize-r.needed)..'/'..r.groupSize..'  /  '..math.max(0,math.floor((time()-r.createdAt)/60))..'m',421,y-9,124)
   y=y-42

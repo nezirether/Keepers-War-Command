@@ -519,6 +519,44 @@ local function hasLabel(value)
         end
     end
 end
+ui.Toggle("Settings")
+local beforeSettings=env.CopyTable(env.KWCDB.settings)
+local originalSend=env.C_ChatInfo.SendAddonMessage
+local searchSends=0
+env.C_ChatInfo.SendAddonMessage=function() searchSends=searchSends+1 end
+click("Search Settings")
+local search=assert(control("EditBox",""))
+local function findSetting(term,caption)
+    search:SetText(term)
+    search.scripts.OnTextChanged(search)
+    assert(control("Button",caption),caption)
+end
+findSetting("battle rez","Battle Resurrection")
+assert(not control("Button","Guild Services Sharing"))
+findSetting("minimap","Minimap Launcher")
+findSetting("sharing","Guild Services Sharing")
+findSetting("bounty","Bounty Alerts")
+findSetting("guild death","Guild Death Alerts")
+findSetting("autoscout","Auto Scout")
+findSetting("sync","Sync Health")
+findSetting("sound","Alert Sound")
+findSetting("scale","Window Scale")
+search:SetText("impossible term")
+search.scripts.OnTextChanged(search)
+assert(hasLabel("No settings match this search."))
+findSetting("battle rez","Battle Resurrection")
+click("Battle Resurrection")
+assert(control("Button","Show Preview").enabled==false)
+assert(hasLabel("Show the Battle Resurrection button while in a raid."))
+for key,value in pairs(beforeSettings) do
+    if type(value)~="table" then assert(env.KWCDB.settings[key]==value,key) end
+end
+assert(searchSends==0)
+env.C_ChatInfo.SendAddonMessage=originalSend
+ui.Toggle("CTA Board")
+assert(control("Button","New Call to Arms") and not control("Button","+ New CTA"))
+print("PASS: settings terms, search empty state and routing, no outgoing traffic, and full Call to Arms label")
+
 ui.Toggle("PvP Leaderboard")
 assert(control("Button","All-Time HKs") and hasLabel("473") and hasLabel("Warlord"))
 click("World PvP")
@@ -526,7 +564,7 @@ assert(hasLabel("WORLD HKs") and hasLabel("37") and not hasLabel("473"))
 click("Battlegrounds")
 assert(hasLabel("BATTLEGROUND HKs") and hasLabel("129") and not hasLabel("37"))
 click("All-Time HKs")
-assert(hasLabel("473") and hasLabel("BOUNTIES") and hasLabel("CTAs"))
+assert(hasLabel("473") and hasLabel("BOUNTIES") and hasLabel("CALLS TO ARMS"))
 print("PASS: all three leaderboard views and lifetime tiers, bounty and CTA columns")
 
 -- Drive the actual Recruitment buttons and the Core WHO_LIST_UPDATE handler.
