@@ -39,3 +39,7 @@ This revision uses the concept's quieter charcoal and graphite palette, a native
 ## Artwork from the original direction board
 
 The ease-of-access build followed the browser concept layout and simplified most decorative surfaces. The next build uses cropped, text-free textures from the original direction board for the textured header, metal rails, crimson selections, sidebar insignia, and alert and Settings icons. The existing Trogdor launcher artwork and both alert backgrounds stay in use. WoW still renders the text, controls, and data. In-game contrast and alignment remain to be checked.
+
+### Concept artwork crop correction
+
+The in-game Bounty Board screenshot exposed incorrect source coordinates for the crimson fill and three icons. The fill sampled typography and the icons sampled adjacent artwork. The corrected assets use the crimson swatch and the isolated skull, target, and gear from the board. Their exported silhouettes were inspected on a dark background.
