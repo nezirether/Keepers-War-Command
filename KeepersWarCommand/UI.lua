@@ -48,6 +48,14 @@ local bountyCapture
 local selectedAAR=nil
 local C=K.UITheme
 local FONT=C.font
+local function concept(p,name,layer,x,y,w,h,alpha)
+ local art=p:CreateTexture(nil,layer)
+ art:SetPoint('TOPLEFT',p,'TOPLEFT',x,y)
+ art:SetSize(w,h)
+ art:SetTexture('Interface\\AddOns\\KeepersWarCommand\\Textures\\Concept'..name..'.tga')
+ art:SetAlpha(alpha or 1)
+ return art
+end
 local function setFont(region,size)
  if not region:SetFont(FONT,size,'') then region:SetFont(C.fallbackFont,size,'') end
 end
@@ -134,9 +142,16 @@ local function button(p,t,x,y,w,cb,help,selected,options)
  local pressed=false
  local function paint(hover)
   local emphasized=isSelected() or options.primary
-  local fill=isNav and emphasized and C.navSelected or (emphasized and C.crimson or (hover and C.hover or C.graphite))
+  local fill=hover and C.hover or C.graphite
   local light=pressed and 0.78 or 1
-  bg:SetColorTexture(fill[1]*light,fill[2]*light,fill[3]*light,1)
+  if emphasized then
+   bg:SetTexture('Interface\\AddOns\\KeepersWarCommand\\Textures\\ConceptCrimson.tga')
+   local tint=(isNav and 0.78 or 0.94)*light
+   bg:SetVertexColor(tint,tint,tint)
+  else
+   bg:SetColorTexture(fill[1]*light,fill[2]*light,fill[3]*light,1)
+   bg:SetVertexColor(1,1,1)
+  end
   bg:SetAlpha((not isNav or hover or emphasized) and 1 or 0)
   edge:SetColorTexture(unpack(emphasized and C.accent or C.buttonEdge))
   edge:SetAlpha(isNav and 0 or 1)
@@ -153,6 +168,10 @@ local function button(p,t,x,y,w,cb,help,selected,options)
  if isNav then
   local accent=b:CreateTexture(nil,'OVERLAY');accent:SetPoint('TOPLEFT',b,'TOPLEFT',0,0);accent:SetPoint('BOTTOMLEFT',b,'BOTTOMLEFT',0,0);accent:SetWidth(2)
   b.kwcAccent=accent
+ end
+ if options.icon then
+  concept(b,options.icon,'ARTWORK',9,-9,16,16)
+  tx:ClearAllPoints();tx:SetPoint('CENTER',b,'CENTER',7,0);tx:SetWidth(w-29)
  end
  local measured=tx.GetStringWidth and tx:GetStringWidth()
  if measured and measured>w-((isNav or options.alignLeft) and 20 or 12) then setFont(tx,12) end
@@ -381,8 +400,10 @@ render=function()
   end
  end
  if active=='Home' then
-  label(body,'Command Center',18,-14,540,'GameFontNormalLarge')
-  label(body,'Guild activity and shortcuts to your everyday tools.',18,-48,540,'Muted')
+  concept(body,'Header','BACKGROUND',18,-9,542,62,0.76)
+  concept(body,'Trim','ARTWORK',18,-69,542,2,0.64)
+  label(body,'Command Center',30,-14,510,'GameFontNormalLarge')
+  label(body,'Guild activity and shortcuts to your everyday tools.',30,-48,510,'Muted')
   local stats=K.Operations and K.Operations.Stats and K.Operations.Stats()
   if stats then
    for i,metric in ipairs({{stats.activeCTA,'Active Calls to Arms'},{stats.activeBounty,'Active Bounties'},{stats.sightings,'Recorded Sightings'}}) do
@@ -1532,8 +1553,14 @@ render=function()
    local y=-132-(i-1)*104
    local selected=alertSelection==card[1]
    surface(body,12,y,224,97,selected and 0.18 or 0.10)
-   label(body,card[2],21,y-6,205,'GameFontNormal')
-   local state=label(body,card[4],21,y-25,205)
+   local icon=card[1]=='death' and 'Skull' or (card[1]=='bounty' and 'Target')
+   local textX=icon and 58 or 21
+   if icon then
+    concept(body,'Crimson','ARTWORK',21,y-8,30,30,0.82)
+    concept(body,icon,'OVERLAY',23,y-10,26,26)
+   end
+   label(body,card[2],textX,y-6,225-textX,'GameFontNormal')
+   local state=label(body,card[4],textX,y-25,225-textX)
    state:SetTextColor(unpack(card[4]=='Enabled' and {0.72,0.82,0.64} or C.muted))
    single(body,card[3],21,y-43,205,'Muted')
    local caption=card[1]=='death' and 'Configure Death' or card[1]=='bounty' and 'Configure Bounty' or 'Configure '..card[2]
@@ -1805,10 +1832,14 @@ function U.Toggle(page)
   local backdrop=frame:CreateTexture(nil,'BACKGROUND',nil,-3)
   backdrop:SetPoint('TOPLEFT',2,-2);backdrop:SetPoint('BOTTOMRIGHT',-2,2);backdrop:SetColorTexture(unpack(C.charcoal))
   local headerFill=frame:CreateTexture(nil,'BACKGROUND',nil,-2)
-  headerFill:SetPoint('TOPLEFT',2,-2);headerFill:SetPoint('TOPRIGHT',-2,-2);headerFill:SetHeight(58);headerFill:SetColorTexture(0.098,0.098,0.11,1)
+  headerFill:SetPoint('TOPLEFT',2,-2);headerFill:SetPoint('TOPRIGHT',-2,-2);headerFill:SetHeight(58)
+  headerFill:SetTexture('Interface\\AddOns\\KeepersWarCommand\\Textures\\ConceptHeader.tga')
+  concept(frame,'Trim','BORDER',2,-2,856,5)
+  concept(frame,'Trim','BORDER',2,-673,856,5)
   local sidebar=frame:CreateTexture(nil,'BACKGROUND',nil,-2)
   sidebar:SetPoint('TOPLEFT',frame,'TOPLEFT',8,-63);sidebar:SetPoint('BOTTOMLEFT',frame,'BOTTOMLEFT',8,12)
   sidebar:SetWidth(211);sidebar:SetColorTexture(unpack(C.sidebar))
+  concept(frame,'Insignia','ARTWORK',55,-506,116,116,0.48)
   local sidebarAccent=frame:CreateTexture(nil,'ARTWORK')
   sidebarAccent:SetPoint('TOPLEFT',frame,'TOPLEFT',218,-63);sidebarAccent:SetPoint('BOTTOMLEFT',frame,'BOTTOMLEFT',218,14)
   sidebarAccent:SetWidth(1);sidebarAccent:SetColorTexture(unpack(C.steel))
@@ -1822,7 +1853,7 @@ function U.Toggle(page)
   divider:SetPoint('TOPLEFT',frame,'TOPLEFT',237,-18);divider:SetSize(1,23);divider:SetColorTexture(unpack(C.steel))
   header=single(frame,'Command Center',251,-21,445,'GameFontNormal')
   setFont(header,15);header:SetTextColor(unpack(C.muted))
-  local settingsButton=button(frame,'Settings',714,-13,96,function()navigate('Settings') end,'Open the Settings Center.')
+  local settingsButton=button(frame,'Settings',714,-13,96,function()navigate('Settings') end,'Open the Settings Center.',false,{icon='Gear'})
   local close=button(frame,'X',817,-13,34,function()frame:Hide() end,'Close War Command.')
   settingsButton:SetFrameLevel(dragHeader:GetFrameLevel()+1)
   close:SetFrameLevel(dragHeader:GetFrameLevel()+1)
