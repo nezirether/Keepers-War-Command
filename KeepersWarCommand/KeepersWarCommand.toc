@@ -2,7 +2,7 @@
 ## Title: Keepers of Trogdor | War Command
 ## Notes: Guild operations, scouting, PvP, bounties, CTAs and guild synchronization
 ## Author: Keepers of Trogdor
-## Version: 1.6.1
+## Version: 1.7.0
 ## SavedVariables: KWCDB, KeepersRaidToolsDB, KeepersRaidToolsAttendanceDB, KeepersRaidToolsRosterDB, KRTForeverNotesDB
 ## OptionalDeps: Overlord, WarEffortScout
 Core.lua

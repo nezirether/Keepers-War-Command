@@ -1,4 +1,4 @@
-Keepers War Command 1.6.1
+Keepers War Command 1.7.0 (UI 2.0)
 World of Warcraft: Forever 1.60.1 | Interface 16001 | Private test
 
 Exit WoW. Back up the old addon folder and SavedVariables, then replace

@@ -1,3 +1,10 @@
+# 1.7.0 (UI 2.0 private test)
+
+- Added the Command Center, a shared graphite and crimson theme, and direct links to guild tools.
+- Added local Settings Search with categories and links to the existing controls.
+- Refreshed the PvP boards, Raid Operations, Guild LFG, Guild Services, recruitment, roster, Addon Checker, and sync diagnostics.
+- Spelled out Call to Arms across player-facing navigation, settings, and table labels.
+
 # 1.6.1 (Private test)
 
 - Added Home shortcuts, simplified sidebar headings, and added tooltips for shared actions and settings.
