@@ -1,6 +1,6 @@
 ## Interface: 16001
 ## Title: Keepers of Trogdor | War Command
-## Notes: Guild operations, scouting, PvP, bounties, CTAs and guild synchronization
+## Notes: Guild operations, scouting, PvP, bounties, Calls to Arms and guild synchronization
 ## Author: Keepers of Trogdor
 ## Version: 1.7.0
 ## SavedVariables: KWCDB, KeepersRaidToolsDB, KeepersRaidToolsAttendanceDB, KeepersRaidToolsRosterDB, KRTForeverNotesDB
