@@ -576,8 +576,18 @@ assert(hasLabel("WORLD HKs") and hasLabel("37") and not hasLabel("473"))
 click("Battlegrounds")
 assert(hasLabel("BATTLEGROUND HKs") and hasLabel("129") and not hasLabel("37"))
 click("All-Time HKs")
-assert(hasLabel("473") and hasLabel("BOUNTIES") and hasLabel("CALLS TO ARMS"))
+assert(hasLabel("473") and hasLabel("Bounties") and hasLabel("Calls to Arms"))
 print("PASS: all three leaderboard views and lifetime tiers, bounty and CTA columns")
+
+local savedAttendance=env.KeepersRaidToolsAttendanceDB
+env.KeepersRaidToolsAttendanceDB={}
+ui.Toggle("Raid Attendance")
+assert(hasLabel("No attendance has been recorded yet."))
+assert(control("Button","Open Attendance Records").anchorY==-88)
+click("Open Attendance Records")
+assert(control("Button","Back"))
+env.KeepersRaidToolsAttendanceDB=savedAttendance
+print("PASS: empty attendance keeps record management above the empty state")
 
 -- Drive the actual Recruitment buttons and the Core WHO_LIST_UPDATE handler.
 local whoTime=1000

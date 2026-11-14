@@ -54,13 +54,13 @@ end
 local settingsQuery,settingsCategory='',''
 local alertSelection='death'
 local settingIndex={
- {'Window Scale','Interface & Minimap','Change the size of the War Command window.','Settings',-410,'Account-wide'},
- {'Minimap Launcher','Interface & Minimap','Show or hide the launcher and reset its position.','Settings',-226,'Account-wide'},
- {'Guild Services Sharing','Guild & Sharing','Share profession skills and observed recipes.','Settings',-149,'Character and guild'},
- {'Automatic Guild Synchronization','Sync & Network','Control automatic shared-record requests.','Settings',-274,'Account-wide'},
+ {'Window Scale','Interface & Minimap','Change the size of the War Command window.','Settings',-140,'Account-wide'},
+ {'Minimap Launcher','Interface & Minimap','Show or hide the launcher and reset its position.','Settings',-247,'Account-wide'},
+ {'Guild Services Sharing','Guild & Sharing','Share profession skills and observed recipes.','Settings',-374,'Character and guild'},
+ {'Automatic Guild Synchronization','Sync & Network','Control automatic shared-record requests.','Settings',-508,'Account-wide'},
  {'Sync Health','Sync & Network','Inspect board, PvP, and transport outcomes.','Sync Health',-12},
- {'Auto Scout','World PvP','Share observed enemy activity with guildmates.','Settings',-274,'Account-wide','autoscout',264},
- {'Alert Sound','Alerts','Turn all alert sounds on or off.','Alerts',-53,'Account-wide'},
+ {'Auto Scout','World PvP','Share observed enemy activity with guildmates.','Settings',-508,'Account-wide','autoscout',268},
+ {'Alert Sound','Alerts','Turn all alert sounds on or off.','Alerts',-85,'Account-wide'},
  {'Guild Death Alerts','Alerts','Manage popup, sound, position, size, and duration.','Alerts',-95,'Account-wide',nil,253,'death'},
  {'Smart Mode','World PvP','Set the death threshold, detection window, and quiet period.','Alerts',-640,'Account-wide','guild death',253,'death'},
  {'Bounty Alerts','Alerts','Manage bounty target popup, sound, and preview.','Alerts',-95,'Account-wide',nil,253,'bounty'},
@@ -126,7 +126,8 @@ local function button(p,t,x,y,w,cb,help,selected,options)
  local function isSelected()
   if not isNav then return selected end
   local page=b.kwcPage or t
-  return active==page or (page=='Raid Tools' and active:sub(1,12)=='Raid Tools: ')
+  return active==page or (page=='Settings' and active=='Settings Search')
+   or (page=='Raid Tools' and active:sub(1,12)=='Raid Tools: ')
  end
  local edge=b:CreateTexture(nil,'BACKGROUND');edge:SetAllPoints(b)
  local bg=b:CreateTexture(nil,'ARTWORK');bg:SetPoint('TOPLEFT',1,-1);bg:SetPoint('BOTTOMRIGHT',-1,1)
@@ -146,13 +147,15 @@ local function button(p,t,x,y,w,cb,help,selected,options)
  paint(false)
  local tx=b:CreateFontString(nil,'OVERLAY');setFont(tx,isNav and C.size.nav or C.size.body);tx:SetPoint('CENTER');tx:SetWidth(w-12);tx:SetJustifyH('CENTER')
  tx:SetTextColor(C.cream[1],C.cream[2],C.cream[3]);tx:SetText(t)
- if isNav then
+ if isNav or options.alignLeft then
   tx:ClearAllPoints();tx:SetPoint('LEFT',b,'LEFT',12,0);tx:SetWidth(w-20);tx:SetJustifyH('LEFT')
+ end
+ if isNav then
   local accent=b:CreateTexture(nil,'OVERLAY');accent:SetPoint('TOPLEFT',b,'TOPLEFT',0,0);accent:SetPoint('BOTTOMLEFT',b,'BOTTOMLEFT',0,0);accent:SetWidth(2)
   b.kwcAccent=accent
  end
  local measured=tx.GetStringWidth and tx:GetStringWidth()
- if measured and measured>w-(isNav and 20 or 12) then setFont(tx,12) end
+ if measured and measured>w-((isNav or options.alignLeft) and 20 or 12) then setFont(tx,12) end
  b:SetScript('OnEnter',function(self)self.kwcHovered=true;paint(true) end)
  b:SetScript('OnLeave',function(self)pressed=false;self.kwcHovered=false;paint(false) end)
  b:SetScript('OnMouseDown',function(self)pressed=true;paint(self.kwcHovered) end)
@@ -588,15 +591,18 @@ render=function()
    if K.GuildService then K.GuildService.Request() end
   end,'Refreshes your Forever PvP totals and requests current totals from compatible guildmates.')
   local lifetime=pvpView=='lifetime'
-  label(body,lifetime and 'Lifetime honorable kills. Tiers are internal guild titles.' or
+  label(body,lifetime and 'Ranked by lifetime honorable kills. Bounties and Calls to Arms show guild activity.' or
    'Forever character history. Players without reported totals are unranked.',18,-100,539)
   surface(body,18,-124,539,38,0.12)
   local columns=lifetime and {
-   {'#',25,28},{'TIER',57,89},{'PLAYER',150,155},{'HKs',309,46},{'BOUNTIES',363,75},{'CALLS TO ARMS',445,112}
+   {'#',25,23},{'Tier',51,76},{'Player',132,195},{'HKs',331,46},{'Bounties',381,65},{'Calls to Arms',450,105}
   } or {
    {'#',25,38},{'PLAYER',72,305},{pvpView=='world' and 'WORLD HKs' or 'BATTLEGROUND HKs',390,165}
   }
-  for _,column in ipairs(columns) do single(body,column[1],column[2],-136,column[3],'GameFontNormal') end
+  for _,column in ipairs(columns) do
+   local heading=single(body,column[1],column[2],-136,column[3])
+   heading:SetTextColor(unpack(C.gold))
+  end
   local function tier(rank) if rank<=5 then return 'Warlord' elseif rank<=10 then return 'Gladiator' elseif rank<=20 then return 'Elite' elseif rank<=35 then return 'Duelist' elseif rank<=50 then return 'Rival' elseif rank<=75 then return 'Challenger' else return 'Combatant' end end
   local players=K.PvP.Rankings(pvpView)
   local playerColumn=lifetime and 3 or 2
@@ -810,8 +816,10 @@ render=function()
   if K.RaidTools and K.RaidTools.Mount then K.RaidTools.Mount(mount,'Auto-Invite') end
  elseif active=='Raid Tools: Attendance' then
   label(body,'Raid Attendance',18,-14,530,'GameFontNormalLarge')
-  label(body,'OBSERVED RAID ATTENDANCE AND HISTORICAL RECORDS',18,-56,530)
-  label(body,'RECENT RAID DAYS',18,-105,530,'GameFontNormal')
+  label(body,'View recent raid attendance or open the full records editor.',18,-54,530,'Muted')
+  button(body,'Open Attendance Records',18,-88,235,function()navigate('Raid Tools: Attendance Editor') end,
+   'Review, correct, or sync existing attendance records.',false,{primary=true})
+  label(body,'Recent raid days',18,-145,530,'GameFontNormal')
   local db=KeepersRaidToolsAttendanceDB or {}
   local days={}
   for day,records in pairs(db) do
@@ -821,10 +829,11 @@ render=function()
   end
   table.sort(days,function(a,b)return a>b end)
   if #days==0 then
-   label(body,'No attendance has been recorded yet.',30,-158,510)
-   label(body,'KWC records attendance through the integrated raid countdown system.',30,-187,510)
+   surface(body,18,-173,538,78)
+   label(body,'No attendance has been recorded yet.',30,-185,510,'GameFontNormal')
+   label(body,'Attendance is recorded through the raid countdown system.',30,-213,510,'Muted')
   end
-  local y=-153
+  local y=-178
   for i=1,math.min(#days,15) do
    local day=days[i]
    local total,present=0,0
@@ -840,9 +849,8 @@ render=function()
    single(body,tostring(present)..' present / '..tostring(total)..' recorded',251,y-7,286)
    y=y-58
   end
-  label(body,'MANAGE ATTENDANCE',18,y-24,530,'GameFontNormal')
-  label(body,'Open the complete records editor to review, correct, or sync attendance.',18,y-59,530)
-  button(body,'Open Attendance Records',18,y-95,290,function()active='Raid Tools: Attendance Editor';render() end)
+  local height=math.max(280,-y+15)
+  body:SetHeight(height);scrollChild:SetHeight(height)
  elseif active=='Raid Tools: Roster' then
   label(body,'Raid Roster',18,-14,530,'GameFontNormalLarge')
   label(body,'CURRENT GROUP  /  LIVE PARTICIPANTS',18,-56,530)
@@ -1416,26 +1424,28 @@ render=function()
   showSettings()
  elseif active=='Settings' then
   label(body,'Settings Center',12,-12,565,'GameFontNormalLarge')
-  label(body,'Find a setting or open a section.',12,-61,230)
-  button(body,'Search Settings',250,-51,220,function()
+  label(body,'Find a setting or choose a group below.',12,-52,320,'Muted')
+  button(body,'Search Settings',380,-45,175,function()
    settingsQuery,settingsCategory='','';navigate('Settings Search')
-  end)
-  label(body,'WINDOW SIZE',12,-410,540,'GameFontNormal')
-  label(body,'Current: '..math.floor(U.GetScale()*100+0.5)..'%  |  Choose a size below or use /kt scale 90',12,-440,550)
-  button(body,'75%',12,-475,100,function()U.SetScale(0.75);render() end)
-  button(body,'90%',124,-475,100,function()U.SetScale(0.90);render() end)
-  button(body,'100%',236,-475,100,function()U.SetScale(1);render() end)
-  button(body,'115%',348,-475,100,function()U.SetScale(1.15);render() end)
-  button(body,'125%',460,-475,100,function()U.SetScale(1.25);render() end)
-
-  button(body,'View Guild Roster',12,-100,220,function()active='Guild Roster';render() end)
-  button(body,'View Chronicle',250,-100,220,function()active='Chronicle';render() end)
-  label(body,'Guild Services sharing',12,-149,540,'GameFontNormal')
+  end,nil,false,{primary=true})
+  settingLink(body,'Alert Settings',12,-88,171,7)
+  settingLink(body,'Raid Settings',198,-88,171,12)
+  settingLink(body,'World PvP Settings',384,-88,171,9)
+  surface(body,12,-140,543,162)
+  label(body,'Window & minimap',24,-151,510,'GameFontNormal')
+  label(body,'Window size: '..math.floor(U.GetScale()*100+0.5)..'%',24,-175,510,'Muted')
+  for i,percent in ipairs({75,90,100,115,125}) do
+   button(body,percent..'%',24+(i-1)*103,-197,94,function()U.SetScale(percent/100);render() end,
+    'Set the War Command window size.',math.floor(U.GetScale()*100+0.5)==percent)
+  end
+  surface(body,12,-316,543,121)
+  label(body,'Guild & sharing',24,-327,510,'GameFontNormal')
+  label(body,'Share this character’s professions and known recipes with this guild.',24,-350,510,'Muted')
   local services=K.GuildServices
   local _,guild,actor=services.Context()
   local ready=guild~=nil
   local sharing=button(body,ready and (services.IsSharing() and 'Sharing On' or 'Sharing Off') or 'Sharing unavailable',
-   12,-174,220,function()
+   24,-374,162,function()
     local _,currentGuild,currentActor=services.Context()
     if ready and guild==currentGuild and actor==currentActor then services.SetSharing(not services.IsSharing()) end
     render()
@@ -1445,31 +1455,33 @@ render=function()
     return state=='Ready' and 'The Guild Services data format is unsupported.' or state
    end)
   setActionEnabled(sharing,ready)
+  button(body,'View Guild Roster',199,-374,162,function()navigate('Guild Roster') end)
+  button(body,'View Chronicle',374,-374,162,function()navigate('Chronicle') end)
   local minimap=K.MinimapLauncher
-  button(body,minimap.IsVisible() and 'Hide Minimap Icon' or 'Show Minimap Icon',12,-226,220,function()
+  button(body,minimap.IsVisible() and 'Hide Minimap Icon' or 'Show Minimap Icon',24,-247,220,function()
    minimap.SetVisible(not minimap.IsVisible());render()
   end)
-  button(body,'Reset Minimap Position',250,-226,220,minimap.ResetPosition)
+  button(body,'Reset Minimap Position',258,-247,220,minimap.ResetPosition)
+  surface(body,12,-451,543,151)
+  label(body,'Sync & diagnostics',24,-462,510,'GameFontNormal')
+  label(body,'Manage background updates or check what guildmates are running.',24,-485,510,'Muted')
   if K.Sync and K.Sync.AutoSyncEnabled then
    local sync=K.Sync.AutoSyncEnabled()
-   button(body,'Automatic Guild Sync: '..(sync and 'On' or 'Off'),12,-274,245,function()
+   button(body,'Automatic Guild Sync: '..(sync and 'On' or 'Off'),24,-508,238,function()
     K.Sync.SetAutoSync(not K.Sync.AutoSyncEnabled());render()
    end,'Account-wide. Automatically requests shared records from compatible guildmates.')
   end
   if K.AutoScout and K.AutoScout.Status then
-   button(body,'Auto Scout: '..(K.AutoScout.Status() and 'On' or 'Off'),272,-274,245,function()
+   button(body,'Auto Scout: '..(K.AutoScout.Status() and 'On' or 'Off'),276,-508,238,function()
     K.AutoScout.SetEnabled(not K.AutoScout.Status());render()
    end,'Account-wide. Controls automatic guild scouting.')
   end
-  button(body,'Addon Checker',272,-365,245,function()active='Addon Checker';K.AddonChecker.Request();render() end)
-  button(body,'Sync Health Monitor',12,-365,245,function()active='Sync Health';render() end)
-  button(body,'Request board sync',12,-316,245,function()K.Operations.RequestSync() end)
-  settingLink(body,'Alert Settings',272,-316,245,7)
-  settingLink(body,'Raid Settings',12,-525,245,12)
-  settingLink(body,'World PvP Settings',272,-525,245,9)
-  body:SetHeight(580);scrollChild:SetHeight(580)
+  button(body,'Addon Checker',374,-551,162,function()active='Addon Checker';K.AddonChecker.Request();render() end)
+  button(body,'Sync Health Monitor',199,-551,162,function()navigate('Sync Health') end)
+  button(body,'Request board sync',24,-551,162,function()K.Operations.RequestSync() end)
+  body:SetHeight(620);scrollChild:SetHeight(620)
  elseif active=='Alerts' then
-  label(body,'Alert Command Center',12,-12,550,'GameFontNormalLarge')
+  label(body,'Alert Command Center',12,-12,375,'GameFontNormalLarge')
   button(body,'Settings Center',400,-7,155,function()navigate('Settings') end)
   local settings,q=d.settings,K.QOL
   local deaths,bounty=K.WorldPvPDeaths,K.BountyAlerts
@@ -1477,10 +1489,11 @@ render=function()
   local function toggle(text,enabled,x,y,width,change,help)
    button(body,text..': '..(enabled and 'ON' or 'OFF'),x,y,width,function()
     change(not enabled);render()
-   end,help,enabled)
+   end,help,false,{alignLeft=true})
   end
+  label(body,'Choose an alert to change its settings.',12,-55,224,'Muted')
   if q then
-   toggle('All alert sounds',q.Enabled('alertSound'),12,-53,224,function()q.Toggle('alertSound') end,
+   toggle('All alert sounds',q.Enabled('alertSound'),12,-85,224,function()q.Toggle('alertSound') end,
     'Master sound switch for supported War Command alerts.')
   end
 
@@ -1505,8 +1518,8 @@ render=function()
   local function callsToArms(value) settings.alerts=value end
   local function reminders(value) settings.autoGuildReports=value end
   local cards={
-   {'death','Guild Death','Popup for reported guild deaths.',status(deaths and settings.worldPvPDeathAlerts~=false),deaths and deaths.Demo},
-   {'bounty','Bounty Spotted','Popup when a bounty target is seen.',status(bounty and q and bounty.Status()),bounty and bounty.Demo},
+   {'death','Guild Death','Reported guild deaths.',status(deaths and settings.worldPvPDeathAlerts~=false),deaths and deaths.Demo},
+   {'bounty','Bounty Spotted','Spotted bounty targets.',status(bounty and q and bounty.Status()),bounty and bounty.Demo},
    {'calls','Calls to Arms','Incoming announcements in chat.',status(settings.alerts~=false)},
    {'reminders','Report reminders','Local reminders in chat.',status(not not settings.autoGuildReports)},
    {'lfg','Guild LFG notices','Interest, invites, and matching.',countLFG(),nil,'Looking for Group'},
@@ -1516,15 +1529,15 @@ render=function()
    {'release','Death Protection','Existing release protection.',raidStatus('dontRelease','enabled'),nil,"Raid Tools: Don't Release"},
   }
   for i,card in ipairs(cards) do
-   local y=-100-(i-1)*114
+   local y=-132-(i-1)*104
    local selected=alertSelection==card[1]
-   surface(body,12,y,224,107,selected and 0.18 or 0.12)
+   surface(body,12,y,224,97,selected and 0.18 or 0.10)
    label(body,card[2],21,y-6,205,'GameFontNormal')
-   label(body,card[3],21,y-25,205,'Muted')
-   local state=label(body,card[4],21,y-50,205)
-   state:SetTextColor(unpack(card[4]=='Enabled' and C.gold or C.muted))
+   local state=label(body,card[4],21,y-25,205)
+   state:SetTextColor(unpack(card[4]=='Enabled' and {0.72,0.82,0.64} or C.muted))
+   single(body,card[3],21,y-43,205,'Muted')
    local caption=card[1]=='death' and 'Configure Death' or card[1]=='bounty' and 'Configure Bounty' or 'Configure '..card[2]
-   button(body,caption,21,y-66,card[5] and 116 or 205,function()
+   button(body,caption,21,y-61,card[5] and 123 or 205,function()
     if card[6] then navigate(card[6]);return end
     alertSelection=card[1]
     pendingSetting,focusedSetting=nil,nil
@@ -1532,7 +1545,7 @@ render=function()
     render()
    end,'Open '..card[2]..' configuration.',selected)
    if card[5] then
-    button(body,'Test Alert',143,y-66,84,card[5],'Play the existing local preview.')
+    button(body,'Test Alert',150,y-61,76,card[5],'Preview only. This sends no guild messages.')
    end
   end
 
@@ -1544,7 +1557,7 @@ render=function()
   local popup=alertSelection=='death' or isBounty
   surface(body,panelX,-53,panelWidth,popup and (isBounty and 525 or 760) or 130,0.115)
   local x=panelX+10
-  label(body,title,x,-63,280,'GameFontNormal')
+  label(body,title..' settings',x,-63,280,'GameFontNormal')
   if not popup then
    local calls=alertSelection=='calls'
    toggle(calls and 'Incoming Calls to Arms' or 'Report reminders',
@@ -1565,7 +1578,7 @@ render=function()
    local scale=math.floor((tonumber(settings[key..'Scale']) or 1)*100+0.5)
    local duration=isBounty and api.GetDuration() or tonumber(settings.worldPvPDeathDuration) or 8
    local function stepper(name,value,y,change,help)
-    label(body,name..'  '..value,x,y-8,166)
+    label(body,(name=='Time' and 'Duration' or name)..'  '..value,x,y-8,166)
     button(body,name..' -',x+168,y,54,function()change(-1);render() end,help)
     button(body,name..' +',x+226,y,54,function()change(1);render() end,help)
    end
@@ -1701,7 +1714,9 @@ render=function()
   marker:SetSize(4,35)
   marker:SetColorTexture(unpack(C.accent))
   if pendingSetting then
-   scroll:SetVerticalScroll(math.max(0,-y-24))
+   local viewport=scroll:GetHeight() or 0
+   local offset=math.max(0,-y+47-viewport)
+   scroll:SetVerticalScroll(math.min(offset,math.max(0,body:GetHeight()-viewport)))
    pendingSetting=nil
   end
  end
