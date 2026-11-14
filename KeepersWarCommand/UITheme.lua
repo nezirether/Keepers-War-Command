@@ -1,19 +1,13 @@
 local T={
- font='Fonts\\FRIZQT__.TTF',
- size={title=24,section=15,body=13,field=14,nav=13},
- gold={0.84,0.73,0.55},cream={237/255,230/255,217/255},muted={0.69,0.70,0.72},
+ font='Fonts\\ARIALN.TTF', fallbackFont='Fonts\\FRIZQT__.TTF',
+ size={title=28,section=16,body=14,field=14,nav=15},
+ gold={211/255,180/255,134/255},cream={242/255,237/255,230/255},muted={186/255,181/255,179/255},
  bronze={122/255,103/255,84/255,1},
- steel={59/255,63/255,67/255,1},graphite={43/255,43/255,43/255,1},
- charcoal={26/255,26/255,26/255,1},panel={0.055,0.055,0.063,1},
- hover={0.22,0.20,0.21,1},crimson={122/255,14/255,18/255,1},accent={0.69,0.30,0.36,1},
+ steel={53/255,54/255,61/255,1},graphite={36/255,36/255,41/255,1},
+ charcoal={20/255,21/255,24/255,1},panel={0.055,0.055,0.063,1},
+ hover={48/255,48/255,54/255,1},crimson={112/255,41/255,54/255,1},accent={199/255,120/255,130/255,1},
+ navSelected={64/255,35/255,43/255,1},sidebar={25/255,25/255,29/255,1},
+ card={29/255,30/255,34/255,1},buttonEdge={76/255,73/255,80/255,1},
  metal='Interface\\AddOns\\KeepersWarCommand\\Textures\\CommandSteel.tga',
- redMetal='Interface\\AddOns\\KeepersWarCommand\\Textures\\CommandCrimson.tga',
- icons={
-  Home='INV_Misc_Map_01', ['Looking for Group']='INV_Misc_GroupNeedMore',
-  ['War Room']='Ability_Warrior_BattleShout', ['Raid Tools']='Ability_Warrior_RallyingCry',
-  ['Guild Services']='INV_Misc_Book_09', Settings='INV_Misc_Gear_01',
-  Overview='INV_Misc_Note_01', ['Bounty Board']='Ability_Hunter_SniperShot',
-  Alerts='INV_Misc_Bell_01', ['CTA Board']='Ability_Warrior_WarCry',
- },
 }
 KWC.UITheme=T

@@ -29,3 +29,9 @@ WoW renders native frames and fonts. The reference uses browser typography and f
 ## Live comparison checklist
 
 Capture Command Center, Alert Command Center with Guild Death and Bounty Spotted selected, and one representative view from every other sidebar section. Use the same UI scale and window size for before and after. Include a smaller-window run with sidebar scrolling. Compare texture detail, edge contrast, selected states, long labels, text alignment, and tooltips with the approved concept PNGs. In the alert center, test both previews, move and lock each alert, reload, then reset their positions. Verify mixed-client PvP reports, existing bounty claims, and Call to Arms attendance.
+
+## Follow-up from the in-game Command Center screenshot
+
+The screenshot from the Visual Fidelity test build showed prominent brushed textures on the header, navigation rows, and Home cards. It also showed display-font headings, uppercase title repetition, colored game icons on routine destinations, and a partially hidden Settings section. Compared with the approved browser concept, these elements made the implementation look denser and more ornamental.
+
+This revision uses the concept's quieter charcoal and graphite palette, a native sans-serif font with an in-client fallback, subtle steel outlines, and a crimson selected-row fill and rail. The original Trogdor mark remains in the header. Navigation text uses consistent insets. Home now separates the heading, metric cards, and shortcut cards. Each shortcut has its own title, muted description, and visible action. The same buttons and fills apply to feature screens and mounted Raid Tools. The comparison still needs a screenshot from this revision to check font metrics, spacing, and selected states in Forever.

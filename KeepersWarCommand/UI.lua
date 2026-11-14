@@ -48,6 +48,9 @@ local bountyCapture
 local selectedAAR=nil
 local C=K.UITheme
 local FONT=C.font
+local function setFont(region,size)
+ if not region:SetFont(FONT,size,'') then region:SetFont(C.fallbackFont,size,'') end
+end
 local settingsQuery,settingsCategory='',''
 local alertSelection='death'
 local settingIndex={
@@ -98,16 +101,11 @@ local function label(p,t,x,y,w,font)
  local title=font=='GameFontNormalLarge'
  local section=font=='GameFontNormal'
  local size=title and C.size.title or (section and C.size.section or C.size.body)
- if not title or not f:SetFont('Fonts\\MORPHEUS.TTF',size,'') then f:SetFont(FONT,size,'') end
+ setFont(f,size)
  local color=title and C.cream or (section and C.gold or (font=='Muted' and C.muted or C.cream))
  f:SetTextColor(color[1],color[2],color[3],1)
  f:SetPoint('TOPLEFT',x,y);f:SetWidth(w);f:SetJustifyH('LEFT');f:SetJustifyV('TOP')
  f:SetText(tostring(t or ''))
- if title then
-  local rule=p:CreateTexture(nil,'ARTWORK')
-  rule:SetPoint('TOPLEFT',p,'TOPLEFT',x,y-27);rule:SetSize(math.min(w,545),1)
-  rule:SetColorTexture(unpack(C.steel))
- end
  return f
 end
 local function tooltip(control,title,help)
@@ -135,46 +133,26 @@ local function button(p,t,x,y,w,cb,help,selected,options)
  local pressed=false
  local function paint(hover)
   local emphasized=isSelected() or options.primary
-  bg:SetTexture(emphasized and C.redMetal or C.metal)
-  local light=pressed and 0.66 or (hover and 1 or ((isNav and not emphasized) and 0.55 or 0.85))
-  bg:SetVertexColor(light,light,light)
-  edge:SetColorTexture(unpack(emphasized and C.accent or (hover and C.bronze or C.steel)))
-  edge:SetAlpha(isNav and not (hover or emphasized) and 0.35 or 1)
+  local fill=isNav and emphasized and C.navSelected or (emphasized and C.crimson or (hover and C.hover or C.graphite))
+  local light=pressed and 0.78 or 1
+  bg:SetColorTexture(fill[1]*light,fill[2]*light,fill[3]*light,1)
+  bg:SetAlpha((not isNav or hover or emphasized) and 1 or 0)
+  edge:SetColorTexture(unpack(emphasized and C.accent or C.buttonEdge))
+  edge:SetAlpha(isNav and 0 or 1)
   if isNav and b.kwcAccent then
    b.kwcAccent:SetColorTexture(C.accent[1],C.accent[2],C.accent[3],isSelected() and 1 or 0)
   end
-  if options.description then
-   bg:SetVertexColor(light,light,light)
-  end
  end
  paint(false)
- local tx=b:CreateFontString(nil,'OVERLAY');tx:SetFont(FONT,isNav and C.size.nav or C.size.body,'');tx:SetPoint('CENTER');tx:SetWidth(w-12);tx:SetJustifyH('CENTER')
+ local tx=b:CreateFontString(nil,'OVERLAY');setFont(tx,isNav and C.size.nav or C.size.body);tx:SetPoint('CENTER');tx:SetWidth(w-12);tx:SetJustifyH('CENTER')
  tx:SetTextColor(C.cream[1],C.cream[2],C.cream[3]);tx:SetText(t)
- if options.description then
-  tx:ClearAllPoints();tx:SetPoint('TOPLEFT',b,'TOPLEFT',36,-13)
-  tx:SetWidth(w-46);tx:SetJustifyH('LEFT');tx:SetFont(FONT,16,'')
-  local description=label(b,options.description,36,-38,w-52,'Muted')
-  description:SetMaxLines(2)
- elseif isNav or options.icon then
-  local inset=options.icon and 34 or 13
-  tx:ClearAllPoints();tx:SetPoint('LEFT',b,'LEFT',inset,0);tx:SetWidth(w-inset-8);tx:SetJustifyH('LEFT')
- end
- if options.icon then
-  local icon=b:CreateTexture(nil,'ARTWORK',nil,1)
-  if options.description then icon:SetPoint('TOPLEFT',b,'TOPLEFT',10,-12) else icon:SetPoint('LEFT',b,'LEFT',10,0) end
-  icon:SetSize(16,16)
-  icon:SetTexture('Interface\\Icons\\'..options.icon)
-  icon:SetTexCoord(0.08,0.92,0.08,0.92)
- end
  if isNav then
+  tx:ClearAllPoints();tx:SetPoint('LEFT',b,'LEFT',12,0);tx:SetWidth(w-20);tx:SetJustifyH('LEFT')
   local accent=b:CreateTexture(nil,'OVERLAY');accent:SetPoint('TOPLEFT',b,'TOPLEFT',0,0);accent:SetPoint('BOTTOMLEFT',b,'BOTTOMLEFT',0,0);accent:SetWidth(2)
   b.kwcAccent=accent
  end
- if not options.description then
-  local available=w-(options.icon and 42 or 12)
-  local measured=tx.GetStringWidth and tx:GetStringWidth()
-  if measured and measured>available then tx:SetFont(FONT,12,'') end
- end
+ local measured=tx.GetStringWidth and tx:GetStringWidth()
+ if measured and measured>w-(isNav and 20 or 12) then setFont(tx,12) end
  b:SetScript('OnEnter',function(self)self.kwcHovered=true;paint(true) end)
  b:SetScript('OnLeave',function(self)pressed=false;self.kwcHovered=false;paint(false) end)
  b:SetScript('OnMouseDown',function(self)pressed=true;paint(self.kwcHovered) end)
@@ -216,7 +194,7 @@ local function edit(p,value,x,y,w)
  e:SetScript('OnEscapePressed',function(self) self:ClearFocus() end)
  e:SetScript('OnEnterPressed',function(self) self:ClearFocus() end)
  local bg=e:CreateTexture(nil,'BACKGROUND');bg:SetAllPoints(e);bg:SetColorTexture(unpack(C.graphite))
- e:SetFont(FONT,C.size.field,'');e:SetTextColor(unpack(C.cream));e:SetTextInsets(9,9,0,0);e:SetText(value or '');return e
+ setFont(e,C.size.field);e:SetTextColor(unpack(C.cream));e:SetTextInsets(9,9,0,0);e:SetText(value or '');return e
 end
 local function localFilter(parent,value,x,y,width,apply)
  local field=edit(parent,value,x,y,width)
@@ -231,7 +209,7 @@ local function multilineEdit(p,value,x,y,w,h)
  scroll:SetPoint('TOPLEFT',holder,'TOPLEFT',8,-7)
  scroll:SetPoint('BOTTOMRIGHT',holder,'BOTTOMRIGHT',-27,7)
  local e=CreateFrame('EditBox',nil,scroll)
- e:SetMultiLine(true);e:SetAutoFocus(false);e:SetFont(FONT,C.size.field,'')
+ e:SetMultiLine(true);e:SetAutoFocus(false);setFont(e,C.size.field)
  e:SetTextColor(unpack(C.cream));e:SetWidth(w-48);e:SetHeight(h-14)
  e:SetScript('OnEscapePressed',function(self)self:ClearFocus() end)
  e:SetScript('OnTextChanged',function(self)
@@ -251,9 +229,8 @@ surface=function(p,x,y,w,h,shade)
  edge:SetColorTexture(unpack(v>=0.15 and C.bronze or C.steel))
  local t=p:CreateTexture(nil,'BACKGROUND',nil,-2)
  t:SetPoint('TOPLEFT',p,'TOPLEFT',x+1,y-1);t:SetSize(w-2,h-2)
- t:SetTexture(C.metal)
- local tone=math.min(1,v*6)
- t:SetVertexColor(tone,tone,tone)
+ local tone=math.max(-0.018,math.min(0.03,(v-0.10)*0.3))
+ t:SetColorTexture(C.card[1]+tone,C.card[2]+tone,C.card[3]+tone,1)
  return t
 end
 local function single(p,value,x,y,w,style)
@@ -385,7 +362,7 @@ render=function()
  if not frame or not frame:IsShown() or not KWCDB then return end
  for _,nav in ipairs(navButtons) do if nav.kwcPaint then nav.kwcPaint(nav.kwcHovered or false) end end
  if type(active)~='string' then active='Home' end
- header:SetText(string.upper(pageTitle(active)));reset();local d=KWCDB
+ header:SetText(pageTitle(active));reset();local d=KWCDB
  if raidTabFor(active)==active then
   for i,tab in ipairs(raidTabs) do
    local name,page=tab[1],tab[2]
@@ -402,14 +379,14 @@ render=function()
  end
  if active=='Home' then
   label(body,'Command Center',18,-14,540,'GameFontNormalLarge')
-  label(body,'Guild activity and shortcuts to your everyday tools.',18,-50,540,'Muted')
+  label(body,'Guild activity and shortcuts to your everyday tools.',18,-48,540,'Muted')
   local stats=K.Operations and K.Operations.Stats and K.Operations.Stats()
   if stats then
    for i,metric in ipairs({{stats.activeCTA,'Active Calls to Arms'},{stats.activeBounty,'Active Bounties'},{stats.sightings,'Recorded Sightings'}}) do
-    local x=18+(i-1)*182
-    surface(body,x,-81,171,76,0.14)
-    label(body,metric[1] or '—',x+12,-88,145,'GameFontNormalLarge')
-    label(body,metric[2],x+12,-127,145,'Muted')
+    local x=18+(i-1)*184
+    surface(body,x,-79,174,69)
+    label(body,metric[1] or '—',x+12,-86,150,'GameFontNormalLarge')
+    label(body,metric[2],x+12,-119,150,'Muted')
    end
   else
    label(body,'Guild activity is unavailable.',18,-90,540)
@@ -422,15 +399,18 @@ render=function()
    {'Settings','Settings','Manage sharing, the minimap launcher, and window size.'},
    {'Guild Overview','Overview','See the guild activity dashboard and group counts.'},
   }
-  label(body,'Quick Access',18,-173,540,'GameFontNormal')
+  label(body,'Quick Access',18,-166,540,'GameFontNormal')
   for i,item in ipairs(shortcuts) do
-   local x=18+((i-1)%2)*274
-   local y=-200-math.floor((i-1)/2)*98
-   local card=button(body,item[1],x,y,263,function() navigate(item[2]) end,nil,false,
-    {icon=C.icons[item[2]],description=item[3]})
-   card:SetHeight(87)
+   local x=18+((i-1)%2)*276
+   local y=-192-math.floor((i-1)/2)*112
+   surface(body,x,y,266,102)
+   local title=label(body,item[1],x+13,y-9,239,'GameFontNormal')
+   title:SetTextColor(unpack(C.cream))
+   label(body,item[3],x+13,y-31,239,'Muted')
+   local action=button(body,'Open '..item[1],x+13,y-64,166,function() navigate(item[2]) end)
+   action:SetHeight(28)
   end
-  body:SetHeight(520);scrollChild:SetHeight(520)
+  body:SetHeight(535);scrollChild:SetHeight(535)
  elseif active=='Overview' then
   -- DEV28: UI-only command dashboard. Reads existing data; no writes or sync.
   local st=K.Operations.Stats()
@@ -455,7 +435,7 @@ render=function()
    local x=18+(i-1)*184
    surface(body,x,-99,171,105,0.088)
    local n=label(body,m[1],x+16,-114,139,'GameFontNormalLarge')
-   n:SetFont(FONT,30,'')
+   setFont(n,30)
    label(body,m[2],x+16,-163,140)
    label(body,m[3],x+16,-185,140)
   end
@@ -1806,35 +1786,29 @@ function U.Toggle(page)
   dragHeader:SetScript('OnDragStop',function()frame:StopMovingOrSizing() end)
   local border=frame:CreateTexture(nil,'BACKGROUND',nil,-5);border:SetAllPoints(frame);border:SetTexture(C.metal)
   local trim=frame:CreateTexture(nil,'BACKGROUND',nil,-4)
-  trim:SetPoint('TOPLEFT',3,-3);trim:SetPoint('BOTTOMRIGHT',-3,3);trim:SetColorTexture(unpack(C.bronze))
+  trim:SetPoint('TOPLEFT',1,-1);trim:SetPoint('BOTTOMRIGHT',-1,1);trim:SetColorTexture(unpack(C.steel))
   local backdrop=frame:CreateTexture(nil,'BACKGROUND',nil,-3)
-  backdrop:SetPoint('TOPLEFT',5,-5);backdrop:SetPoint('BOTTOMRIGHT',-5,5);backdrop:SetColorTexture(unpack(C.charcoal))
+  backdrop:SetPoint('TOPLEFT',2,-2);backdrop:SetPoint('BOTTOMRIGHT',-2,2);backdrop:SetColorTexture(unpack(C.charcoal))
   local headerFill=frame:CreateTexture(nil,'BACKGROUND',nil,-2)
-  headerFill:SetPoint('TOPLEFT',5,-5);headerFill:SetPoint('TOPRIGHT',-5,-5);headerFill:SetHeight(55);headerFill:SetTexture(C.metal)
-  for _,corner in ipairs({'TOPLEFT','TOPRIGHT','BOTTOMLEFT','BOTTOMRIGHT'}) do
-   local x=corner:find('LEFT',1,true) and 3 or -3
-   local y=corner:find('TOP',1,true) and -3 or 3
-   local plate=frame:CreateTexture(nil,'BORDER')
-   plate:SetPoint(corner,frame,corner,x,y);plate:SetSize(8,8);plate:SetColorTexture(unpack(C.steel))
-   local stud=frame:CreateTexture(nil,'ARTWORK')
-   stud:SetPoint('CENTER',plate,'CENTER');stud:SetSize(3,3);stud:SetColorTexture(unpack(C.gold))
-  end
+  headerFill:SetPoint('TOPLEFT',2,-2);headerFill:SetPoint('TOPRIGHT',-2,-2);headerFill:SetHeight(58);headerFill:SetColorTexture(0.098,0.098,0.11,1)
   local sidebar=frame:CreateTexture(nil,'BACKGROUND',nil,-2)
   sidebar:SetPoint('TOPLEFT',frame,'TOPLEFT',8,-63);sidebar:SetPoint('BOTTOMLEFT',frame,'BOTTOMLEFT',8,12)
-  sidebar:SetWidth(211);sidebar:SetTexture(C.metal);sidebar:SetVertexColor(0.63,0.63,0.63)
+  sidebar:SetWidth(211);sidebar:SetColorTexture(unpack(C.sidebar))
   local sidebarAccent=frame:CreateTexture(nil,'ARTWORK')
   sidebarAccent:SetPoint('TOPLEFT',frame,'TOPLEFT',218,-63);sidebarAccent:SetPoint('BOTTOMLEFT',frame,'BOTTOMLEFT',218,14)
-  sidebarAccent:SetWidth(1);sidebarAccent:SetColorTexture(unpack(C.bronze))
-  local stripe=frame:CreateTexture(nil,'OVERLAY');stripe:SetPoint('TOPLEFT',frame,'TOPLEFT',5,-59);stripe:SetPoint('TOPRIGHT',frame,'TOPRIGHT',-5,-59);stripe:SetHeight(2);stripe:SetTexture(C.redMetal)
+  sidebarAccent:SetWidth(1);sidebarAccent:SetColorTexture(unpack(C.steel))
+  local stripe=frame:CreateTexture(nil,'OVERLAY');stripe:SetPoint('TOPLEFT',frame,'TOPLEFT',5,-59);stripe:SetPoint('TOPRIGHT',frame,'TOPRIGHT',-5,-59);stripe:SetHeight(1);stripe:SetColorTexture(0.38,0.19,0.23,1)
   local mark=frame:CreateTexture(nil,'ARTWORK')
-  mark:SetPoint('TOPLEFT',12,-8);mark:SetSize(44,44)
+  mark:SetPoint('TOPLEFT',16,-12);mark:SetSize(34,34)
   mark:SetTexture('Interface\\AddOns\\KeepersWarCommand\\Textures\\TrogdorMinimap.tga')
-  local brand=single(frame,'Keepers War Command',61,-18,210,'GameFontNormal')
-  if not brand:SetFont('Fonts\\MORPHEUS.TTF',20,'') then brand:SetFont(FONT,15,'') end
-  header=single(frame,'Command Center',283,-19,420,'GameFontNormal')
-  header:SetFont(FONT,16,'')
-  local settingsButton=button(frame,'Preferences',714,-13,96,function()navigate('Settings') end,'Open the Settings Center.')
-  local close=button(frame,'X',817,-13,34,function()frame:Hide() end,'Close War Command.',false,{primary=true})
+  local brand=single(frame,'Keepers War Command',62,-21,179,'GameFontNormal')
+  setFont(brand,17);brand:SetTextColor(unpack(C.cream))
+  local divider=frame:CreateTexture(nil,'ARTWORK')
+  divider:SetPoint('TOPLEFT',frame,'TOPLEFT',237,-18);divider:SetSize(1,23);divider:SetColorTexture(unpack(C.steel))
+  header=single(frame,'Command Center',251,-21,445,'GameFontNormal')
+  setFont(header,15);header:SetTextColor(unpack(C.muted))
+  local settingsButton=button(frame,'Settings',714,-13,96,function()navigate('Settings') end,'Open the Settings Center.')
+  local close=button(frame,'X',817,-13,34,function()frame:Hide() end,'Close War Command.')
   settingsButton:SetFrameLevel(dragHeader:GetFrameLevel()+1)
   close:SetFrameLevel(dragHeader:GetFrameLevel()+1)
   -- Bottom-right resize grip: scales the entire native UI proportionally.
@@ -1914,26 +1888,26 @@ function U.Toggle(page)
   end)
   local navY=-8
   local function section(title)
-   navY=navY-13
+   navY=navY-6
    local h=label(navChild,title,11,navY,181)
-   h:SetFont(FONT,11,'')
+   setFont(h,11)
    h:SetTextColor(unpack(C.gold))
-   navY=navY-25
+   navY=navY-17
   end
   local function item(text,page)
-   local b=button(navChild,text,5,navY,194,function() navigate(page) end,nil,false,{icon=C.icons[page]})
-   b:SetHeight(32)
+   local b=button(navChild,text,5,navY,194,function() navigate(page) end)
+   b:SetHeight(29)
    b.kwcPage=page
-   navY=navY-38
+   navY=navY-31
   end
   section('HOME')
-  item('Home','Home')
-  section('PVP')
+  item('Command Center','Home')
+  section('PVP OPERATIONS')
   item('War Room','War Room')
   item('Calls to Arms','CTA Board')
   item('Bounty Board','Bounty Board')
   item('PvP Leaderboard','PvP Leaderboard')
-  section('RAIDS')
+  section('RAID OPERATIONS')
   item('Raid Operations','Raid Tools')
   section('GUILD')
   item('Recruitment','Recruitment')
@@ -1942,10 +1916,10 @@ function U.Toggle(page)
   item('Guild Roster','Guild Roster')
   item('Addon Checker','Addon Checker')
   section('SETTINGS')
-  item('Preferences','Settings')
-  item('Alerts','Alerts')
+  item('Settings Center','Settings')
+  item('Alert Command Center','Alerts')
   item('Sync Health','Sync Health')
-  navChild:SetHeight(math.max(-navY+20,620))
+  navChild:SetHeight(-navY+12)
   scroll=CreateFrame('ScrollFrame',nil,frame);scroll:SetPoint('TOPLEFT',224,-72);scroll:SetPoint('BOTTOMRIGHT',-24,22)
   scrollChild=CreateFrame('Frame',nil,scroll);scrollChild:SetSize(605,3900);scroll:SetScrollChild(scrollChild)
   scroll:EnableMouseWheel(true)

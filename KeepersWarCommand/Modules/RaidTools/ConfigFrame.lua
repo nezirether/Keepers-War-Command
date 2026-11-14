@@ -17,7 +17,7 @@ local STEEL, GRAPHITE, PANEL = theme.steel, theme.graphite, theme.panel
 
 local function ControlFont(name, size, color)
     local font = CreateFont(name)
-    font:SetFont(FONT, size, "")
+    if not font:SetFont(FONT, size, "") then font:SetFont(theme.fallbackFont, size, "") end
     font:SetTextColor(unpack(color))
     return font
 end
@@ -56,8 +56,7 @@ function Components.CreateButton(parent, name)
     button:SetDisabledFontObject(disabled)
     button:SetPushedTextOffset(0, -1)
     function button:SetSelected(selected)
-        fill:SetTexture(selected and theme.redMetal or theme.metal)
-        fill:SetVertexColor(0.9, 0.9, 0.9)
+        fill:SetColorTexture(unpack(selected and theme.crimson or GRAPHITE))
     end
     button:SetSelected(false)
     return button
