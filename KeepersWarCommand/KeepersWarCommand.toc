@@ -1,11 +1,11 @@
 ## Interface: 16001
-## Title: Keepers of Trogdor | War Command |cffe0733a2.0|r
+## Title: Keepers of Trogdor | War Command |cffe0733a2.0.1|r
 ## Notes: The War Room: Calls to Arms, bounties, world PvP, guild groups, services, raids and guild sync for the Keepers of Trogdor.
 ## Author: Keepers of Trogdor
-## Version: 2.0.0-alpha.16
+## Version: 2.0.1
 ## SavedVariables: KWCDB, KeepersRaidToolsDB, KeepersRaidToolsAttendanceDB, KeepersRaidToolsRosterDB, KRTForeverNotesDB
 ## OptionalDeps: Overlord, WarEffortScout
-## X-Build: public alpha candidate
+## X-Build: release 2.0.1
 ## X-Curse-Project-ID: 1801567
 Engine/Core.lua
 UI/Kit.lua

@@ -1,7 +1,7 @@
 local F=CreateFrame('Frame')
-KWC={version='2.0.0-alpha.16',listeners={}};local K=KWC
+KWC={version='2.0.1',listeners={}};local K=KWC
 -- Build identifier for this public alpha candidate.
-K.build='2.0.0-alpha.16'
+K.build='2.0.1'
 -- Legacy guild packets remain compatible. EVENT1 and CTARESULT are optional additive messages.
 K.protocolFamily='1.8.2-compatible'
 function K.Say(s) print('|cffffb54d[Keepers]|r '..tostring(s)) end

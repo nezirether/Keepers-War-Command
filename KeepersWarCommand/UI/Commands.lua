@@ -96,10 +96,11 @@ function C.Run(input)
   local d=K.Sync.BoardDiagnostics()
   for _,kind in ipairs({'CTA','Bounty'}) do local x=d[kind];K.Say(kind..' sync: sent='..x.sent..' received='..x.received..' applied='..x.applied..' rejected='..x.rejected) end
   if K.RaidSignup and K.RaidSignup.Diagnostics then local x=K.RaidSignup.Diagnostics();K.Say('Raid sign-up sync: sent='..x.sent..' received='..x.received..' applied='..x.applied..' rejected='..x.rejected..' requests='..x.requests) end
+ elseif cmd=='pvpdiag' and arg~='' then K.Say(K.PvP.MemberDiagnostic(arg,'world'))
  elseif cmd=='pvpdiag' then
   local x=K.PvP.Diagnostics()
   K.Say('PvP sync: sent='..x.sent..' received='..x.received..' rejected='..x.rejected..' pending='..x.pending..' last='..tostring(x.lastPeer or 'none')..' ('..tostring(x.lastReason)..')')
- elseif cmd=='honor' then K.PvP.RefreshHonor();K.Say('Honor statistics refreshed (if available).')
+ elseif cmd=='honor' then K.PvP.RefreshMyStats()
  elseif cmd=='autoscout' then
   if arg:lower()=='on' then K.AutoScout.SetEnabled(true) elseif arg:lower()=='off' then K.AutoScout.SetEnabled(false) else K.Say('Auto Scout: '..(K.AutoScout.Status() and 'ON' or 'OFF')..'. '..K.AutoScout.Info()) end
  elseif cmd=='active' then local kind=arg:lower():match('^%s*(%S+)');K.Operations.ListActive((kind=='bounty' or kind=='bounties') and 'BOUNTY' or 'CTA',false)

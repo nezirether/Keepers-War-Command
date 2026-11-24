@@ -3,6 +3,8 @@ local lastHonorRequest=0
 local lastHonorReply=0
 local diagnostics={sent=0,received=0,rejected=0,pending=0,lastPeer=nil,lastReason='none',lastSentAt=nil,lastReceivedAt=nil}
 local pendingHonor={}
+local pendingArea={}
+local nativeStatus={world='not read',battleground='not read'}
 -- Cached PvP recovery: reports are historical, never impersonated as live self reports.
 local lastCacheReply=0
 local cacheRequest, cacheCursor = nil, 0
@@ -61,7 +63,59 @@ local function rosterFull(n)
  end
  return found
 end
+-- PvP-only recovery for Forever clients that expose the local player's
+-- given name but do not expose the surname in UnitName/UnitFullName.
+-- This is deliberately NOT a general authorization or guild rank fallback.
+local localIdentityReason='not checked'
+local function verifiedLocalRosterName()
+ if not GetNumGuildMembers or not GetGuildRosterInfo then
+  return nil,'guild roster API unavailable'
+ end
+ local first=UnitName and plain(UnitName('player'))
+ if not first or first=='' then return nil,'local player name unavailable' end
+ -- Never guess if UnitName is ambiguous or contains a different full name.
+ local candidates={}
+ local guid=UnitGUID and UnitGUID('player')
+ if type(guid)~='string' or guid=='' then guid=nil end
+ for i=1,(GetNumGuildMembers() or 0) do
+  local name,_,_,_,_,_,_,_,online,_,_,_,_,_,_,_,memberGUID=GetGuildRosterInfo(i)
+  local current=plain(name)
+  if two(current) and (current:lower()==first:lower() or
+    current:lower():match('^%S+')==first:lower()) then
+   if type(memberGUID)=='string' and memberGUID~='' and guid and memberGUID~=guid then
+    -- A conflicting roster GUID rules out this candidate.
+   else
+    candidates[#candidates+1]={name=current,online=online,guid=memberGUID}
+   end
+  end
+ end
+ if #candidates~=1 then return nil,#candidates==0 and 'no unique roster surname match' or 'ambiguous roster surname' end
+ local match=candidates[1]
+ -- If the roster has no GUID for this character, require a current online
+ -- roster entry. Do not use this fallback to authorize officer actions.
+ if not (type(match.guid)=='string' and guid and match.guid==guid) and match.online~=true then
+  return nil,'roster candidate not verified online'
+ end
+ return match.name,'unique live roster name'
+end
 local function key()
+ if K.LocalGuildMember then
+  local id,_,_,reason=K.LocalGuildMember()
+  if id then
+   for i=1,(GetNumGuildMembers and GetNumGuildMembers() or 0) do
+    local name=GetGuildRosterInfo(i)
+    if type(name)=='string' and name:lower()==id then
+     localIdentityReason='verified by core ('..tostring(reason)..')'
+     return plain(name)
+    end
+   end
+   localIdentityReason='core identity missing roster display'
+   return nil
+  end
+  local fallback,why=verifiedLocalRosterName()
+  localIdentityReason=fallback and ('PvP local-only fallback: '..why) or ('core: '..tostring(reason)..'; fallback: '..why)
+  return fallback
+ end
  if type(UnitFullName)=='function' then
   local ok,n=pcall(UnitFullName,'player');if ok and two(plain(n)) then return plain(n) end
  end
@@ -70,10 +124,15 @@ local function key()
  return rosterFull(n)
 end
 local function isSelf(n)
- if K.CurrentGuildMember and K.SameGuildMember then return K.SameGuildMember(n,UnitName('player')) end
- local full=key();n=plain(n)
- if not full or not n then return false end
- return full:lower()==n:lower() or (not n:find('%s') and full:lower():sub(1,#n+1)==n:lower()..' ')
+ local full=key()
+ if not full or type(n)~='string' then return false end
+ if K.CurrentGuildMember then
+  local current=K.CurrentGuildMember(n)
+  local me=K.CurrentGuildMember(full)
+  return current~=nil and me~=nil and current==me
+ end
+ n=plain(n)
+ return n~=nil and full:lower()==n:lower()
 end
 -- These are the character Statistics pane IDs in Forever's Achievement data.
 local areaKeys={'world','battleground'}
@@ -85,8 +144,9 @@ local function validKills(value)
  return type(value)=='number' and value>=0 and value<=100000000 and value%1==0
 end
 local function areaSnapshot(record,area)
- local stats=record and record.honorByArea
- return stats and stats[area]
+ local stats=type(record)=='table' and record.honorByArea
+ local value=type(stats)=='table' and stats[area]
+ if type(value)=='table' and validKills(value.value) and type(value.at)=='number' and value.at>0 and value.at<=time()+300 then return value end
 end
 local function newer(snapshot,previous)
  return snapshot and (not previous or snapshot.at>previous.at or
@@ -135,6 +195,7 @@ function K.PvP.CleanupSelfEchoes()
  if record then KWCDB.pvp[full]=record end
 end
 local function peerCanonical(sender)
+ if K.Identity and K.Identity.Current then sender=K.Identity.Current(sender) end
  -- A verified roster entry is sufficient for a direct, sender-bound report.
  -- Do not require a surname or infer a roster identity from a saved alias.
  if K.CurrentGuildMember then
@@ -159,28 +220,71 @@ local function entry()
 end
 -- Read the same native counters as Blizzard's Statistics pane. Cache the
 -- category/index lookup, but recheck the returned ID before using a slot.
+local function isSecret(value)
+ if type(issecretvalue)~='function' then return false end
+ local ok,result=pcall(issecretvalue,value)
+ return not ok or result==true
+end
+local function nativeCount(raw)
+ if isSecret(raw) then return end
+ if type(raw)=='string' then
+  raw=raw:match('^%s*(.-)%s*$')
+  if not raw:match('^%d+$') then
+   raw=raw:gsub('\194\160',' '):gsub('\226\128\175',' ')
+   local separator=raw:match('^%d%d?%d?([,%. ])')
+   if not separator then return end
+   local first=raw:find(separator,1,true)
+   for i=first,#raw,4 do
+    if raw:sub(i,i)~=separator or not raw:sub(i+1,i+3):match('^%d%d%d$') then return end
+   end
+   raw=raw:gsub('[,%. ]','')
+  end
+  raw=tonumber(raw)
+ end
+ if validKills(raw) then return raw end
+end
 local function readAreaStats()
  local values,found={},{}
- if type(GetStatisticsCategoryList)~='function' or type(GetCategoryNumAchievements)~='function' or
-    type(GetStatistic)~='function' then return values end
+ nativeStatus={world='native statistic not found',battleground='native statistic not found'}
+ if type(GetStatistic)~='function' then
+  nativeStatus.world='statistics API unavailable';nativeStatus.battleground=nativeStatus.world
+  return values
+ end
  local function read(category,index)
-  local quantity,skip,id=GetStatistic(category,index)
+  -- A missing category or restricted row must not discard other valid rows.
+  local ok,quantity,skip,id=pcall(GetStatistic,category,index)
+  if not ok or isSecret(id) or isSecret(skip) then return end
   local area=areaIDs[id]
   if area then
    found[area]={category,index}
-   local count=not skip and tonumber(quantity)
-   if validKills(count) then values[area]=count end
+   local count=skip~=true and nativeCount(quantity) or nil
+   if count~=nil then values[area]=count;nativeStatus[area]='available'
+   elseif values[area]==nil then nativeStatus[area]='native statistic unreadable or skipped' end
   end
  end
+ -- Blizzard's Statistics display reads individual IDs directly; enumeration
+ -- is the compatible discovery fallback when that overload is unavailable.
+ for id,area in pairs(areaIDs) do
+  local ok,raw=pcall(GetStatistic,id)
+  local count=ok and nativeCount(raw) or nil
+  if count~=nil then values[area]=count;nativeStatus[area]='available' end
+ end
  for _,slot in pairs(statSlots) do read(slot[1],slot[2]) end
- if not found.world or not found.battleground then
-  for _,category in pairs(GetStatisticsCategoryList() or {}) do
-   if type(category)=='number' then
-    for index=1,GetCategoryNumAchievements(category) or 0 do
-     read(category,index)
+ if (values.world==nil or values.battleground==nil) and
+    type(GetStatisticsCategoryList)=='function' and type(GetCategoryNumAchievements)=='function' then
+  local ok,categories=pcall(GetStatisticsCategoryList)
+  if ok and not isSecret(categories) and type(categories)=='table' then
+   local categoriesRead=0
+   for _,category in pairs(categories) do
+    if categoriesRead>=256 then break end
+    categoriesRead=categoriesRead+1
+    if not isSecret(category) and type(category)=='number' then
+     local readable,size=pcall(GetCategoryNumAchievements,category)
+     if readable and not isSecret(size) and type(size)=='number' and size>=0 then
+      for index=1,math.min(size,1000) do read(category,index) end
+     end
     end
    end
-   if found.world and found.battleground then break end
   end
  end
  statSlots=found
@@ -210,41 +314,94 @@ local function refreshArea(record)
  if next(observed) and K.Send and
     (signature~=lastAreaSignature or not lastAreaBroadcast or now-lastAreaBroadcast>600) then
   if K.Send('HKAREA',areaPayload({honorByArea=observed})) then
+   diagnostics.sent=diagnostics.sent+1;diagnostics.lastSentAt=now
    lastAreaSignature,lastAreaBroadcast=signature,now
   end
  end
  return changed
 end
+-- Resolve both cached records and live members through the shared verified identity.
 function K.PvP.Rankings(metric)
  local players,byName={},{}
- local full=key()
- for name,record in pairs((KWCDB and KWCDB.pvp) or {}) do
+ local function identity(name)
   local current=K.Identity and K.Identity.Current(name) or name
-  local display=(isSelf(name) and full) or (K.CurrentGuildMember and peerCanonical(current)) or rosterFull(current) or K.PvP.CanonicalDisplayName(current) or current
-  local honor=record.honor
-  local snapshot
-  if metric=='lifetime' then
-   if honor and honor.available and validKills(honor.lifetime) then
-    snapshot={value=honor.lifetime,at=honor.lastRead or 0}
-   end
-  else
-   snapshot=areaSnapshot(record,metric)
+  if K.CurrentGuildMember then
+   local id=K.CurrentGuildMember(current)
+   if not id then return end
+   return id,peerCanonical(current) or current
   end
-  if snapshot and (not K.CurrentGuildMember or isSelf(name) or name==full or K.CurrentGuildMember(current)) then
-   local id=(K.CurrentGuildMember and K.CurrentGuildMember(display)) or display:lower()
+  local display=K.PvP.CanonicalDisplayName(current) or current
+  return display:lower(),display
+ end
+ for name,record in pairs((KWCDB and KWCDB.pvp) or {}) do
+  local id,display=identity(name)
+  local snapshot
+  if type(record)=='table' then
+   local honor=record.honor
+   if metric=='lifetime' then
+    if honor and honor.available and validKills(honor.lifetime) then
+     snapshot={value=honor.lifetime,at=honor.lastRead or 0}
+    end
+   else snapshot=areaSnapshot(record,metric) end
+  end
+  if id and type(snapshot)=='table' and validKills(snapshot.value) and
+     type(snapshot.at)=='number' and snapshot.at>=0 and snapshot.at<=time()+300 then
    local previous=byName[id]
-   if not previous or newer(snapshot,previous.snapshot) or
-      (snapshot.at==previous.snapshot.at and snapshot.value==previous.snapshot.value and display<previous.name) then
-    byName[id]={name=display,value=snapshot.value,snapshot=snapshot}
+   if not previous or newer(snapshot,previous.snapshot) then
+    byName[id]={name=display,value=snapshot.value,snapshot=snapshot,status=time()-snapshot.at>86400 and 'Stale' or 'Available'}
    end
+  end
+ end
+ -- Never seed scores from a missing cache. Only a live, verified roster member
+ -- may receive an unranked Awaiting Stats row.
+ if K.CurrentGuildMember and GetNumGuildMembers and GetGuildRosterInfo then
+  for i=1,GetNumGuildMembers() or 0 do
+   local name=GetGuildRosterInfo(i)
+   local id,display=identity(name)
+   if id and not byName[id] then byName[id]={name=display,status='Awaiting Stats'} end
   end
  end
  for _,player in pairs(byName) do players[#players+1]=player end
  table.sort(players,function(a,b)
-  if a.value~=b.value then return a.value>b.value end
+  if (a.value~=nil)~=(b.value~=nil) then return a.value~=nil end
+  if a.value~=nil and a.value~=b.value then return a.value>b.value end
   return a.name:lower()<b.name:lower()
  end)
  return players
+end
+-- Explicit local diagnostic only. No broadcast and no unrelated member dump.
+function K.PvP.MemberDiagnostic(name,metric)
+ if type(name)~='string' or #name>100 or name:find('[%c|]') then return 'PvP member diagnostic: invalid name' end
+ metric=metric or 'world'
+ local current=K.Identity and K.Identity.Current(name) or name
+ if not K.CurrentGuildMember or not K.CurrentGuildMember(current) then
+  return 'PvP member diagnostic: pending current guild identity verification; no score attached.'
+ end
+ local guid=K.Identity and K.Identity.RosterGUID(current)
+ for _,row in ipairs(K.PvP.Rankings(metric)) do
+  if K.SameGuildMember(current,row.name) then
+   local self=isSelf(row.name)
+   local result='PvP member: '..row.name..' | GUID='..tostring(guid or 'unavailable')..' | roster=verified'
+   if current~=name then result=result..' | verified alias='..name end
+   result=result..' | source='..(self and 'local native' or 'received snapshot')..' | '..metric..' | '..row.status
+   if row.value~=nil then result=result..'='..row.value..' | age='..math.max(0,time()-row.snapshot.at)..'s'
+   else result=result..': no valid cached statistic; compatible self-publication or officer cache required' end
+   if self then
+    result=result..' | native read='..nativeStatus.world..' | published='..tostring(lastAreaBroadcast or 'not yet')
+   else
+    result=result..' | local identity='..tostring(localIdentityReason)
+   end
+   return result
+  end
+ end
+ return 'PvP member diagnostic: roster is still loading.'
+end
+function K.PvP.RefreshMyStats()
+ local result=K.PvP.RefreshHonor()
+ K.PvP.RequestGuildHonor(true)
+ local reason=result and result.reason or 'guild identity or storage not ready'
+ if K.Say then K.Say(result and result.world and 'World PvP native statistic refreshed.' or ('Awaiting Stats: '..reason..'. Last valid values are preserved.')) end
+ return result
 end
 -- ForeverAPI (1.60.1): COMBAT_LOG_EVENT_UNFILTERED registration is forbidden.
 -- Do not register it or infer killing blows/deaths from inaccessible combat logs.
@@ -253,17 +410,18 @@ end
 -- Blizzard's authoritative character honor totals. These are not combat-log estimates.
 -- Snapshotting preserves pre-install lifetime HKs without inventing past kill details.
 function K.PvP.RefreshHonor()
- if not KWCDB or not KWCDB.pvp then return end
+ if not KWCDB or not KWCDB.pvp then return {world=false,reason='PvP storage not initialized'} end
  local guild=guildScope()
- if guild and KWCDB.guildPartitionBound~=guild then return end
+ if guild and KWCDB.guildPartitionBound~=guild then return {world=false,reason='guild partition not bound'} end
  if publishedGuild~=guild then lastAreaSignature,lastAreaBroadcast=nil,nil;publishedGuild=guild end
+ if K.Identity and K.Identity.Scan then K.Identity.Scan() end
  K.PvP.CleanupSelfEchoes()
  local p=entry()
- if not p then return end
+ if not p then return {world=false,reason='local identity pending: '..localIdentityReason} end
  local function read(fn)
   if type(fn)~='function' then return nil end
   local ok,n=pcall(fn)
-  if ok and type(n)=='number' and n>=0 then return math.floor(n) end
+  if ok then return nativeCount(n) end
   return nil
  end
  local lifetime=read(GetPVPLifetimeStats)
@@ -300,6 +458,7 @@ function K.PvP.RefreshHonor()
  if yesterday~=nil then p.honor.yesterday=yesterday end
  refreshArea(p)
  if K.UI and K.UI.Refresh then K.UI.Refresh() end
+ return {world=nativeStatus.world=='available',reason=nativeStatus.world}
 end
 -- Request current self-reported honor snapshots from online compatible clients.
 -- Older clients can ignore this safely; never fabricate missing peer statistics.
@@ -323,6 +482,12 @@ local function replyHonor()
  p.honor.lastBroadcastAt=nil
  lastAreaBroadcast=nil
  K.PvP.RefreshHonor()
+ -- A temporary native API outage does not invalidate our previously observed
+ -- snapshot. Re-advertise that original timestamp in response to a request.
+ if nativeStatus.world~='available' and nativeStatus.battleground~='available' then
+  local payload=areaPayload(p)
+  if payload and K.Send then K.Send('HKAREA',payload) end
+ end
 end
 K.On('CHAT_MSG_ADDON',function(prefix,msg,channel,sender)
  if prefix~='KWC3' or channel~='GUILD' or type(msg)~='string' then return end
@@ -341,7 +506,7 @@ local function refreshOnLogin()
  local generation=refreshGeneration
  K.PvP.RefreshHonor()
  if C_Timer and C_Timer.After then
-  for _,delay in ipairs({1,3,10}) do
+  for _,delay in ipairs({1,3,10,30,60}) do
    C_Timer.After(delay,function()
     if generation==refreshGeneration then K.PvP.RefreshHonor() end
    end)
@@ -429,7 +594,7 @@ function K.PvP.ReconcilePending()
 end
 local function onGuildReady()
  local guild=guildScope()
- if guild and guild~=publishedGuild then K.PvP.RefreshHonor() end
+ if guild then K.PvP.RefreshHonor() end
  K.PvP.ReconcilePending()
 end
 K.On('GUILD_ROSTER_UPDATE',onGuildReady)
@@ -449,32 +614,62 @@ K.On('CHAT_MSG_ADDON',function(prefix,msg,channel,sender)
 end)
 
 
--- Live snapshots identify the character through the guild sender. Relayed
--- snapshots retain the original timestamp and can fill in offline members.
-K.On('CHAT_MSG_ADDON',function(prefix,msg,channel,sender)
- if prefix~='KWC3' or type(msg)~='string' or type(sender)~='string' then return end
- local direct=channel=='GUILD' and msg:match('^2;HKAREA;(.+)$')
- local snapshot=cachePacket(msg,channel,sender)
- local subject,cached
- if snapshot then subject,cached=snapshot:match('^2;HKAREACACHE;([^;]+);(.+)$') end
- local payload=direct or cached
- if not payload or not KWCDB or not KWCDB.pvp or not K.IsMember(sender) or isSelf(sender) then return end
- local name=direct and peerCanonical(sender) or (subject and (K.CurrentGuildMember and peerCanonical(subject) or rosterFull(subject)))
- if not name or isSelf(name) then return end
+local function applyArea(sender,payload,subject)
+ if not KWCDB or not KWCDB.pvp then return false end
+ local current=subject and K.Identity and K.Identity.Current(subject) or subject
+ local name=peerCanonical(current or sender)
+ if not name then return false end
+ if isSelf(name) then return true end
  local world,worldAt,bg,bgAt=payload:match('^(-?%d+);(%d+);(-?%d+);(%d+)$')
- if not world then return end
+ if not world then return true end
  local now=time()
  local function decode(value,at)
   value,at=tonumber(value),tonumber(at)
   if validKills(value) and at>0 and at<=now+300 then return {value=value,at=at} end
  end
  world,bg=decode(world,worldAt),decode(bg,bgAt)
- if not world and not bg then return end
+ if not world and not bg then return true end
  local p=KWCDB.pvp[name] or {weekly={}}
  local changed=storeArea(p,'world',world)
  changed=storeArea(p,'battleground',bg) or changed
  KWCDB.pvp[name]=p
+ diagnostics.received=diagnostics.received+1
+ diagnostics.lastPeer=name;diagnostics.lastReceivedAt=now;diagnostics.lastReason='area snapshot accepted'
  if changed and K.UI and K.UI.Refresh then K.UI.Refresh() end
+ return true
+end
+local function queueArea(sender,payload,subject)
+ local key=sender..';'..(subject or '')
+ pendingArea[key]={sender=sender,payload=payload,subject=subject,guild=guildScope(),at=time()}
+ local count=0;local oldest,stamp
+ for k,v in pairs(pendingArea) do
+  count=count+1;if not stamp or v.at<stamp then oldest,stamp=k,v.at end
+ end
+ if count>100 then pendingArea[oldest]=nil end
+end
+local reconcileHonor=K.PvP.ReconcilePending
+function K.PvP.ReconcilePending()
+ reconcileHonor()
+ for key,item in pairs(pendingArea) do
+  if item.guild~=guildScope() or time()-item.at>300 then pendingArea[key]=nil
+  elseif item.subject and not K.IsSenderOfficer(item.sender) then pendingArea[key]=nil
+  elseif applyArea(item.sender,item.payload,item.subject) then pendingArea[key]=nil end
+ end
+ local count=0;for _ in pairs(pendingArea) do count=count+1 end
+ diagnostics.pending=diagnostics.pending+count
+end
+-- Preserve the existing direct and token-bound officer recovery packet formats.
+K.On('CHAT_MSG_ADDON',function(prefix,msg,channel,sender)
+ if prefix~='KWC3' or type(msg)~='string' or #msg>250 or type(sender)~='string' then return end
+ local direct=channel=='GUILD' and msg:match('^2;HKAREA;(.+)$')
+ local snapshot=cachePacket(msg,channel,sender)
+ local subject,cached
+ if snapshot then subject,cached=snapshot:match('^2;HKAREACACHE;([^;]+);(.+)$') end
+ local payload=direct or cached
+ if not payload or isSelf(sender) then return end
+ if not direct and not K.IsMember(sender) then return end
+ if not guildScope() then return end
+ if not applyArea(sender,payload,subject) then queueArea(sender,payload,subject) end
 end)
 
 -- Each online peer can relay its last-known two-name PvP snapshots, including
@@ -488,7 +683,7 @@ K.On('CHAT_MSG_ADDON',function(prefix,msg,channel,sender)
  local requested,token,page=msg:match('^2;PVPREQ2;(%d+);(%d+%-%d+);(%d%d?)$')
  local targeted=channel=='WHISPER' and guild and requested==guild and token and #token<=24
  if targeted then
-  if not K.IsSenderOfficer(UnitName('player')) then return end
+  if not K.IsSenderOfficer(K.LocalGuildMember and K.LocalGuildMember() or UnitName('player')) then return end
  else
   if guild or channel~='GUILD' or msg~='2;PVPREQ;1' then return end
  end
@@ -497,7 +692,7 @@ K.On('CHAT_MSG_ADDON',function(prefix,msg,channel,sender)
  local function reply(kind,payload)
   if guild~=guildScope() or not K.IsMember(sender) then return end
   if targeted then
-   if K.IsSenderOfficer(UnitName('player')) then
+   if K.IsSenderOfficer(K.LocalGuildMember and K.LocalGuildMember() or UnitName('player')) then
     K.Net.Send('KWC3','2;PVPREPLY;'..guild..';'..token..';2;'..kind..';'..payload,'WHISPER',sender,'RECOVERY')
    end
   elseif K.Send then K.Send(kind,payload) end
@@ -505,6 +700,7 @@ K.On('CHAT_MSG_ADDON',function(prefix,msg,channel,sender)
  if not C_Timer or not C_Timer.After then return end
  local records,areas={},{}
  for name,p in pairs((KWCDB and KWCDB.pvp) or {}) do
+  name=K.Identity and K.Identity.Current(name) or name
   local full=K.CurrentGuildMember and peerCanonical(name) or K.PvP.CanonicalDisplayName(name)
   local areaName=type(p)=='table' and p.honorByArea and (K.CurrentGuildMember and peerCanonical(name) or rosterFull(name))
   if areaName then
