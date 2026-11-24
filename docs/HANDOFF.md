@@ -28,3 +28,7 @@ The owner authorized GitHub synchronization and CurseForge preparation. The publ
 The source branch excludes the officer companion implementation. Public alpha metadata replaces the private-test label without changing the 2.0.0-alpha.16 version. The public addon, TOC, assets, full-name fixes, native honor refresh and event protocols are carried from the tested Phoenix source. The CurseForge metadata requests Alpha and manual release. Live-client acceptance and final art redistribution review remain open.
 
 The release manifest records the actual source commit and ZIP hash after the candidate has passed public regression and extracted-package checks.
+
+## 2026-11-24 — Stable 2.0.0 release verification
+
+Downloaded [CurseForge file 9793652](https://www.curseforge.com/wow/addons/keepers-war-command/files/9793652) and verified SHA-256 `c12dfefed88a68fda033ca9c59da1814861350677a2c554abad3f8e2161ec5e2`. All 243 packaged files match Git blobs at `8ff88f8e1be672155241ac9ee35c20a81d7b57b8` and all paths are inside the public addon. The release documentation records the version embedded in the unchanged package. No new in-client tests were run for this publication.

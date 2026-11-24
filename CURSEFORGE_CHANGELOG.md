@@ -1,6 +1,6 @@
-# Keepers War Command 2.0.0-alpha.16
+# Keepers War Command 2.0.0
 
-This Alpha updates the public guild War Room for WoW Forever 1.60.1.
+The official stable release updates the public guild War Room for WoW Forever 1.60.1.
 
 - Adds 13 curated appearance skins and ten event-specific alert illustrations.
 - Gives death alerts separate rows for full character names, locations and buttons.
@@ -16,4 +16,4 @@ Keep SavedVariables when updating. Back up the current addon and SavedVariables 
 
 Known limits include legacy clients' reports without unique event IDs, pending client verification of alert clamping, motion and sound, and unavailable attribution for personal completed-bounty and CTA-attendance milestones. Full details are in docs/CELEBRATIONS_ALPHA15.md and docs/ALERT_ART_MERGE_ALPHA16.md.
 
-Automated validation passed 479 public checks per runtime on Lua 5.1 and LuaJIT at the Phoenix source checkpoint. The upload candidate receives its own source and package checks.
+The stable ZIP retains the internal addon version `2.0.0-alpha.16`.

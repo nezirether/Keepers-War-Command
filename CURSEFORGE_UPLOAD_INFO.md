@@ -1,25 +1,14 @@
-# CurseForge upload candidate • 2026-11-24
+# CurseForge release record
 
-- Existing project https://www.curseforge.com/wow/addons/keepers-war-command
-- Project ID 1801567
-- Display name Keepers War Command 2.0.0-alpha.16
-- File KeepersWarCommand-2.0.0-alpha.16.zip
-- Game World of Warcraft
-- Flavor Forever
-- Version 1.60.1, Interface 16001
-- Release type Alpha
-- Use manual release after approval
-- File changelog CURSEFORGE_CHANGELOG.md
-- Project description CURSEFORGE_DESCRIPTION.md
+Keepers War Command 2.0.0 was published on November 24, 2026 for WoW Forever 1.60.1 (Interface 16001).
 
-The project currently distributes 1.8.2 for Forever. The alpha.16 candidate is prepared for the same client. This preparation does not upload or replace the current public file.
+- [CurseForge release file](https://www.curseforge.com/wow/addons/keepers-war-command/files/9793652) (project 1801567, file 9793652)
+- [GitHub stable release](https://github.com/nezirether/Keepers-War-Command/releases/tag/v2.0.0)
+- ZIP: `KeepersWarCommand-2.0.0.zip`
+- SHA-256: `c12dfefed88a68fda033ca9c59da1814861350677a2c554abad3f8e2161ec5e2`
+- Public runtime verified against `8ff88f8e1be672155241ac9ee35c20a81d7b57b8` (build source `56a10e37753f3d38821eaf45f6b3f740b5e21447`).
+- Internal addon version: `2.0.0-alpha.16`
 
-## Checks before public release
+All 243 ZIP files matched their Git blobs byte for byte. The ZIP contains only the public addon. The GitHub mirror uses the original CurseForge ZIP.
 
-Automated checks run against this public source commit and the extracted candidate. Native Forever rendering, mouse behavior at screen edges, sound, high UI scales and live two-client packet ordering remain pending. Verify these using docs/ALERT_ART_MERGE_ALPHA16.md before approving the upload for public availability.
-
-Art provenance is recorded in docs/ALERT_ART.json and docs/PHOENIX_ART.json. The existing project license is All Rights Reserved. Bundled components keep their own licenses and notices.
-
-An API upload requires an author token. The upload payload in curseforge-metadata.json selects Alpha and manual release and specifies 1.60.1. Check Forever in the author dashboard when uploading.
-
-The final package hash and source commit are written to the accompanying release manifest after packaging.
+See [installation and rollback](INSTALLATION.md) and the [release notes](CURSEFORGE_CHANGELOG.md).

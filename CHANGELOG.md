@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.0.0 (2026-11-24)
+
+- Official stable release for WoW Forever 1.60.1. The distributed ZIP contains the public runtime previously tested as alpha.16.
+- See the [release notes](CURSEFORGE_CHANGELOG.md) for the War Room, alerts, and guild coordination changes.
+
 ## 2.0.0-alpha.16 (public private test)
 - Integrated Claude's ten event artwork plates with the current public War Celebrations system.
 - Added a saved artwork toggle, ten-plate preview, theme-aware backing and reduced-motion-aware plate animation.
