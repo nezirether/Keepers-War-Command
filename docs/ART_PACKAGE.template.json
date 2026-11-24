@@ -1,0 +1,70 @@
+{
+  "schema": 1,
+  "skin_id": "trogdor",
+  "slots": {
+    "dashboard": {
+      "source": "Replace with creator and source record",
+      "license": "Replace with redistribution permission",
+      "focal": [
+        0.5,
+        0.5
+      ]
+    },
+    "header": {
+      "source": "Replace with creator and source record",
+      "license": "Replace with redistribution permission",
+      "focal": [
+        0.5,
+        0.5
+      ]
+    },
+    "crest": {
+      "source": "Replace with creator and source record",
+      "license": "Replace with redistribution permission",
+      "focal": [
+        0.5,
+        0.5
+      ]
+    },
+    "thumbnail": {
+      "source": "Replace with creator and source record",
+      "license": "Replace with redistribution permission",
+      "focal": [
+        0.5,
+        0.5
+      ]
+    },
+    "alert": {
+      "source": "Replace with creator and source record",
+      "license": "Replace with redistribution permission",
+      "focal": [
+        0.5,
+        0.5
+      ]
+    },
+    "ornament": {
+      "source": "Replace with creator and source record",
+      "license": "Replace with redistribution permission",
+      "focal": [
+        0.5,
+        0.5
+      ]
+    },
+    "material": {
+      "source": "Replace with creator and source record",
+      "license": "Replace with redistribution permission",
+      "focal": [
+        0.5,
+        0.5
+      ]
+    },
+    "trim": {
+      "source": "Replace with creator and source record",
+      "license": "Replace with redistribution permission",
+      "focal": [
+        0.5,
+        0.5
+      ]
+    }
+  }
+}

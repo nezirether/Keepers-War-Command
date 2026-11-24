@@ -4,8 +4,8 @@ Requires World of Warcraft: Forever 1.60.1 (Interface 16001). Shared guild featu
 
 1. Exit the game. If updating, back up the existing KeepersWarCommand addon folder and your WoW SavedVariables files.
 2. Replace the old addon folder with the KeepersWarCommand folder in the ZIP. The final path is Interface/AddOns/KeepersWarCommand/KeepersWarCommand.toc. Keep your existing SavedVariables.
-3. Launch Forever and enable the addon in the AddOns list. Type /kwc, /kt or /keepers.
-4. Open Addon Checker to verify the installed version is 1.6.0-alpha.1.
+3. Launch Forever and enable the addon in the AddOns list. Type /kt.
+4. Open Addon Checker to verify the installed version is 2.0.0-alpha.16.
 
 To roll back, exit the game, save a copy of the current data, and restore the previous addon folder with its matching SavedVariables backup. Updates and rollbacks can change which guild records are visible. Keep both backups if you need to recover newer records.
 

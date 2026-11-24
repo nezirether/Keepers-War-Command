@@ -1,0 +1,707 @@
+{
+  "schema": 1,
+  "skins": {
+    "trogdor": {
+      "banner": {
+        "path": "TrogdorScene.tga",
+        "dimensions": [
+          512,
+          256
+        ],
+        "focal": [
+          0.78,
+          0.29
+        ],
+        "transparency": false,
+        "fallback": "surface",
+        "source": "Project Phoenix alpha.9 ImageGen master",
+        "license": "KWC project artwork"
+      },
+      "header": {
+        "path": "TrogdorHeader.tga",
+        "dimensions": [
+          512,
+          64
+        ],
+        "focal": [
+          0.68,
+          0.5
+        ],
+        "transparency": true,
+        "fallback": "header",
+        "source": "Project Phoenix alpha.9 ImageGen master",
+        "license": "KWC project artwork"
+      },
+      "crest": {
+        "path": "TrogdorCrest.tga",
+        "dimensions": [
+          128,
+          128
+        ],
+        "focal": [
+          0.5,
+          0.5
+        ],
+        "transparency": true,
+        "fallback": "Emblem.tga",
+        "source": "Project Phoenix alpha.9 ImageGen master",
+        "license": "KWC project artwork"
+      },
+      "thumbnail": {
+        "reuse": "banner",
+        "fallback": "palette"
+      },
+      "alert": {
+        "reuse": "header",
+        "fallback": "surface"
+      },
+      "ornament": {
+        "path": "SharedCorner.tga",
+        "dimensions": [
+          64,
+          64
+        ],
+        "focal": [
+          0.5,
+          0.5
+        ],
+        "transparency": true,
+        "fallback": "surface",
+        "source": "KWC procedural line art",
+        "license": "KWC project artwork"
+      }
+    },
+    "horde": {
+      "banner": {
+        "path": "HordeScene.tga",
+        "dimensions": [
+          512,
+          256
+        ],
+        "focal": [
+          0.76,
+          0.34
+        ],
+        "transparency": false,
+        "fallback": "surface",
+        "source": "Project Phoenix alpha.9 ImageGen master",
+        "license": "KWC project artwork"
+      },
+      "header": {
+        "path": "HordeHeader.tga",
+        "dimensions": [
+          512,
+          64
+        ],
+        "focal": [
+          0.68,
+          0.5
+        ],
+        "transparency": true,
+        "fallback": "header",
+        "source": "Project Phoenix alpha.9 ImageGen master",
+        "license": "KWC project artwork"
+      },
+      "crest": {
+        "path": "HordeCrest.tga",
+        "dimensions": [
+          128,
+          128
+        ],
+        "focal": [
+          0.5,
+          0.5
+        ],
+        "transparency": true,
+        "fallback": "Emblem.tga",
+        "source": "Project Phoenix alpha.9 ImageGen master",
+        "license": "KWC project artwork"
+      },
+      "thumbnail": {
+        "reuse": "banner",
+        "fallback": "palette"
+      },
+      "alert": {
+        "reuse": "header",
+        "fallback": "surface"
+      },
+      "ornament": {
+        "path": "SharedCorner.tga",
+        "dimensions": [
+          64,
+          64
+        ],
+        "focal": [
+          0.5,
+          0.5
+        ],
+        "transparency": true,
+        "fallback": "surface",
+        "source": "KWC procedural line art",
+        "license": "KWC project artwork"
+      }
+    },
+    "alliance": {
+      "banner": {
+        "path": "AllianceScene.tga",
+        "dimensions": [
+          512,
+          256
+        ],
+        "focal": [
+          0.73,
+          0.39
+        ],
+        "transparency": false,
+        "fallback": "surface",
+        "source": "Project Phoenix alpha.9 ImageGen master",
+        "license": "KWC project artwork"
+      },
+      "header": {
+        "path": "AllianceHeader.tga",
+        "dimensions": [
+          512,
+          64
+        ],
+        "focal": [
+          0.68,
+          0.5
+        ],
+        "transparency": true,
+        "fallback": "header",
+        "source": "Project Phoenix alpha.9 ImageGen master",
+        "license": "KWC project artwork"
+      },
+      "crest": {
+        "path": "AllianceCrest.tga",
+        "dimensions": [
+          128,
+          128
+        ],
+        "focal": [
+          0.5,
+          0.5
+        ],
+        "transparency": true,
+        "fallback": "Emblem.tga",
+        "source": "Project Phoenix alpha.9 ImageGen master",
+        "license": "KWC project artwork"
+      },
+      "thumbnail": {
+        "reuse": "banner",
+        "fallback": "palette"
+      },
+      "alert": {
+        "reuse": "header",
+        "fallback": "surface"
+      },
+      "ornament": {
+        "path": "SharedCorner.tga",
+        "dimensions": [
+          64,
+          64
+        ],
+        "focal": [
+          0.5,
+          0.5
+        ],
+        "transparency": true,
+        "fallback": "surface",
+        "source": "KWC procedural line art",
+        "license": "KWC project artwork"
+      }
+    },
+    "blood-moon": {
+      "banner": {
+        "path": "BloodMoonScene.tga",
+        "dimensions": [
+          512,
+          256
+        ],
+        "focal": [
+          0.73,
+          0.23
+        ],
+        "transparency": false,
+        "fallback": "surface",
+        "source": "Project Phoenix alpha.9 ImageGen master",
+        "license": "KWC project artwork"
+      },
+      "header": {
+        "path": "BloodMoonHeader.tga",
+        "dimensions": [
+          512,
+          64
+        ],
+        "focal": [
+          0.68,
+          0.5
+        ],
+        "transparency": true,
+        "fallback": "header",
+        "source": "Project Phoenix alpha.9 ImageGen master",
+        "license": "KWC project artwork"
+      },
+      "crest": {
+        "path": "BloodMoonCrest.tga",
+        "dimensions": [
+          128,
+          128
+        ],
+        "focal": [
+          0.5,
+          0.5
+        ],
+        "transparency": true,
+        "fallback": "Emblem.tga",
+        "source": "Project Phoenix alpha.9 ImageGen master",
+        "license": "KWC project artwork"
+      },
+      "thumbnail": {
+        "reuse": "banner",
+        "fallback": "palette"
+      },
+      "alert": {
+        "reuse": "header",
+        "fallback": "surface"
+      },
+      "ornament": {
+        "path": "SharedCorner.tga",
+        "dimensions": [
+          64,
+          64
+        ],
+        "focal": [
+          0.5,
+          0.5
+        ],
+        "transparency": true,
+        "fallback": "surface",
+        "source": "KWC procedural line art",
+        "license": "KWC project artwork"
+      }
+    }
+  },
+  "production": {
+    "trogdor": {
+      "schema": 1,
+      "skin_id": "trogdor",
+      "slots": {
+        "dashboard": {
+          "source": "OpenAI ChatGPT image generation, edited/cropped from original Trogdor studio images; source/dashboard.png",
+          "license": "Generated artwork; OpenAI output subject to applicable terms; user to confirm redistribution rights",
+          "focal": [
+            0.65,
+            0.22
+          ]
+        },
+        "header": {
+          "source": "OpenAI ChatGPT image generation, edited/cropped from original Trogdor studio images; source/header.png",
+          "license": "Generated artwork; OpenAI output subject to applicable terms; user to confirm redistribution rights",
+          "focal": [
+            0.5,
+            0.5
+          ]
+        },
+        "crest": {
+          "source": "OpenAI ChatGPT image generation, edited/cropped from original Trogdor studio images; source/crest.png",
+          "license": "Generated artwork; OpenAI output subject to applicable terms; user to confirm redistribution rights",
+          "focal": [
+            0.5,
+            0.5
+          ]
+        },
+        "thumbnail": {
+          "source": "OpenAI ChatGPT image generation, edited/cropped from original Trogdor studio images; source/thumbnail.png",
+          "license": "Generated artwork; OpenAI output subject to applicable terms; user to confirm redistribution rights",
+          "focal": [
+            0.65,
+            0.5
+          ]
+        },
+        "alert": {
+          "source": "OpenAI ChatGPT image generation, edited/cropped from original Trogdor studio images; source/alert.png",
+          "license": "Generated artwork; OpenAI output subject to applicable terms; user to confirm redistribution rights",
+          "focal": [
+            0.5,
+            0.5
+          ]
+        },
+        "ornament": {
+          "source": "OpenAI ChatGPT image generation, edited/cropped from original Trogdor studio images; source/ornament.png",
+          "license": "Generated artwork; OpenAI output subject to applicable terms; user to confirm redistribution rights",
+          "focal": [
+            0.5,
+            0.5
+          ]
+        },
+        "material": {
+          "source": "OpenAI ChatGPT image generation, edited/cropped from original Trogdor studio images; source/material.png",
+          "license": "Generated artwork; OpenAI output subject to applicable terms; user to confirm redistribution rights",
+          "focal": [
+            0.5,
+            0.5
+          ]
+        },
+        "trim": {
+          "source": "OpenAI ChatGPT image generation, edited/cropped from original Trogdor studio images; source/trim.png",
+          "license": "Generated artwork; OpenAI output subject to applicable terms; user to confirm redistribution rights",
+          "focal": [
+            0.5,
+            0.5
+          ]
+        }
+      }
+    },
+    "cherry-blossom": {
+      "schema": 1,
+      "skin_id": "cherry-blossom",
+      "slots": {
+        "dashboard": {
+          "source": "OpenAI generated source montage a_large_composite_image_grid_of_ten_cinematic_fant.png; original programmatic composition and custom cherry-blossom styling, source/dashboard.png",
+          "license": "AI-generated candidate artwork; final redistribution review required; not individually commissioned original concept illustration",
+          "focal": [
+            0.65,
+            0.5
+          ]
+        },
+        "header": {
+          "source": "OpenAI generated source montage a_large_composite_image_grid_of_ten_cinematic_fant.png; original programmatic composition and custom cherry-blossom styling, source/header.png",
+          "license": "AI-generated candidate artwork; final redistribution review required; not individually commissioned original concept illustration",
+          "focal": [
+            0.5,
+            0.5
+          ]
+        },
+        "crest": {
+          "source": "OpenAI generated source montage a_large_composite_image_grid_of_ten_cinematic_fant.png; original programmatic composition and custom cherry-blossom styling, source/crest.png",
+          "license": "AI-generated candidate artwork; final redistribution review required; not individually commissioned original concept illustration",
+          "focal": [
+            0.5,
+            0.5
+          ]
+        },
+        "thumbnail": {
+          "source": "OpenAI generated source montage a_large_composite_image_grid_of_ten_cinematic_fant.png; original programmatic composition and custom cherry-blossom styling, source/thumbnail.png",
+          "license": "AI-generated candidate artwork; final redistribution review required; not individually commissioned original concept illustration",
+          "focal": [
+            0.65,
+            0.5
+          ]
+        },
+        "alert": {
+          "source": "OpenAI generated source montage a_large_composite_image_grid_of_ten_cinematic_fant.png; original programmatic composition and custom cherry-blossom styling, source/alert.png",
+          "license": "AI-generated candidate artwork; final redistribution review required; not individually commissioned original concept illustration",
+          "focal": [
+            0.5,
+            0.5
+          ]
+        },
+        "ornament": {
+          "source": "OpenAI generated source montage a_large_composite_image_grid_of_ten_cinematic_fant.png; original programmatic composition and custom cherry-blossom styling, source/ornament.png",
+          "license": "AI-generated candidate artwork; final redistribution review required; not individually commissioned original concept illustration",
+          "focal": [
+            0.5,
+            0.5
+          ]
+        },
+        "material": {
+          "source": "OpenAI generated source montage a_large_composite_image_grid_of_ten_cinematic_fant.png; original programmatic composition and custom cherry-blossom styling, source/material.png",
+          "license": "AI-generated candidate artwork; final redistribution review required; not individually commissioned original concept illustration",
+          "focal": [
+            0.5,
+            0.5
+          ]
+        },
+        "trim": {
+          "source": "OpenAI generated source montage a_large_composite_image_grid_of_ten_cinematic_fant.png; original programmatic composition and custom cherry-blossom styling, source/trim.png",
+          "license": "AI-generated candidate artwork; final redistribution review required; not individually commissioned original concept illustration",
+          "focal": [
+            0.5,
+            0.5
+          ]
+        }
+      }
+    },
+    "cyberpunk": {
+      "schema": 1,
+      "skin_id": "cyberpunk",
+      "slots": {
+        "dashboard": {
+          "source": "OpenAI generated source montage a_wide_montage_collage_of_10_fantasy_sci_fi_digita.png; original programmatic composition and custom cyberpunk styling, source/dashboard.png",
+          "license": "AI-generated candidate artwork; final redistribution review required; not individually commissioned original concept illustration",
+          "focal": [
+            0.65,
+            0.5
+          ]
+        },
+        "header": {
+          "source": "OpenAI generated source montage a_wide_montage_collage_of_10_fantasy_sci_fi_digita.png; original programmatic composition and custom cyberpunk styling, source/header.png",
+          "license": "AI-generated candidate artwork; final redistribution review required; not individually commissioned original concept illustration",
+          "focal": [
+            0.5,
+            0.5
+          ]
+        },
+        "crest": {
+          "source": "OpenAI generated source montage a_wide_montage_collage_of_10_fantasy_sci_fi_digita.png; original programmatic composition and custom cyberpunk styling, source/crest.png",
+          "license": "AI-generated candidate artwork; final redistribution review required; not individually commissioned original concept illustration",
+          "focal": [
+            0.5,
+            0.5
+          ]
+        },
+        "thumbnail": {
+          "source": "OpenAI generated source montage a_wide_montage_collage_of_10_fantasy_sci_fi_digita.png; original programmatic composition and custom cyberpunk styling, source/thumbnail.png",
+          "license": "AI-generated candidate artwork; final redistribution review required; not individually commissioned original concept illustration",
+          "focal": [
+            0.65,
+            0.5
+          ]
+        },
+        "alert": {
+          "source": "OpenAI generated source montage a_wide_montage_collage_of_10_fantasy_sci_fi_digita.png; original programmatic composition and custom cyberpunk styling, source/alert.png",
+          "license": "AI-generated candidate artwork; final redistribution review required; not individually commissioned original concept illustration",
+          "focal": [
+            0.5,
+            0.5
+          ]
+        },
+        "ornament": {
+          "source": "OpenAI generated source montage a_wide_montage_collage_of_10_fantasy_sci_fi_digita.png; original programmatic composition and custom cyberpunk styling, source/ornament.png",
+          "license": "AI-generated candidate artwork; final redistribution review required; not individually commissioned original concept illustration",
+          "focal": [
+            0.5,
+            0.5
+          ]
+        },
+        "material": {
+          "source": "OpenAI generated source montage a_wide_montage_collage_of_10_fantasy_sci_fi_digita.png; original programmatic composition and custom cyberpunk styling, source/material.png",
+          "license": "AI-generated candidate artwork; final redistribution review required; not individually commissioned original concept illustration",
+          "focal": [
+            0.5,
+            0.5
+          ]
+        },
+        "trim": {
+          "source": "OpenAI generated source montage a_wide_montage_collage_of_10_fantasy_sci_fi_digita.png; original programmatic composition and custom cyberpunk styling, source/trim.png",
+          "license": "AI-generated candidate artwork; final redistribution review required; not individually commissioned original concept illustration",
+          "focal": [
+            0.5,
+            0.5
+          ]
+        }
+      }
+    },
+    "dalaran": {
+      "schema": 1,
+      "skin_id": "dalaran",
+      "slots": {
+        "dashboard": {
+          "source": "OpenAI generated source montage a_high_detail_fantasy_concept_art_collage_a_2_col.png; original programmatic composition and custom dalaran styling, source/dashboard.png",
+          "license": "AI-generated candidate artwork; final redistribution review required; not individually commissioned original concept illustration",
+          "focal": [
+            0.65,
+            0.5
+          ]
+        },
+        "header": {
+          "source": "OpenAI generated source montage a_high_detail_fantasy_concept_art_collage_a_2_col.png; original programmatic composition and custom dalaran styling, source/header.png",
+          "license": "AI-generated candidate artwork; final redistribution review required; not individually commissioned original concept illustration",
+          "focal": [
+            0.5,
+            0.5
+          ]
+        },
+        "crest": {
+          "source": "OpenAI generated source montage a_high_detail_fantasy_concept_art_collage_a_2_col.png; original programmatic composition and custom dalaran styling, source/crest.png",
+          "license": "AI-generated candidate artwork; final redistribution review required; not individually commissioned original concept illustration",
+          "focal": [
+            0.5,
+            0.5
+          ]
+        },
+        "thumbnail": {
+          "source": "OpenAI generated source montage a_high_detail_fantasy_concept_art_collage_a_2_col.png; original programmatic composition and custom dalaran styling, source/thumbnail.png",
+          "license": "AI-generated candidate artwork; final redistribution review required; not individually commissioned original concept illustration",
+          "focal": [
+            0.65,
+            0.5
+          ]
+        },
+        "alert": {
+          "source": "OpenAI generated source montage a_high_detail_fantasy_concept_art_collage_a_2_col.png; original programmatic composition and custom dalaran styling, source/alert.png",
+          "license": "AI-generated candidate artwork; final redistribution review required; not individually commissioned original concept illustration",
+          "focal": [
+            0.5,
+            0.5
+          ]
+        },
+        "ornament": {
+          "source": "OpenAI generated source montage a_high_detail_fantasy_concept_art_collage_a_2_col.png; original programmatic composition and custom dalaran styling, source/ornament.png",
+          "license": "AI-generated candidate artwork; final redistribution review required; not individually commissioned original concept illustration",
+          "focal": [
+            0.5,
+            0.5
+          ]
+        },
+        "material": {
+          "source": "OpenAI generated source montage a_high_detail_fantasy_concept_art_collage_a_2_col.png; original programmatic composition and custom dalaran styling, source/material.png",
+          "license": "AI-generated candidate artwork; final redistribution review required; not individually commissioned original concept illustration",
+          "focal": [
+            0.5,
+            0.5
+          ]
+        },
+        "trim": {
+          "source": "OpenAI generated source montage a_high_detail_fantasy_concept_art_collage_a_2_col.png; original programmatic composition and custom dalaran styling, source/trim.png",
+          "license": "AI-generated candidate artwork; final redistribution review required; not individually commissioned original concept illustration",
+          "focal": [
+            0.5,
+            0.5
+          ]
+        }
+      }
+    },
+    "dwarven-forge": {
+      "schema": 1,
+      "skin_id": "dwarven-forge",
+      "slots": {
+        "dashboard": {
+          "source": "OpenAI generated source montage a_wide_montage_collage_of_10_fantasy_sci_fi_digita.png; original programmatic composition and custom dwarven-forge styling, source/dashboard.png",
+          "license": "AI-generated candidate artwork; final redistribution review required; not individually commissioned original concept illustration",
+          "focal": [
+            0.65,
+            0.5
+          ]
+        },
+        "header": {
+          "source": "OpenAI generated source montage a_wide_montage_collage_of_10_fantasy_sci_fi_digita.png; original programmatic composition and custom dwarven-forge styling, source/header.png",
+          "license": "AI-generated candidate artwork; final redistribution review required; not individually commissioned original concept illustration",
+          "focal": [
+            0.5,
+            0.5
+          ]
+        },
+        "crest": {
+          "source": "OpenAI generated source montage a_wide_montage_collage_of_10_fantasy_sci_fi_digita.png; original programmatic composition and custom dwarven-forge styling, source/crest.png",
+          "license": "AI-generated candidate artwork; final redistribution review required; not individually commissioned original concept illustration",
+          "focal": [
+            0.5,
+            0.5
+          ]
+        },
+        "thumbnail": {
+          "source": "OpenAI generated source montage a_wide_montage_collage_of_10_fantasy_sci_fi_digita.png; original programmatic composition and custom dwarven-forge styling, source/thumbnail.png",
+          "license": "AI-generated candidate artwork; final redistribution review required; not individually commissioned original concept illustration",
+          "focal": [
+            0.65,
+            0.5
+          ]
+        },
+        "alert": {
+          "source": "OpenAI generated source montage a_wide_montage_collage_of_10_fantasy_sci_fi_digita.png; original programmatic composition and custom dwarven-forge styling, source/alert.png",
+          "license": "AI-generated candidate artwork; final redistribution review required; not individually commissioned original concept illustration",
+          "focal": [
+            0.5,
+            0.5
+          ]
+        },
+        "ornament": {
+          "source": "OpenAI generated source montage a_wide_montage_collage_of_10_fantasy_sci_fi_digita.png; original programmatic composition and custom dwarven-forge styling, source/ornament.png",
+          "license": "AI-generated candidate artwork; final redistribution review required; not individually commissioned original concept illustration",
+          "focal": [
+            0.5,
+            0.5
+          ]
+        },
+        "material": {
+          "source": "OpenAI generated source montage a_wide_montage_collage_of_10_fantasy_sci_fi_digita.png; original programmatic composition and custom dwarven-forge styling, source/material.png",
+          "license": "AI-generated candidate artwork; final redistribution review required; not individually commissioned original concept illustration",
+          "focal": [
+            0.5,
+            0.5
+          ]
+        },
+        "trim": {
+          "source": "OpenAI generated source montage a_wide_montage_collage_of_10_fantasy_sci_fi_digita.png; original programmatic composition and custom dwarven-forge styling, source/trim.png",
+          "license": "AI-generated candidate artwork; final redistribution review required; not individually commissioned original concept illustration",
+          "focal": [
+            0.5,
+            0.5
+          ]
+        }
+      }
+    },
+    "necromancer": {
+      "schema": 1,
+      "skin_id": "necromancer",
+      "slots": {
+        "dashboard": {
+          "source": "OpenAI generated source montage a_composite_collage_a_grid_of_10_fantasy_sci_fi_d.png; original programmatic composition and custom necromancer styling, source/dashboard.png",
+          "license": "AI-generated candidate artwork; final redistribution review required; not individually commissioned original concept illustration",
+          "focal": [
+            0.65,
+            0.5
+          ]
+        },
+        "header": {
+          "source": "OpenAI generated source montage a_composite_collage_a_grid_of_10_fantasy_sci_fi_d.png; original programmatic composition and custom necromancer styling, source/header.png",
+          "license": "AI-generated candidate artwork; final redistribution review required; not individually commissioned original concept illustration",
+          "focal": [
+            0.5,
+            0.5
+          ]
+        },
+        "crest": {
+          "source": "OpenAI generated source montage a_composite_collage_a_grid_of_10_fantasy_sci_fi_d.png; original programmatic composition and custom necromancer styling, source/crest.png",
+          "license": "AI-generated candidate artwork; final redistribution review required; not individually commissioned original concept illustration",
+          "focal": [
+            0.5,
+            0.5
+          ]
+        },
+        "thumbnail": {
+          "source": "OpenAI generated source montage a_composite_collage_a_grid_of_10_fantasy_sci_fi_d.png; original programmatic composition and custom necromancer styling, source/thumbnail.png",
+          "license": "AI-generated candidate artwork; final redistribution review required; not individually commissioned original concept illustration",
+          "focal": [
+            0.65,
+            0.5
+          ]
+        },
+        "alert": {
+          "source": "OpenAI generated source montage a_composite_collage_a_grid_of_10_fantasy_sci_fi_d.png; original programmatic composition and custom necromancer styling, source/alert.png",
+          "license": "AI-generated candidate artwork; final redistribution review required; not individually commissioned original concept illustration",
+          "focal": [
+            0.5,
+            0.5
+          ]
+        },
+        "ornament": {
+          "source": "OpenAI generated source montage a_composite_collage_a_grid_of_10_fantasy_sci_fi_d.png; original programmatic composition and custom necromancer styling, source/ornament.png",
+          "license": "AI-generated candidate artwork; final redistribution review required; not individually commissioned original concept illustration",
+          "focal": [
+            0.5,
+            0.5
+          ]
+        },
+        "material": {
+          "source": "OpenAI generated source montage a_composite_collage_a_grid_of_10_fantasy_sci_fi_d.png; original programmatic composition and custom necromancer styling, source/material.png",
+          "license": "AI-generated candidate artwork; final redistribution review required; not individually commissioned original concept illustration",
+          "focal": [
+            0.5,
+            0.5
+          ]
+        },
+        "trim": {
+          "source": "OpenAI generated source montage a_composite_collage_a_grid_of_10_fantasy_sci_fi_d.png; original programmatic composition and custom necromancer styling, source/trim.png",
+          "license": "AI-generated candidate artwork; final redistribution review required; not individually commissioned original concept illustration",
+          "focal": [
+            0.5,
+            0.5
+          ]
+        }
+      }
+    }
+  }
+}
