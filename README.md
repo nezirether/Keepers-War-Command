@@ -1,11 +1,25 @@
-# Keepers War Command
+# Keepers War Command 2.0
 
-Guild coordination for World of Warcraft: Forever. This branch prepares **1.7.0 (UI 2.0)** for private testing on Forever 1.60.1 (Interface 16001).
+Keepers War Command is a guild War Room for World of Warcraft Forever 1.60.1, Interface 16001.
 
-Type `/kwc` to open War Command. `/kt` and `/keepers` use the same commands. See [installation and rollback](INSTALLATION.md), the [changelog](CHANGELOG.md), and [known issues](CURSEFORGE_DESCRIPTION.md). Report problems in [GitHub Issues](https://github.com/nezirether/Keepers-War-Command/issues).
+The public addon includes Calls to Arms, bounties, guild groups, Guild Services, Raid Operations, WarSpoils, historical PvP and death rankings, theme-aware alerts, personal commendations and 13 curated visual skins.
 
-The Command Center links to group listings, PvP, raids, Guild Services, and Preferences. Use Search Settings in Preferences to jump to an existing control. Left-click the Trogdor minimap button to toggle War Command, right-click for Preferences, or drag to move it. The icon uses a cropped and masked version of the supplied Keepers of Trogdor logo.
+Open the War Room with /kt. Use /kt help for commands.
 
-Guild Services enables sharing of profession skills and observed recipes once per character after guild and roster verification. Turn it off in Preferences or Guild Services. Sharing preferences remain scoped to the guild. The Battle Resurrection indicator is off for new installations and only appears in a raid when enabled in Raid Operations.
+## Current build
 
-KWC includes optional integrations with Overlord and War Effort Scout. Bundled libraries retain their own notices. The repository does not declare a project-wide license.
+2.0.0-alpha.16 is an Alpha candidate. Native client rendering, alert edge clamping, sound and multiplayer packet timing require live acceptance. See CURSEFORGE_UPLOAD_INFO.md and docs/ALERT_ART_MERGE_ALPHA16.md.
+
+## Install and update
+
+Exit Forever, back up the addon and SavedVariables, then replace the KeepersWarCommand folder with the one in the ZIP. Keep SavedVariables when updating. See INSTALLATION.md.
+
+## Public checks
+
+Run tests/run_all.sh --public-only with Lua 5.1, luac5.1 and LuaJIT available. The package tools verify the committed public TOC and artwork before creating a ZIP.
+
+## Provenance
+
+This branch imports the public Phoenix source from f3d18f1f8cf35a0ed99f4f838b3b9269642c5f72 onto the existing GitHub main history. The original workstation checkout and historical GitHub development branches are preserved. Public runtime files exclude the officer companion.
+
+Raid Tools retain their attribution and bundled library licenses. See KeepersWarCommand/THIRD_PARTY_NOTICES.txt.

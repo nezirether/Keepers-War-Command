@@ -1,0 +1,191 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "KWC Mastercraft art intake manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "skin_id",
+    "slots"
+  ],
+  "properties": {
+    "schema": {
+      "const": 1
+    },
+    "skin_id": {
+      "enum": [
+        "trogdor",
+        "trogdor-inferno",
+        "trogdor-warchief",
+        "trogdor-bronze",
+        "trogdor-obsidian",
+        "trogdor-bloodfire",
+        "trogdor-iron",
+        "trogdor-ashen",
+        "trogdor-royal",
+        "trogdor-legacy",
+        "classic",
+        "horde",
+        "alliance",
+        "horde-alliance",
+        "orgrimmar",
+        "stormwind",
+        "undercity",
+        "thunder-bluff",
+        "ironforge",
+        "darnassus",
+        "dalaran",
+        "the-barrens",
+        "felwood",
+        "ashenvale",
+        "stranglethorn",
+        "winterspring",
+        "silithus",
+        "blackrock-mountain",
+        "tanaris",
+        "eastern-plaguelands",
+        "arcane",
+        "fel-magic",
+        "frostmourne",
+        "holy-light",
+        "shadow",
+        "necromancer",
+        "nature-guardian",
+        "elemental",
+        "dragonflight",
+        "runic",
+        "blood-moon",
+        "blood-pact",
+        "vampire",
+        "dark-lord",
+        "abyss",
+        "crimson-reaper",
+        "gothic-cathedral",
+        "cursed-iron",
+        "dark-ritual",
+        "midnight",
+        "sleek",
+        "sleek-dark",
+        "sleek-light",
+        "pure-black",
+        "pure-white",
+        "graphite",
+        "frosted-glass",
+        "minimal-bronze",
+        "monochrome",
+        "soft-gray",
+        "jedi",
+        "sith",
+        "galactic-republic",
+        "dark-empire",
+        "cyberpunk",
+        "neon-city",
+        "starship",
+        "holographic",
+        "synthwave",
+        "void-tech",
+        "zen",
+        "samurai",
+        "shogun",
+        "bamboo",
+        "jade-temple",
+        "cherry-blossom",
+        "koi-garden",
+        "mountain-mist",
+        "onyx-lotus",
+        "golden-dragon",
+        "forest",
+        "ancient-oak",
+        "desert",
+        "ocean-depths",
+        "frozen-tundra",
+        "volcanic",
+        "thunderstorm",
+        "autumn",
+        "moonlit-grove",
+        "sunrise",
+        "royal-gold",
+        "pirate",
+        "steampunk",
+        "viking",
+        "dwarven-forge",
+        "elven-silver",
+        "blood-steel",
+        "winter-festival",
+        "hall-of-champions",
+        "burninator"
+      ]
+    },
+    "slots": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "dashboard",
+        "header",
+        "crest",
+        "thumbnail",
+        "alert",
+        "ornament",
+        "material",
+        "trim"
+      ],
+      "properties": {
+        "dashboard": {
+          "$ref": "#/$defs/asset"
+        },
+        "header": {
+          "$ref": "#/$defs/asset"
+        },
+        "crest": {
+          "$ref": "#/$defs/asset"
+        },
+        "thumbnail": {
+          "$ref": "#/$defs/asset"
+        },
+        "alert": {
+          "$ref": "#/$defs/asset"
+        },
+        "ornament": {
+          "$ref": "#/$defs/asset"
+        },
+        "material": {
+          "$ref": "#/$defs/asset"
+        },
+        "trim": {
+          "$ref": "#/$defs/asset"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "asset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source",
+        "license",
+        "focal"
+      ],
+      "properties": {
+        "source": {
+          "type": "string",
+          "minLength": 1
+        },
+        "license": {
+          "type": "string",
+          "minLength": 1
+        },
+        "focal": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
+        }
+      }
+    }
+  }
+}

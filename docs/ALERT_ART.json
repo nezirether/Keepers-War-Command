@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "pack": "KWC Alert Art Pack v1",
+  "source_dir": "art-inbox/KWC_Alert_Art_Pack_v1/KWC_Alert_Art_Pack_v1/assets",
+  "canvas": [512, 256],
+  "content": [512, 171],
+  "notes": "Uncompressed 32-bit BGRA TGA, straight alpha, bottom-left origin (same as Media/Art). The 2172x724 3:1 master is resized to the top 512x171 of a 512x256 power-of-two canvas; the Lua renderer samples texcoords 0..1 x 0..171/256. cy is the normalized vertical centre of the dark text panel, used to centre the 98-high toast body inside the plate.",
+  "plates": {
+    "honorableKill":  {"source": "01_honorable_kill_medieval_war_banner.png", "file": "HonorableKill", "cy": 0.47, "use": "Enemy slain (honorable kill)"},
+    "killingBlow":    {"source": "02_killing_blow_forged_victory_banner.png", "file": "KillingBlow", "cy": 0.46, "use": "Killing blow (own, no honor)"},
+    "killStreak":     {"source": "03_kill_streak_gothic_lioncrest_battle_banner.png", "file": "KillStreak", "cy": 0.49, "use": "Kill streak / Legendary celebration"},
+    "fallen":         {"source": "04_player_or_guildmate_death_crimson_banner_broken_shield.png", "file": "Fallen", "cy": 0.50, "use": "Guildmate slain / player death"},
+    "bountyPosted":   {"source": "05_bounty_created_fantasy_bounty_board_ui_banner.png", "file": "BountyPosted", "cy": 0.50, "use": "Bounty created (no live popup exists in alpha.15; preview + content.art='bountyPosted')"},
+    "bountySighting": {"source": "06_bounty_sighting_crimson_hunt_bounty_frame.png", "file": "BountySighting", "cy": 0.52, "use": "Bounty target spotted"},
+    "bountyClaimed":  {"source": "07_bounty_claimed_or_warspoils_fantasy_war_room_banner_with_treasures.png", "file": "BountyClaimed", "cy": 0.48, "use": "Bounty completed / WarSpoils award"},
+    "callToArms":     {"source": "08_call_to_arms_lion_banner_over_stormy_battlefield.png", "file": "CallToArms", "cy": 0.52, "use": "New Call to Arms"},
+    "ctaVictory":     {"source": "09_cta_victory_or_guild_milestone_fantasy_guild_victory_banner.png", "file": "CTAVictory", "cy": 0.50, "use": "CTA victory / objective / guild milestone"},
+    "commendation":   {"source": "10_personal_achievement_or_generic_ornate_bronze_war_banner_frame.png", "file": "Commendation", "cy": 0.49, "use": "Personal milestone / generic celebration"}
+  },
+  "scrim": {"file": "ScrimFade", "size": [64, 8], "use": "Horizontal alpha ramp tinted by the active skin's base colour behind live text"}
+}

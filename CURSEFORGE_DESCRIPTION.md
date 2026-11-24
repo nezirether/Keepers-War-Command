@@ -1,15 +1,23 @@
 # Keepers War Command
 
-Keepers War Command is a guild coordination addon for World of Warcraft: Forever. Open it with **/kwc**, **/kt** or **/keepers**.
+A guild War Room for World of Warcraft Forever 1.60.1.
 
-- **Guild PvP** — Calls to Arms, Bounty Board, scouting, guild death and bounty alerts, and rankings for lifetime honorable kills, World PvP and Battlegrounds.
-- **Raid Operations** — Raid Sign-Ups and RSVPs, group assignments and readiness, attendance, roster, notes, and configurable Battle Resurrection controls.
-- **Looking for Group** — Create and filter temporary guild listings, express interest and open a whisper draft. Listing owners can invite interested guildmates.
-- **Guild Services** — Guild roster, profession directory and recipe search. Profession sharing is off by default and requires a separate opt-in for each guild.
-- **Guild tools** — Recruitment, Addon Checker and Sync Health diagnostics.
+Coordinate Calls to Arms and bounties, find guild groups, use Guild Services, organize raids and explore the guild's WarSpoils rules. View supported historical PvP and death statistics shared through guild-scoped synchronization.
 
-**Alpha for WoW Forever 1.60.1 (Interface 16001).** Multiplayer synchronization, LFG, Guild Services, and some Forever APIs still need broader live testing. Offline catch-up depends on a compatible officer who cached the records. Recovery trusts that officer's report, and larger directories may need multiple passes. Recipe data reflects observed learned recipes. This build shares up to 16 per profession, subject to packet size.
+The 2.0 Alpha adds 13 curated appearance skins, event-specific alert artwork, celebration preferences, reduced motion, local killing-blow streaks and a personal War Chronicle. Automatic popups follow the open-world-only policy, and manual previews are available under Alerts.
 
-Exit WoW and extract the single KeepersWarCommand folder into Forever's Interface/AddOns directory. Keep your SavedVariables when updating. The package includes required libraries. Overlord and War Effort Scout are optional.
+Lifetime and supported area honor statistics refresh automatically after login and reload. Historical death rankings use native game statistics, including deaths from before addon installation. Non-BG deaths include PvE and environmental deaths outside battlegrounds.
 
-[Source](https://github.com/nezirether/Keepers-War-Command) · [Report an issue](https://github.com/nezirether/Keepers-War-Command/issues)
+Open the War Room with /kt.
+
+## Compatibility and updates
+
+Requires WoW Forever 1.60.1, Interface 16001. Required libraries are bundled. Shared features require guild membership and compatible peers.
+
+Back up the current addon and SavedVariables before updating. Replace the old KeepersWarCommand folder with the folder from the ZIP and retain SavedVariables.
+
+This is an Alpha. In-client artwork clamping, high-scale readability, sound, motion and multi-player timing require further live testing. Older clients' event reports have less precise deduplication. Personal bounty and CTA-attendance awards require evidence the existing workflows do not provide.
+
+Raid Tools incorporate work from Purplexity Raid Tools by nivthefox. Bundled libraries retain their license notices.
+
+[Report an issue](https://github.com/nezirether/Keepers-War-Command/issues)

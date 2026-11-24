@@ -20,3 +20,11 @@ For the next task, record its scope, workstation or environment, branch, base an
 ## Handoff log convention
 
 Append each dated entry at the end and preserve earlier entries. Correct past details in a new entry. Include environment, branch, base and tested revisions, review outcomes, checks and skips, and the next action. For a ZIP, include the full tested commit SHA, manifest version, filename or path, and SHA-256.
+
+## 2026-11-24 — Phoenix public source and CurseForge candidate
+
+The owner authorized GitHub synchronization and CurseForge preparation. The public release branch starts from origin/main at 8a54c0f51decc6df5496678ae1348ee17e3d0cee and imports the public Phoenix runtime from f3d18f1f8cf35a0ed99f4f838b3b9269642c5f72. The original Phoenix checkout remains on codex/phoenix-public. Existing remote branches are preserved.
+
+The source branch excludes the officer companion implementation. Public alpha metadata replaces the private-test label without changing the 2.0.0-alpha.16 version. The public addon, TOC, assets, full-name fixes, native honor refresh and event protocols are carried from the tested Phoenix source. The CurseForge metadata requests Alpha and manual release. Live-client acceptance and final art redistribution review remain open.
+
+The release manifest records the actual source commit and ZIP hash after the candidate has passed public regression and extracted-package checks.

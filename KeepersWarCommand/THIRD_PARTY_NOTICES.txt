@@ -1,6 +1,28 @@
+# Raid Tools attribution
+
+Keepers War Command's Raid Tools incorporate work from Purplexity Raid Tools
+by nivthefox.
+
+Original project: https://www.wowinterface.com/downloads/info27017-v1.4.0.html
+
+# Trogdor artwork
+
+The Trogdor emblem is the Keepers of Trogdor owner's own artwork. KWC 1.x
+illustrated media (Media/*.tga from the WarCommand addon) and 1.x alert
+artwork are NOT shipped in 2.0. Fonts used (FRIZQT, ARIALN, MORPHEUS, SKURRI)
+ship with the game client and are not bundled.
+
 # Bundled library notices
 
 - AceComm-3.0 and CallbackHandler-1.0 are embedded components. See the Ace3 license text in each library folder.
 - ChatThrottleLib and LibStub retain their public-domain notices in source.
 - LibSerialize and LibDeflate retain their license notices in source.
 - LibSharedMedia-3.0 identifies LGPL 2.1 in its header. Its source and a copy of the license are included.
+
+KWC 2.0 additions
+-----------------
+- Media/Emblem.tga (War Room) and KeepersWarCommand_Command/Media/Seal.tga
+  (Command Table) are refinements of the guild-owned Trogdor emblem previously
+  shipped as Textures/TrogdorMinimap.tga in KWC 1.x.
+- Media/Grain.tga and Media/Crimson.tga are procedurally generated for 2.0.
+- No legacy KWC 1.x interface textures are included in 2.0.
