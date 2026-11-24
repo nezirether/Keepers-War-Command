@@ -82,9 +82,13 @@ end
 local channel=T.Channel
 T.Channel=function(spec) local ch=channel(spec);wrap(ch);return ch end
 for _,ch in ipairs(T.order) do wrap(ch) end
-local moment=T.Channel({key='warCelebration',label='War celebration',icon='kill',defaultDuration=5})
+local moment=T.Channel({key='warCelebration',label='War celebration',icon='kill',defaultDuration=5,defaultSlot=5})
+local tiers={Standard=moment}
+for i,level in ipairs({'Heroic','Legendary'}) do
+ tiers[level]=T.Channel({key='warCelebration'..level,label=level..' celebration',icon='kill',defaultDuration=5,defaultSlot=5+i})
+end
 function C.Moment(content,preview)
- return moment:Present(content,not preview)
+ return (tiers[content.level] or moment):Present(content,not preview)
 end
 function C.PreviewSound()
  if PlaySound then return pcall(PlaySound,888,'Master') end
@@ -93,6 +97,10 @@ end
 function C.Preview(level)
  return C.Moment({level=level,kicker=level..' celebration preview',
   title=K.CharacterDisplayName(UnitName('player'),true),detail='Visual preview',meta='War Room',tone='accent'},true)
+end
+for level,ch in pairs(tiers) do
+ local value=level
+ ch.demo=function() C.Preview(value) end
 end
 local ticker=CreateFrame('Frame')
 ticker:SetScript('OnUpdate',function()

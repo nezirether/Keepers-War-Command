@@ -10,6 +10,9 @@ function page.Build(self,host)
  local scroll,c=Kit.Scroll(host)
  self.content=c
  -- Appearance
+ local help=S.Card(c,'Help & Tutorial');help.fullWidth=true
+ help.launch=S.Button(help.body,'Launch Tutorial','primary',function() K.Tutorial.Start() end,160,28)
+ function help:LayoutBody(st) st:Actions({self.launch}) end
  local gallery=S.Card(c,'Appearance Gallery');gallery.fullWidth=true
  self.gallery=P.AppearanceGallery(gallery)
  function gallery:LayoutBody(st) page.gallery:Layout(st) end
@@ -50,13 +53,13 @@ function page.Build(self,host)
  -- Integrations & credits
  local cr=S.Card(c,'Integrations and credits')
  cr.text=S.Para(cr.body,780,'muted',12);cr.text:SetPoint('TOPLEFT')
- self.cards={gallery,a,s,sh,cr,d,id,ac};self.a,self.s,self.sh,self.d,self.idc,self.ac,self.cr=a,s,sh,d,id,ac,cr
+ self.cards={help,gallery,a,s,sh,cr,d,id,ac};self.a,self.s,self.sh,self.d,self.idc,self.ac,self.cr=a,s,sh,d,id,ac,cr
  d.fullWidth,id.fullWidth,ac.fullWidth=true,true,true
  function a:LayoutBody(st)
   st:Place(self.scaleLabel,nil,6)
   self.scale.keepWidth=true;self.scale:SetWidth(52);self.scale:SetHeight(26)
   st:Actions({self.scale,self.minus,self.plus})
-  st:Place(self.minimap,nil,0)
+  st:Place(self.minimap,nil,8)
  end
  function s:LayoutBody(st)
   st:Place(self.auto,nil,4);st:Place(self.scout,nil,8)
@@ -71,7 +74,7 @@ function page.Build(self,host)
  function ac:LayoutBody(st)
   self.req.keepWidth=true;st:Place(self.req,28,10);layoutText(self,st)
  end
- P.CardNavigation(host,scroll,{{'Appearance',gallery},{'Window',a},{'Guild sync',s},{'Sharing',sh},{'Diagnostics',d},{'Identity',id},{'Addon checker',ac,118}})
+ P.CardNavigation(host,scroll,{{'Tutorial',help},{'Appearance',gallery},{'Window',a},{'Guild sync',s},{'Sharing',sh},{'Diagnostics',d},{'Identity',id},{'Addon checker',ac,118}})
  host:SetScript('OnSizeChanged',function() self:Layout() end)
  self:Layout()
 end

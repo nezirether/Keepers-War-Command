@@ -70,7 +70,9 @@ local function buildSignups(pane)
   local t,w=su.title:Get(),su.when:Get()
   if t=='' then su.title:Error('Raid name is required.');return end
   if w=='' then su.when:Error('Date and time are required.');return end
-  if state.mode=='edit' then RS().Edit(state.selected,t,w) else RS().Create(t,w) end
+  local ok
+  if state.mode=='edit' then ok=RS().Edit(state.selected,t,w) else ok=RS().Create(t,w) end
+  if not ok then return end
   state.mode='view';su.filled=false;W.Refresh(true);page:Update()
  end,130,32);su.save.keepWidth=true
  su.back=S.Button(c,'Cancel','ghost',function() state.mode='view';su.filled=false;page:Update() end,90,32);su.back.keepWidth=true

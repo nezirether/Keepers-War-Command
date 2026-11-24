@@ -1,7 +1,7 @@
 local F=CreateFrame('Frame')
-KWC={version='2.0.1',listeners={}};local K=KWC
--- Build identifier for this public alpha candidate.
-K.build='2.0.1'
+KWC={version='2.0.2',listeners={}};local K=KWC
+-- Stable release build identifier.
+K.build='2.0.2'
 -- Legacy guild packets remain compatible. EVENT1 and CTARESULT are optional additive messages.
 K.protocolFamily='1.8.2-compatible'
 function K.Say(s) print('|cffffb54d[Keepers]|r '..tostring(s)) end
@@ -233,16 +233,11 @@ function K.GuildDebug()
   checker and checker.requests or 0,checker and checker.responses or 0))
 end
 function K.Init()
+ local fresh=KWCDB==nil
  KWCDB=KWCDB or {};local d=KWCDB
  for _,key in ipairs({'history','roster','ops','bounties','pvp','settings','recruiter','responses','scoutReports','afterAction'}) do d[key]=d[key] or {} end
- -- DEV6 migration: start all automatic guild data and scouting features ON,
- -- including clients that disabled them in earlier development builds.
- -- Apply only once; subsequent user OFF choices remain respected.
- if not d.settings.dev6AutoDefaultsApplied then
-  d.settings.autoScout=true
-  d.settings.autoGuildSync=true
-  d.settings.dev6AutoDefaultsApplied=true
- end
+ if fresh then d.settings.tutorialFresh=true end
+ -- Default to enabled only when no explicit preference exists.
  if d.settings.autoScout==nil then d.settings.autoScout=true end
  if d.settings.autoGuildSync==nil then d.settings.autoGuildSync=true end
  if not d.raidCommandTemplates then

@@ -40,7 +40,7 @@ function A.Resolve(channelKey,content)
  elseif channelKey=='worldPvPDeath' then return 'fallen'
  elseif channelKey=='bountyAlert' then return 'bountySighting'
  elseif channelKey=='ctaNotice' then return 'callToArms'
- elseif channelKey=='warCelebration' then
+ elseif channelKey:match('^warCelebration') then
   local c=content.category
   if c=='streaks' then return 'killStreak'
   elseif c=='milestones' then return 'commendation'
@@ -175,7 +175,7 @@ function A.Apply(ch,content)
  f.plateGlint:SetTexture(Kit.MEDIA..plate.file)
  f.artKey=key
  chrome(f,false)
- f.plate:Show();f.scrim:Show();f.scrimFade:Show();f.closeBack:Show()
+ f.plate:Show();f.scrim:Hide();f.scrimFade:Hide();f.closeBack:Hide()
  A.Layout(f)
  local level=content and content.level
  f.artGlintPeak=plate.somber and 0 or level=='Legendary' and 0.5 or level=='Heroic' and 0.32 or 0.16

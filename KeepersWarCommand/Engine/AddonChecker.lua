@@ -3,7 +3,33 @@ local K=KWC
 local A={peers={},lastRequest=0,lastAnnounce=0,requests=0,responses=0,protocol='KWCCHK/1'}
 K.AddonChecker=A
 local PREFIX='KWCCHK'
+-- Keep reports alive across the 15-minute automatic polling interval.
+local PEER_TTL=1200
 local scope
+local notified={}
+local function release(v)
+ if type(v)~="string" then return end
+ local a,b,c=v:match("^v?(%d+)%.(%d+)%.(%d+)$")
+ if not a or #a>5 or #b>5 or #c>5 then return end
+ return tonumber(a)*10000000000+tonumber(b)*100000+tonumber(c)
+end
+local function installed()
+ return release(K.version) or release(K.version:match("^([%d%.]+)%-"))
+end
+function A.Latest()
+ local best,number=nil,installed() or 0
+ for _,peer in ipairs(A.Entries()) do
+  local n=release(peer.version)
+  if n and n>number then best,number=peer.version,n end
+ end
+ return best
+end
+local function notify()
+ local v=A.Latest()
+ if not v or notified[release(v)] or not K.InstanceAlerts.Allowed() then return end
+ notified[release(v)]=true
+ K.Say("Newer KWC release reported: "..v.." (installed "..K.version.."). Check CurseForge for an update.")
+end
 local function currentScope()
  local guild=K.GuildScope()
  if scope~=guild then scope=guild;A.peers={};A.lastRequest=0;A.lastAnnounce=0 end
@@ -23,6 +49,8 @@ function A.Request()
  return sent
 end
 function A.Status()
+ local newer=A.Latest()
+ if newer then return "Update available (peer reported): "..newer..". Check CurseForge." end
  return A.lastRequest>0 and 'Check requested; replies appear below as clients respond.' or 'Select Check Online Guildmates to discover clients.'
 end
 function A.Self()
@@ -34,13 +62,13 @@ function A.ForRoster(name)
  if id==K.LocalGuildMember() then return {localClient=true,version=K.version,lastSeen=time(),name=name} end
  if not currentScope() then return end
  local peer=A.peers[id]
- if peer and time()-peer.lastSeen<600 then return peer end
+ if peer and time()-peer.lastSeen<PEER_TTL then return peer end
 end
 function A.Entries()
  local result={}
  if not currentScope() then return result end
  for id,peer in pairs(A.peers) do
-  if K.CurrentGuildMember(id)==id and time()-peer.lastSeen<600 then result[#result+1]=peer end
+  if K.CurrentGuildMember(id)==id and time()-peer.lastSeen<PEER_TTL then result[#result+1]=peer end
  end
  table.sort(result,function(a,b)
   if a.lastSeen==b.lastSeen then return a.name<b.name end
@@ -64,6 +92,7 @@ K.On('CHAT_MSG_ADDON',function(prefix,msg,channel,sender)
   else
    A.peers[id]={name=sender,version=version,lastSeen=time()}
    if kind=='R' then A.responses=A.responses+1 end
+   notify()
    if kind=='Q' and time()-A.lastAnnounce>=5 then
     A.lastAnnounce=time()
     if C_Timer and C_Timer.After then C_Timer.After(0.5,function()
@@ -76,7 +105,7 @@ K.On('CHAT_MSG_ADDON',function(prefix,msg,channel,sender)
   local wire=prefix=='KWC3' and msg:match('^(%d+);[A-Z0-9]+;')
   if wire and wire~='2' then
    local previous=A.peers[id]
-   if not previous or time()-previous.lastSeen>=600 or previous.legacy then
+   if not previous or time()-previous.lastSeen>=PEER_TTL or previous.legacy then
     A.peers[id]={name=sender,unsupported=true,lastSeen=time()}
     if K.UI and K.UI.CheckerRefresh then K.UI.CheckerRefresh() end
    end
@@ -85,7 +114,7 @@ K.On('CHAT_MSG_ADDON',function(prefix,msg,channel,sender)
   if not (wire=='2' or
    prefix=='KWC4' and (msg:match('^Q|%d+$') or msg:match('^S|[CB]|'))) then return end
   local old=A.peers[id]
-  if old and time()-old.lastSeen<600 then return end
+  if old and time()-old.lastSeen<PEER_TTL then return end
   A.peers[id]={name=sender,legacy=true,lastSeen=time()}
  end
  if K.UI and K.UI.CheckerRefresh then K.UI.CheckerRefresh() end
@@ -96,3 +125,18 @@ K.On('ADDON_LOADED',function(addon)
  end
 end)
 K.On('PLAYER_GUILD_UPDATE',currentScope)
+
+-- Reuse the existing guild-only version protocol; no new wire messages.
+local function autoCheck()
+ if not currentScope() or not K.LocalGuildMember() then return end
+ if time()-A.lastRequest<15 then return end
+ if send('Q') then A.lastRequest=time();A.requests=A.requests+1 end
+end
+local ticker,scheduled
+K.On('PLAYER_ENTERING_WORLD',function()
+ if not C_Timer then return end
+ if not scheduled and C_Timer.After then
+  scheduled=true;C_Timer.After(8,function() scheduled=false;autoCheck() end)
+ end
+ if not ticker and C_Timer.NewTicker then ticker=C_Timer.NewTicker(900,autoCheck) end
+end)

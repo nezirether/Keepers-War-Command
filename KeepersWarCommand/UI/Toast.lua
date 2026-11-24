@@ -63,14 +63,14 @@ local function build(ch)
   v[ch.key..'Position']={point=point,relativePoint=rel,x=x,y=y}
  end)
  f:SetScript('OnUpdate',function(self,dt)
-  if ch:Unlocked() then self.timer:SetWidth(self:GetWidth()-4);return end
+  if ch:Unlocked() then self:SetAlpha(ch:Opacity());self.timer:SetWidth(self:GetWidth()-4);return end
   self.elapsed=(self.elapsed or 0)+dt
   local life=ch:Duration()
   self.timer:SetWidth(math.max(1,(self:GetWidth()-4)*(1-self.elapsed/life)))
   local preferences=K.Celebrations and K.Celebrations.Preferences()
   if not preferences or (preferences.animations and not preferences.reducedMotion) then
-   self:SetAlpha(math.min(1,self.elapsed/0.16,math.max(0,(life-self.elapsed)/0.3)))
-  else self:SetAlpha(1) end
+   self:SetAlpha(ch:Opacity()*math.min(1,self.elapsed/0.16,math.max(0,(life-self.elapsed)/0.3)))
+  else self:SetAlpha(ch:Opacity()) end
   if self.elapsed>=life then self:Hide() end
  end)
  -- Each text line and action row owns a vertical lane, including wrapped surnames.
@@ -84,6 +84,8 @@ local function build(ch)
    region:SetPoint('TOPLEFT',self,'TOPLEFT',68,-y)
    region:SetWidth(width)
    region:SetWordWrap(true)
+   if region.SetMaxLines then region:SetMaxLines(0) end
+   region:SetHeight(0)
    local text=region:GetText() or ''
    local height=text~='' and math.max(size,region:GetStringHeight() or size) or 0
    region:SetHeight(height)
@@ -129,7 +131,13 @@ function Channel:Initialize()
  f:ClearAllPoints()
  if type(pos)=='table' and type(pos.x)=='number' and type(pos.y)=='number' and type(pos.point)=='string' then
   f:SetPoint(pos.point,UIParent,pos.relativePoint or pos.point,pos.x,pos.y)
- else f:SetPoint('TOP',UIParent,'TOP',0,-120-self.defaultSlot*112) end
+ else
+  local slot=self.defaultSlot
+  if self:Unlocked() then
+   local column=math.floor(slot/4)
+   f:SetPoint('TOP',UIParent,'TOP',(column==0 and -1 or 1)*math.min(230,UIParent:GetWidth()/4),-100-(slot%4)*150)
+  else f:SetPoint('TOP',UIParent,'TOP',0,-120-(slot%5)*112) end
+ end
  f:SetScale(Kit.Clamp(tonumber(v[self.key..'Scale']) or 1,0.5,2))
  f.hint:SetShown(self:Unlocked())
 end
@@ -139,14 +147,27 @@ function Channel:SetUnlocked(on)
  self:Initialize()
  if on then if self.demo then self.demo() end else self.frame:Hide() end
 end
+function Channel:Scale()
+ local v=settings() or {}
+ return Kit.Clamp(tonumber(v[self.key..'Scale']) or 1,0.5,2)
+end
 function Channel:SetScale(value)
  local v=settings();if not v then return end
  v[self.key..'Scale']=Kit.Clamp(tonumber(value) or 1,0.5,2)
  self:Initialize()
 end
+function Channel:Opacity()
+ local v=settings() or {}
+ return Kit.Clamp(tonumber(v[self.key..'Opacity']) or 1,0.25,1)
+end
+function Channel:SetOpacity(value)
+ local v=settings();if not v then return end
+ v[self.key..'Opacity']=Kit.Clamp(tonumber(value) or 1,0.25,1)
+ self.frame:SetAlpha(self:Opacity())
+end
 function Channel:Reset()
  local v=settings();if not v then return end
- v[self.key..'Position']=nil;v[self.key..'Scale']=nil
+ v[self.key..'Position']=nil;v[self.key..'Scale']=nil;v[self.key..'Opacity']=nil;self.frame:SetAlpha(1)
  self:Initialize()
 end
 function Channel:IsShown() return self.frame:IsShown() end
@@ -173,6 +194,7 @@ end
 -- content={kicker,title,detail,meta,icon,tone,actions={{label=,fn=}}}
 -- automatic=true marks guild-driven alerts so instance suppression can dismiss them.
 function Channel:Present(content,automatic)
+ if automatic and self:Unlocked() then return false end
  if automatic and K.InstanceAlerts and not K.InstanceAlerts.Allowed() then return false end
  if automatic and not T.Claim(self.key,content.eventID) then return false end
  local f=self.frame
@@ -192,7 +214,7 @@ function Channel:Present(content,automatic)
  f:LayoutContent()
  if T.Decorate then Kit.Safe(T.Decorate,self,content) end
  self.automatic=automatic==true
- f.elapsed=0;f:SetAlpha(1)
+ f.elapsed=0;f:SetAlpha(self:Opacity())
  self:Initialize()
  f:Show()
  return true
@@ -240,7 +262,7 @@ function T.HookSuppression()
  hooked=true
  K.InstanceAlerts.OnSuppressed(function()
   for _,ch in ipairs(T.order) do
-   if ch.automatic and ch.frame:IsShown() and not ch:Unlocked() then ch.frame:Hide() end
+   if ch.automatic and ch.frame:IsShown() then ch.frame:Hide() end
   end
  end)
 end

@@ -56,6 +56,9 @@ local DEFS={
   }},
 }
 
+for _,tier in ipairs({'Standard','Heroic','Legendary'}) do
+ DEFS[#DEFS+1]={key=tier=='Standard' and 'warCelebration' or 'warCelebration'..tier,title=tier..' celebration',desc='Customize this celebration tier independently.',switches={}}
+end
 local function channel(key) return K.Toast.channels[key] end
 local function buildCard(parent,def)
  local c=S.Card(parent,def.title)
@@ -72,18 +75,38 @@ local function buildCard(parent,def)
   v()[ch.durationKey or (def.key..'Duration')]=math.floor(n);self:ClearFocus()
  end)
  c.duration.edit:SetScript('OnEditFocusLost',function(self) local n=tonumber(self:GetText());local ch=channel(def.key);if n and n>=3 and n<=30 then v()[ch.durationKey or (def.key..'Duration')]=math.floor(n) end end)
+ c.scale=S.Field(c.body,'Alert size (50-200%)',180,3,'100')
+ c.scale.keepWidth=true
+ local function applyScale(self)
+  local n=tonumber(self:GetText());local ch=channel(def.key)
+  if not n or n<50 or n>200 then c.scale:Error('50 to 200');return end
+  ch:SetScale(n/100);c.scale:Error(nil)
+ end
+ c.scale.edit:SetScript('OnEnterPressed',function(self) applyScale(self);self:ClearFocus() end)
+ c.scale.edit:SetScript('OnEditFocusLost',applyScale)
+ c.opacity=S.Field(c.body,'Opacity (25-100%)',180,3,'100')
+ c.opacity.keepWidth=true
+ local function applyOpacity(self)
+  local n=tonumber(self:GetText())
+  if not n or n<25 or n>100 then c.opacity:Error('25 to 100');return end
+  channel(def.key):SetOpacity(n/100);c.opacity:Error(nil)
+ end
+ c.opacity.edit:SetScript('OnEnterPressed',function(self) applyOpacity(self);self:ClearFocus() end)
+ c.opacity.edit:SetScript('OnEditFocusLost',applyOpacity)
  c.actions=CreateFrame('Frame',nil,c.body)
  c.preview=S.Button(c.actions,'Preview','primary',function() local ch=channel(def.key);if ch.demo then ch.demo() end end,90,28)
  c.place=S.Button(c.actions,'Move','secondary',function()
   local ch=channel(def.key);ch:SetUnlocked(not ch:Unlocked());page:Update()
  end,80,28)
- c.reset=S.Button(c.actions,'Reset position','ghost',function() channel(def.key):Reset() end,120,28)
+ c.reset=S.Button(c.actions,'Reset layout','ghost',function() channel(def.key):Reset();page:Update() end,120,28)
  if def.note then c.note=S.Para(c.body,380,'faint',12);c.note:SetText(def.note) end
  function c:LayoutBody(st)
   st:Place(self.desc,nil,12)
   for _,sw in ipairs(self.sw) do st:Place(sw,nil,2) end
   st:Space(8)
   st:Place(self.duration,52,8)
+  st:Place(self.scale,52,8)
+  st:Place(self.opacity,52,8)
   local buttons={self.preview,self.place,self.reset}
   self.actions:SetHeight(P.Flow(buttons,self.actions,st.width,0,8))
   st:Place(self.actions,nil,10)
@@ -119,6 +142,24 @@ function page.Build(self,host)
  end
  self.previews[#self.previews+1]=S.Button(self.status.body,'Sound preview','secondary',function() K.Celebrations.PreviewSound() end,145,30)
  self.previews[#self.previews+1]=S.Button(self.status.body,'Artwork preview','secondary',function() K.AlertArt.Preview() end,145,30)
+ self.previews[#self.previews+1]=S.Button(self.status.body,'Unlock all','secondary',function()
+  for _,ch in ipairs(K.Toast.order) do ch:SetUnlocked(true) end;page:Update()
+ end,145,30)
+ self.previews[#self.previews+1]=S.Button(self.status.body,'Save & lock all','secondary',function()
+  for _,ch in ipairs(K.Toast.order) do ch:SetUnlocked(false) end;page:Update()
+ end,145,30)
+ self.globalScale=S.Field(self.status.body,'Set all alert sizes (50-200%)',220,3,'100')
+ self.globalOpacity=S.Field(self.status.body,'Set all alert opacity (25-100%)',220,3,'100')
+ self.globalScale.keepWidth=true;self.globalOpacity.keepWidth=true
+ self.globalApply=S.Button(self.status.body,'Apply to all alerts','primary',function()
+  local scale=tonumber(self.globalScale.edit:GetText())
+  local opacity=tonumber(self.globalOpacity.edit:GetText())
+  self.globalScale:Error((not scale or scale<50 or scale>200) and '50 to 200' or nil)
+  self.globalOpacity:Error((not opacity or opacity<25 or opacity>100) and '25 to 100' or nil)
+  if not scale or scale<50 or scale>200 or not opacity or opacity<25 or opacity>100 then return end
+  for _,ch in ipairs(K.Toast.order) do ch:SetScale(scale/100);ch:SetOpacity(opacity/100) end
+  page:Update()
+ end,180,30)
  self.chronicle=S.Para(self.status.body,600,'muted',12)
  self.status.fullWidth=true
  self.cards={self.status}
@@ -128,11 +169,14 @@ function page.Build(self,host)
   st:Place(page.intensity,28,8)
   for _,control in ipairs(page.celebrationControls) do st:Place(control,28,3) end
   st:Actions(page.previews,8)
+  st:Place(page.globalScale,52,8)
+  st:Place(page.globalOpacity,52,8)
+  st:Place(page.globalApply,30,12)
   st:Place(page.chronicle,nil,6)
  end
  for i,def in ipairs(DEFS) do cards[i]=buildCard(c,def);self.cards[#self.cards+1]=cards[i] end
  P.CardNavigation(host,scroll,{{'Policy',self.status,80},{'Guild deaths',cards[1]},{'Kills',cards[2],70},
-  {'Bounties',cards[3],90},{'Calls to Arms',cards[4],112},{'Guild LFG',cards[5],96}})
+  {'Bounties',cards[3],90},{'Calls to Arms',cards[4],112},{'Guild LFG',cards[5],96},{'Standard',cards[6]},{'Heroic',cards[7]},{'Legendary',cards[8]}})
  host:SetScript('OnSizeChanged',function() self:Layout() end)
  self:Layout()
 end
@@ -162,6 +206,8 @@ function page.Update(self)
   for _,sw in ipairs(card.sw) do sw:Update() end
   local ch=channel(card.def.key)
   card.place:SetLabel(ch and ch:Unlocked() and 'Lock' or 'Move')
+  if not card.scale.edit:HasFocus() and ch then card.scale:Set(math.floor(ch:Scale()*100+0.5)) end
+  if not card.opacity.edit:HasFocus() and ch then card.opacity:Set(math.floor(ch:Opacity()*100+0.5)) end
   if not card.duration.edit:HasFocus() and ch then card.duration:Set(math.floor(ch:Duration())) end
  end
  self:Layout()

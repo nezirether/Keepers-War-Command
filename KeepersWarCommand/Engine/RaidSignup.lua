@@ -16,7 +16,7 @@ local function db()
  local d=KWCDB.raidSignups;d.events=d.events or {};d.responses=d.responses or {};return d
 end
 local function clean(v,n) return tostring(v or ''):gsub('[|\r\n]',' '):sub(1,n or 90) end
-local function me() return UnitName('player') or '' end
+local function me() return (K.LocalGuildMember and K.LocalGuildMember()) or UnitName('player') or '' end
 local function same(a,b) return K.SameGuildMember(a,b) end
 local function canonical(v)
  local r=K.RosterRecord and K.RosterRecord(v)
@@ -27,7 +27,7 @@ local function send(kind,fields,target)
  if not IsInGuild() or not C_ChatInfo or not C_ChatInfo.SendAddonMessage then return false end
  local msg=kind..'|'..table.concat(fields,'|')
  if #msg>250 then return false end
- local ok=K.Net.Send(PREFIX,msg,target and 'WHISPER' or 'GUILD',target,target and 'RECOVERY' or nil);if ok then diag.sent=diag.sent+1 end;return ok
+ local ok=K.Net.Send(PREFIX,msg,target and 'WHISPER' or 'GUILD',target,target and 'RECOVERY' or 'ALERT');if ok then diag.sent=diag.sent+1 end;return ok
 end
 local function eventFields(e)
  return {e.id,clean(e.title,60),clean(e.when,45),clean(e.author,65),tostring(e.rev or 1),e.deleted and '2' or e.cancelled and '1' or '0'}
@@ -37,19 +37,20 @@ local function sendRSVP(id,name,r)
  return send('RS',{id,clean(name,65),r.status,tostring(r.rev or 1)})
 end
 local function refresh()
- -- Explicit UI refresh only: never erase a partially typed raid creation form.
+ -- The page preserves its draft using su.filled.
+ if K.WarRoom2 and K.WarRoom2.Refresh then K.WarRoom2.Refresh() end
 end
 local function uniqueID()
  return tostring(time())..'-'..tostring(math.random(100000,999999))
 end
 function S.Create(title,when)
- if not scope() or not K.IsOfficer() then K.Say('Only War Council / War Chief can schedule guild raids.');return end
+ if not scope() or not K.IsOfficer() or not K.IsSenderOfficer(me()) then K.Say('Only War Council / War Chief can schedule guild raids.');return end
  title=clean(title,60);when=clean(when,45)
  if title=='' or when=='' then K.Say('Enter raid name and date/time (include timezone).');return end
  local d=db();local id=uniqueID()
  local e={id=id,title=title,when=when,author=canonical(me()),rev=time(),cancelled=false}
  d.events[id]=e;d.responses[id]={};selected=id
- sendEvent(e);K.Say('Raid sign-up created: '..title);return true
+ local queued=sendEvent(e);K.Say('Raid sign-up created: '..title..(queued and '' or ' (saved locally; sync pending)'));return true
 end
 function S.Cancel(id)
  local d=db();local e=d.events[id]
@@ -73,7 +74,7 @@ function S.Delete(id)
  sendEvent(e);return true
 end
 function S.Respond(id,status)
- if not statuses[status] or not scope() then return end
+ if not statuses[status] or not scope() or not K.IsMember(me()) then return end
  local d=db();local e=d.events[id];if not e or e.cancelled then return end
  local name=canonical(me());d.responses[id]=d.responses[id] or {}
  local prior
@@ -101,7 +102,10 @@ function S.Sync(silent)
   recovery={guild=guild,token=token,target=target,expires=time()+34}
   ok=send('RQ',{guild,token,page},target)
  end
- if not ok then ok=send('REQ',{clean(me(),65)}) end
+ -- Always request author-owned records and self-owned RSVPs as well.
+ -- An accepted whisper queue is not proof that the selected officer has the raid.
+ local broadcast=send('REQ',{clean(me(),65)})
+ ok=ok or broadcast
  if not silent then K.Say('Requested raid sign-ups from online guildmates.') end
  return ok
 end
@@ -267,7 +271,10 @@ local function registerPrefix()
  if C_ChatInfo and C_ChatInfo.RegisterAddonMessagePrefix then pcall(C_ChatInfo.RegisterAddonMessagePrefix,PREFIX) end
 end
 registerPrefix()
-K.On('PLAYER_ENTERING_WORLD',registerPrefix)
+K.On('PLAYER_ENTERING_WORLD',function()
+ registerPrefix()
+ if C_Timer and C_Timer.After then C_Timer.After(10,function() if scope() then S.Sync(true) end end) end
+end)
 K.On('GUILD_ROSTER_UPDATE',function()
  if IsInGuild() and time()-lastReq>180 then S.Sync(true) end
 end)

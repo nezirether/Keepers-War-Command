@@ -16,6 +16,8 @@ local HELP={
  {'/kt skin <id>','Switch War Room skin'},
  {'/kt scale 75-135','War Room window scale'},
  {'/kt minimap show|hide|reset','Minimap button'},
+ {'/kt tutorial','Replay the guided tutorial'},
+ {'/kt unlock | lock','Move or lock all alert frames'},
  {'/kt alerts','Alert settings and previews'},
  {'/kt deathalert | killalert | bountyalert ...','Alert channel controls (test, on/off, unlock/lock, reset, scale)'},
  {'/kt deathreport <name>','Report your own open-world death attacker while dead'},
@@ -75,6 +77,9 @@ function C.Run(input)
  elseif cmd=='minimap' then
   local M=K.Minimap
   if arg=='hide' then M.SetVisible(false) elseif arg=='show' then M.SetVisible(true) elseif arg=='reset' then M.Reset() else K.Say('/kt minimap show|hide|reset') end
+ elseif cmd=='tutorial' then K.Tutorial.Start()
+ elseif cmd=='unlock' then K.Tutorial.Unlock()
+ elseif cmd=='lock' then K.Tutorial.Lock()
  elseif cmd=='alerts' then K.UI.Open('alerts')
  elseif cmd=='deathalert' then alertChannel(K.WorldPvPDeaths,arg,'deathalert')
  elseif cmd=='killalert' then alertChannel(K.WorldPvPKills,arg,'killalert')

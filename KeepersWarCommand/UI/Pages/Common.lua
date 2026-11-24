@@ -54,7 +54,7 @@ function P.Toolbar(parent,opts)
   if box then
    if row and x<130 then y=y+36;x=width end
    box:ClearAllPoints();box:SetPoint('TOPLEFT',0,-y)
-   box:SetWidth(math.min(opts.searchWidth or 200,x))
+   box:SetWidth(math.max(1,math.min(opts.searchWidth or 200,x)))
    row=true
   end
   if row then y=y+36 end
@@ -93,8 +93,8 @@ function P.Stack(parent,width,measureOnly)
  function st:Reset() self.y=0 end
  function st:Place(f,height,gap,indent)
   f:ClearAllPoints();f:SetPoint('TOPLEFT',self.parent,'TOPLEFT',indent or 0,-self.y)
-  if f.SetWidth and not f.keepWidth then f:SetWidth(self.width-(indent or 0)) end
-  if f.FitHeight then f:FitHeight(self.width-(indent or 0)) end
+  if f.SetWidth and not f.keepWidth then f:SetWidth(math.max(1,self.width-(indent or 0))) end
+  if f.FitHeight then f:FitHeight(math.max(1,self.width-(indent or 0))) end
   local h=height or (f:IsObjectType('FontString') and f:GetStringHeight()) or f:GetHeight() or 0
   if h<1 then h=f:GetHeight() or 14 end
   f:Show()

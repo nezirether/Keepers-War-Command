@@ -16,10 +16,17 @@ local function miniCard(parent,title,n,emptyH,emptyB,openPage,openLabel)
   b:SetHeight(26);b:SetPoint('TOPLEFT',0,-(i-1)*28);b:SetPoint('RIGHT',c.body,'RIGHT',0,0)
   b.hl=Kit.Fill(b,OWNER,'hover','BACKGROUND',0)
   b.dot=b:CreateTexture(nil,'ARTWORK');b.dot:SetSize(6,6);b.dot:SetPoint('LEFT',2,0)
-  b.text=S.Text(b,'body','text');b.text:SetPoint('LEFT',14,0);b.text:SetPoint('RIGHT',b,'RIGHT',-70,0)
   b.meta=S.Text(b,'small','faint');b.meta:SetPoint('RIGHT',-4,0);b.meta:SetJustifyH('RIGHT')
-  b:SetScript('OnEnter',function(self) Kit.Paint(self.hl,OWNER,'hover','fill',1) end)
-  b:SetScript('OnLeave',function(self) Kit.Paint(self.hl,OWNER,'hover','fill',0) end)
+  b.text=S.Text(b,'body','text');b.text:SetPoint('LEFT',14,0);b.text:SetPoint('RIGHT',b.meta,'LEFT',-10,0)
+  local function sizeColumns(self)
+   local width=self:GetWidth()
+   if width<=0 then return end
+   self.meta:SetWidth(math.max(1,math.min(150,math.floor(width*0.40),width-29)))
+  end
+  b:SetScript('OnSizeChanged',sizeColumns);sizeColumns(b)
+  
+  b:SetScript('OnEnter',function(self) Kit.Paint(self.hl,OWNER,'hover','fill',1); if GameTooltip and self.fullText then GameTooltip:SetOwner(self,'ANCHOR_RIGHT');GameTooltip:SetText(self.fullText);GameTooltip:AddLine(self.fullMeta or '',1,1,1,true);GameTooltip:Show() end end)
+  b:SetScript('OnLeave',function(self) Kit.Paint(self.hl,OWNER,'hover','fill',0);if GameTooltip then GameTooltip:Hide() end end)
   b:SetScript('OnClick',function(self) if self.open then Kit.Safe(self.open) end end)
   c.lines[i]=b
  end
@@ -29,7 +36,7 @@ local function miniCard(parent,title,n,emptyH,emptyB,openPage,openLabel)
   for i,b in ipairs(self.lines) do
    local it=items[i]
    if it then
-    b.text:SetText(it.text);b.meta:SetText(it.meta or '')
+    b.fullText=it.text;b.fullMeta=it.meta or '';b.text:SetText(b.fullText);b.meta:SetText(b.fullMeta)
     Kit.Paint(b.dot,OWNER,it.tone or 'faint','fill');b.open=it.open;b:Show()
    else b:Hide() end
   end

@@ -127,18 +127,21 @@ function S.Button(parent,label,variant,onClick,width,height)
  if variant=='secondary' then S.Art(b,'control','BORDER') end
  if variant=='secondary' or variant=='danger' then Kit.Border(b,OWNER,variant=='danger' and 'danger' or 'line',1,variant=='danger' and 0.7 or 1) end
  b.text=Kit.Text(b,OWNER,'body',13,variant=='primary' and 'onAccent' or variant=='danger' and 'danger' or 'text')
- b.text:SetPoint('LEFT',b,'LEFT',6,0);b.text:SetPoint('RIGHT',b,'RIGHT',-6,0)
+ b.text:SetPoint('TOPLEFT',b,'TOPLEFT',6,-2);b.text:SetPoint('BOTTOMRIGHT',b,'BOTTOMRIGHT',-6,2)
+ b.text:SetDrawLayer('OVERLAY',7);b.text:SetJustifyV('MIDDLE')
  b.text:SetJustifyH('CENTER');b.text:SetText(label)
  b.variant=variant
  local function setButtonFill(self,hover)
   local role=self.selected and 'accentSoft' or fillRole
   if hover and self.enabled~=false and variant~='primary' then role='hover' end
   Kit.Paint(self.bg,OWNER,role,'fill',variant=='ghost' and not hover and not self.selected and 0 or nil)
+  Kit.Paint(self.text,OWNER,variant=='primary' and 'onAccent' or variant=='danger' and 'danger' or 'text','text',1)
+  self.text:Show()
  end
  b:SetScript('OnEnter',function(self)
   if self.enabled~=false then self.edge:Show();setButtonFill(self,true) end
  end)
- b:SetScript('OnLeave',function(self) self.edge:SetShown(self.selected==true);setButtonFill(self,false) end)
+ b:SetScript('OnLeave',function(self) self.edge:SetShown(self.selected==true and self.enabled~=false);setButtonFill(self,false) end)
  b:SetScript('OnMouseDown',function(self)
   if self.enabled~=false and variant~='primary' and variant~='danger' then Kit.Paint(self.bg,OWNER,'pressed','fill') end
  end)
@@ -154,8 +157,10 @@ function S.Button(parent,label,variant,onClick,width,height)
   self.enabled=enabled and true or false
   self.reason=reason
   self:SetAlpha(enabled and 1 or 0.42)
+  self.edge:SetShown(self.enabled and self.selected==true)
+  setButtonFill(self,false)
  end
- Kit.Tooltip(b,function(self) return self.enabled==false and self.reason and 'Unavailable' or self.tip end,function(self) return self.enabled==false and self.reason or self.tipBody end)
+ Kit.Tooltip(b,function(self) return self.enabled==false and self.reason and 'Unavailable' or self.tip or self.text:GetText() end,function(self) return self.enabled==false and self.reason or self.tipBody end)
  return b
 end
 
@@ -198,6 +203,7 @@ function S.Segmented(parent,options,get,set,segWidth)
   s.mark=Kit.Rule(s,OWNER,'accent',true,Themes.Get(active).marker or 2);markers[s.mark]=true;s.mark:SetPoint('BOTTOMLEFT');s.mark:SetPoint('BOTTOMRIGHT')
   s.text=Kit.Text(s,OWNER,'body',12,'muted');s.text:SetPoint('LEFT',s,'LEFT',5,0);s.text:SetPoint('RIGHT',s,'RIGHT',-5,0);s.text:SetJustifyH('CENTER');s.text:SetText(label)
   s.value=value
+  Kit.Tooltip(s,label)
   s:SetScript('OnClick',function() Kit.Safe(set,value);f:Update() end)
   s:SetScript('OnEnter',function(self) if get()~=self.value then Kit.Paint(self.bg,OWNER,'hover','fill') end end)
   s:SetScript('OnLeave',function(self) f:Update() end)
@@ -351,6 +357,15 @@ function S.RowBuild(row)
  row.meta=S.Text(row,'small','faint');row.meta:SetPoint('TOPRIGHT',-12,-9);row.meta:SetJustifyH('RIGHT')
  row.meta2=S.Text(row,'small','faint');row.meta2:SetPoint('TOPRIGHT',row.meta,'BOTTOMRIGHT',0,-4);row.meta2:SetJustifyH('RIGHT')
  row.meta:SetWidth(102);row.meta2:SetWidth(102)
+ local function fit(self)
+  local w=self:GetWidth()
+  if w<=0 then return end
+  local meta=math.min(102,math.max(48,math.floor(w*0.30)))
+  self.meta:SetWidth(meta);self.meta2:SetWidth(meta)
+  self.title:SetPoint('RIGHT',self,'RIGHT',-meta-18,0)
+  self.sub:SetPoint('RIGHT',self,'RIGHT',-meta-18,0)
+ end
+ row:HookScript('OnSizeChanged',fit);fit(row)
  row.title:SetJustifyH('LEFT');row.sub:SetJustifyH('LEFT')
  row:SetScript('OnEnter',function(self) if not self.selected then Kit.Paint(self.bg,OWNER,'hover','fill') end end)
  row:SetScript('OnLeave',function(self) Kit.Paint(self.bg,OWNER,self.selected and 'accentSoft' or 'surface','fill') end)
@@ -374,7 +389,9 @@ function S.RankBuild(row)
   local w=self:GetWidth()
   if w<=0 then w=270 end
   local barWidth=self.isBoard and 0 or math.min(90,math.max(0,w-285))
-  local textWidth=math.max(24,w-(self.isBoard and 104 or 139+barWidth))
+  local valueWidth=math.min(68,math.max(42,math.floor(w*0.24)))
+  self.val:SetWidth(valueWidth)
+  local textWidth=math.max(24,w-(self.isBoard and valueWidth+36 or valueWidth+71+barWidth))
   self.name:ClearAllPoints();self.sub:ClearAllPoints()
   if self.isBoard then
    self.name:SetPoint('TOPLEFT',self,'TOPLEFT',12,-5)
