@@ -38,7 +38,7 @@ local function draw(ch,content)
  local level=content.level or 'Standard'
  local p=C.Preferences()
  local epic=p.intensity=='Epic'
- ch.frame:SetWidth(level=='Legendary' and epic and 540 or level=='Heroic' and 460 or 404)
+ ch.frame.preferredWidth=level=='Legendary' and epic and 540 or level=='Heroic' and 460 or 404
  local shown=present(ch,content,true)
  if shown and p.sounds and p.intensity~='Quiet' and K.QOL and K.QOL.Enabled('alertSound') then
   local setting=ch.key=='pvpKill' and 'pvpKillSound' or ch.key=='worldPvPDeath' and 'worldPvPDeathSound'
@@ -75,7 +75,7 @@ local function wrap(ch)
  present=present or ch.Present
  ch.Present=function(self,content,automatic)
   if automatic then return C.Route(self,content) end
-  self.frame:SetWidth(content.level=='Legendary' and 540 or content.level=='Heroic' and 460 or 404)
+  self.frame.preferredWidth=content.level=='Legendary' and 540 or content.level=='Heroic' and 460 or 404
   return present(self,content,false)
  end
 end

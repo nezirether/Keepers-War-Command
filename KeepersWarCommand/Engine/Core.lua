@@ -1,7 +1,7 @@
 local F=CreateFrame('Frame')
-KWC={version='2.0.2',listeners={}};local K=KWC
+KWC={version='2.0.3',listeners={}};local K=KWC
 -- Stable release build identifier.
-K.build='2.0.2'
+K.build='2.0.3'
 -- Legacy guild packets remain compatible. EVENT1 and CTARESULT are optional additive messages.
 K.protocolFamily='1.8.2-compatible'
 function K.Say(s) print('|cffffb54d[Keepers]|r '..tostring(s)) end
@@ -128,6 +128,49 @@ function K.IsMember(sender) return K.CurrentGuildMember(sender)~=nil end
 function K.SameGuildMember(a,b)
  local id=K.CurrentGuildMember(a)
  return id~=nil and id==K.CurrentGuildMember(b)
+end
+-- Exact historical-name equality matches a record assertion only. Permission
+-- still depends on current roster and companion authorization below.
+function K.RecordedAuthorMatches(a,b)
+ if type(a)~='string' or type(b)~='string' then return false end
+ local function normalized(value)return value:lower():match('^%s*(.-)%s*$'):gsub('%s+',' ')end
+ return normalized(a)==normalized(b) or K.SameGuildMember(a,b)==true
+end
+function K.DeletionAuthorization(author)
+ local state,guild,actor,identityReason=K.GuildReadiness()
+ local result={state=state,guild=guild,actor=actor,identityReason=identityReason,author=author}
+ if state~='Ready' or not guild or not actor then return false,'Guild identity or roster is not ready.',result end
+ local guid=accessibleString(UnitGUID and UnitGUID('player'));result.guid=guid
+ if not guid or not guid:match('^Player%-%w+%-%w+$') then return false,'Local player GUID is unavailable.',result end
+ local member,rank,online,source=K.LocalGuildMember()
+ result.member,result.rank,result.online,result.identitySource=member,rank,online,source
+ if not member or member~=actor then return false,'Local character does not match the verified guild roster identity.',result end
+ local playerRank
+ if GetGuildInfo then local safe,_,_,value=pcall(GetGuildInfo,'player');if safe then playerRank=value end end
+ result.playerRank=playerRank
+ if playerRank~=rank then return false,'Current roster rank and player guild rank disagree.',result end
+ if K.RecordedAuthorMatches(actor,author) then result.role='recorded creator';return true,'Creator identity is verified.',result end
+ result.authorRosterName=K.CurrentGuildMember(author)
+ local officer=K.Officer
+ if (rank==0 or rank==1) and officer and type(officer.IsAuthorized)=='function' then
+  local safe,allowed,reason,context=pcall(officer.IsAuthorized)
+  result.companionChecked=true;result.companionAuthorized=safe and allowed==true;result.companionReason=reason
+  result.companionGuild=context and context.guild;result.companionActor=context and context.actor
+  result.companionRank=context and context.rank;result.companionGUID=context and context.guid
+  if safe and allowed==true and type(context)=='table' and context.guild==guild and
+    (context.rank==0 or context.rank==1) and K.RecordedAuthorMatches(actor,context.actor) and context.guid==guid then
+   result.role=context.rank==0 and 'Warchief' or 'War Council'
+   return true,'Current authorized officer companion confirmed.',result
+  end
+ end
+ if rank~=0 and rank~=1 then return false,'Not the recorded creator; current rank is not Warchief or War Council.',result end
+ if not officer or type(officer.IsAuthorized)~='function' then return false,'Not the recorded creator; compatible officer companion authorization is unavailable.',result end
+ if not result.companionAuthorized then return false,'Officer companion did not confirm current authorization.',result end
+ return false,'Officer companion identity, guild, rank, or GUID does not match the live player.',result
+end
+function K.VerifiedDeletionActor(author)
+ local allowed,_,details=K.DeletionAuthorization(author)
+ if allowed then return details.actor,details.role,details end
 end
 function K.IsSenderOfficer(sender)
  local _,rank=K.CurrentGuildMember(sender)

@@ -13,9 +13,6 @@ function page.Build(self,host)
  local help=S.Card(c,'Help & Tutorial');help.fullWidth=true
  help.launch=S.Button(help.body,'Launch Tutorial','primary',function() K.Tutorial.Start() end,160,28)
  function help:LayoutBody(st) st:Actions({self.launch}) end
- local gallery=S.Card(c,'Appearance Gallery');gallery.fullWidth=true
- self.gallery=P.AppearanceGallery(gallery)
- function gallery:LayoutBody(st) page.gallery:Layout(st) end
  local a=S.Card(c,'Window and minimap')
  a.scaleLabel=S.Text(a.body,'kicker','muted');a.scaleLabel:SetPoint('TOPLEFT',0,-60);a.scaleLabel:SetText('WINDOW SCALE')
  a.scale=S.Text(a.body,'body','text');a.scale:SetPoint('TOPLEFT',0,-82)
@@ -53,7 +50,7 @@ function page.Build(self,host)
  -- Integrations & credits
  local cr=S.Card(c,'Integrations and credits')
  cr.text=S.Para(cr.body,780,'muted',12);cr.text:SetPoint('TOPLEFT')
- self.cards={help,gallery,a,s,sh,cr,d,id,ac};self.a,self.s,self.sh,self.d,self.idc,self.ac,self.cr=a,s,sh,d,id,ac,cr
+ self.cards={help,a,s,sh,cr,d,id,ac};self.a,self.s,self.sh,self.d,self.idc,self.ac,self.cr=a,s,sh,d,id,ac,cr
  d.fullWidth,id.fullWidth,ac.fullWidth=true,true,true
  function a:LayoutBody(st)
   st:Place(self.scaleLabel,nil,6)
@@ -74,19 +71,19 @@ function page.Build(self,host)
  function ac:LayoutBody(st)
   self.req.keepWidth=true;st:Place(self.req,28,10);layoutText(self,st)
  end
- P.CardNavigation(host,scroll,{{'Tutorial',help},{'Appearance',gallery},{'Window',a},{'Guild sync',s},{'Sharing',sh},{'Diagnostics',d},{'Identity',id},{'Addon checker',ac,118}})
+ P.CardNavigation(host,scroll,{{'Tutorial',help},{'Window',a},{'Guild sync',s},{'Sharing',sh},{'Diagnostics',d},{'Identity',id},{'Addon checker',ac,118}})
  host:SetScript('OnSizeChanged',function() self:Layout() end)
  self:Layout()
 end
 function page.Layout(self)
  local c=self.content;if not c then return end
- local w=self.host:GetWidth()
+ local w=c:GetWidth()
  P.CardGrid(c,w>0 and w or 664,self.cards,340)
 end
 function page.OnShow(self,arg) end
 function page.Update(self)
  if not self.content then return end
- self.gallery:Update();self.a.minimap:Update()
+ self.a.minimap:Update()
  self.a.scale:SetText(math.floor(K.UI.GetScale()*100+0.5)..'%')
  self.s.auto:Update();self.s.scout:Update();self.sh.records:Update();self.sh.services:Update()
  local h=K.Sync.Health()

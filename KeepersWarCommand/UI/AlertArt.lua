@@ -56,6 +56,7 @@ local function luminance(c) return c and (0.2126*c[1]+0.7152*c[2]+0.0722*c[3]) o
 -- The painted plates are dark. Skins with dark text (light skins) keep their own
 -- card so text contrast follows the theme engine instead of being forced.
 function A.Enabled()
+ if S.AssetPath and S.AssetPath('alertHeader') then return false end
  local p=prefs()
  if p and p.eventArt==false then return false end
  return luminance(S.Color('text'))>=0.55

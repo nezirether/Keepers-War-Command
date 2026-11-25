@@ -39,7 +39,7 @@ local function buildSignups(pane)
  end)
  P.ListHeading(left,su.list,su.bar,'Scheduled raids')
  Kit.Paint(su.list.thumb,OWNER,'line','fill')
- su.list.empty=S.Empty(su.list,'No raids scheduled','War Council and the Warchief schedule raids here. Sign-ups sync to every member.',400);su.list.empty:SetPoint('TOPLEFT',4,-6)
+ su.list.empty=S.Empty(su.list,'No raids scheduled','War Council and the Warchief schedule raids here. Sign-ups sync to every member.',400,'EmptyRaid');su.list.empty:SetPoint('TOPLEFT',4,-6)
  local _,c=P.DrawerBody(right)
  su.stack=P.Stack(c,310)
  su.head=P.DrawerHead(c,310)
@@ -117,6 +117,8 @@ local function buildCommand(pane)
  rc.status=S.Text(left,'section','text');rc.status:SetPoint('TOPLEFT',0,-4)
  rc.sub=S.Text(left,'small','muted');rc.sub:SetPoint('TOPLEFT',rc.status,'BOTTOMLEFT',0,-4)
  rc.list=Kit.List(left,46,4,function(row) S.RowBuild(row);row:SetScript('OnClick',function(r) state.member=r.item.name;page:Update() end) end,function(row,p)
+  local glyph=p.role=='TANK' and 'Tank_Glyph' or p.role=='HEALER' and 'Healer_Glyph' or p.role=='DAMAGER' and 'Damage_Glyph'
+  S.RowIcon(row,glyph and (Kit.MEDIA..'WarRoomClassic\\'..glyph) or S.AssetPath('iconGroup'))
   row:Tone(p.ready and 'good' or (p.ack and 'info' or 'faint'))
   row.title:SetText('G'..p.group..'  '..p.name..'  '..S.Code('faint')..(p.role~='NONE' and p.role or (p.class or ''))..'|r')
   row.sub:SetText(p.duty or S.Code('faint')..'No assignment|r')
@@ -216,7 +218,8 @@ function page.Build(self,host)
 end
 function page.OnShow(self,arg)
  if type(arg)=='string' then state.tab='tools';state.tool=arg
- elseif type(arg)=='table' and arg.tab=='spoils' then state.tab='spoils' end
+ elseif type(arg)=='table' and arg.tab=='spoils' then state.tab='spoils'
+ elseif type(arg)=='table' and arg.compose then state.tab='signups';state.mode='compose';su.filled=false end
  if self.seg then self.seg:Update() end
 end
 function page.Update(self)

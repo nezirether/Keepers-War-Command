@@ -135,7 +135,7 @@ function page.Build(self,host)
  list=Kit.List(left,34,3,function(row) S.RankBuild(row);row:SetScript('OnClick',function(r) if not r.item.board then state.member=r.item.key or r.item.name;renderSide() end end) end,fill)
  P.ListHeading(left,list,note,'Records')
  Kit.Paint(list.thumb,OWNER,'line','fill')
- list.empty=S.Empty(list,'No counts shared yet','Members appear once their client reports. Turn on sharing in Settings > Sharing to include yours.',460)
+ list.empty=S.Empty(list,'No counts shared yet','Members appear once their client reports. Turn on sharing in Settings > Sharing to include yours.',460,'EmptyRecords')
  list.empty:SetPoint('TOPLEFT',4,-6)
  local _,c=P.DrawerBody(right)
  side={stack=P.Stack(c,300)}

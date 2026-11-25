@@ -2,6 +2,7 @@
 local K=KWC
 K.Net={}
 local N=K.Net
+N.GuardSupported=true
 local queue, pending={},{}
 local nextSequence=0
 local elapsed=0
@@ -177,6 +178,7 @@ local function enqueue(prefix,parts,channel,target,priority,opts)
  if epoch then id=id..'\001g'..epoch end
  local onComplete=opts and type(opts.onComplete)=='function' and opts.onComplete or nil
  local existing=pending[id]
+ if existing and ((opts and opts.guard) or existing.guard) then return false end
  if existing then
   -- A pending duplicate is not queued again; its caller is notified with the original.
   -- At most CALLBACK_LIMIT callbacks are kept: past the limit the newest one is replaced.
@@ -210,6 +212,7 @@ local function enqueue(prefix,parts,channel,target,priority,opts)
   groupEpoch=epoch,recovery=priority=='RECOVERY',alert=priority=='ALERT'}
  if multi then item.parts=parts;item.cursor=1 end
  if opts then
+  item.guard=type(opts.guard)=='function' and opts.guard or nil
   item.bulk=true
   item.groupWhisper=groupWhisper or nil
   item.requireGroup=GROUP_CHANNELS[channel]==true
@@ -327,6 +330,10 @@ frame:SetScript('OnUpdate',function(_,dt)
   if not whisperKey or unavailable[whisperKey] or (issecretvalue and issecretvalue(online)) or online~=true then
    finish(item,false);return
   end
+ end
+ if item.guard then
+  local valid,allowed=pcall(item.guard)
+  if not valid or allowed~=true then finish(item,false);return end
  end
  local msg=item.parts and item.parts[item.cursor] or item.msg
  local ok,result=pcall(C_ChatInfo.SendAddonMessage,item.prefix,msg,item.channel,item.target)

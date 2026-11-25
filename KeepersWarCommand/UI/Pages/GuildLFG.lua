@@ -167,7 +167,7 @@ function page.Build(self,host)
  list=Kit.List(left,60,6,function(row) S.RowBuild(row);row:SetScript('OnClick',function(r) state.selected=r.item.id;state.mode='view';self:Update() end) end,fill)
  P.ListHeading(left,list,toolbar,'Listings')
  Kit.Paint(list.thumb,OWNER,'line','fill')
- list.empty=S.Empty(list,'No groups forming','Start one with "New listing". Guildmates in your level range who opted in are notified.',420)
+ list.empty=S.Empty(list,'No groups forming','Start one with "New listing". Guildmates in your level range who opted in are notified.',420,'EmptyLFG')
  list.empty:SetPoint('TOPLEFT',4,-6)
  waiting=S.Empty(left,'Waiting for guild identity','',270);waiting:SetPoint('TOPLEFT',list,'TOPLEFT',4,-6)
  left:HookScript('OnSizeChanged',function(_,width)
@@ -192,6 +192,9 @@ function page.Update(self)
  local r=state.selected and find(state.selected)
  view.pane:SetShown(state.mode=='view');form.pane:SetShown(state.mode~='view')
  if state.mode=='view' then renderView(r) else renderForm(state.mode=='edit' and r or nil) end
+end
+function page.OnShow(self,arg)
+ if type(arg)=='table' and arg.compose then state.mode='compose';form.filled=false end
 end
 function page.Badge() local ok,n=pcall(function() return (K.GuildLFG.Summary()) end);return ok and n or 0 end
 W.Register(page)

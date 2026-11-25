@@ -9,7 +9,7 @@ local O=function() return K.Operations end
 local page={id='bounties',title='Bounty Board',subtitle='Mark enemies, report sightings, claim the kill.',group='ops'}
 local state={filter='ACTIVE',query='',selected=nil,mode='view'}
 local view,form,sight={},{},{}
-local list,toolbar
+local list,toolbar,board,drawer,back
 
 local function find(id) for _,e in ipairs(KWCDB and KWCDB.bounties or {}) do if e.id==id then return e end end end
 local function target(e) return e.details and e.details.target or tostring(e.text or ''):match('^([^@%-|]+)') or e.text end
@@ -39,17 +39,38 @@ local TONE={ACTIVE='warn',COMPLETED='good',CANCELLED='faint'}
 local function fillRow(row,e)
  local st=e.status or 'ACTIVE'
  row:Tone(TONE[st] or 'faint')
- row.title:SetText(P.Short(target(e)))
+ row.metaWidth=65
+ S.RowIcon(row,S.AssetPath('iconScroll'))
+ local rarity=tostring((e.details and e.details.rarity) or e.rarity or ''):lower()
+ local frameKey=rarity=='epic' and 'bountyEpic' or rarity=='legendary' and 'bountyLegendary' or 'bountyStandard'
+ if not row.v3BountyFrame then
+  row.v3BountyFrame=S.AssetOverlay(row.iconWell,frameKey,'OVERLAY',7)
+  row.v3BountyFrame:ClearAllPoints();row.v3BountyFrame:SetPoint('CENTER',row.iconWell,'CENTER')
+ end
+ row.v3BountyFrame:SetAsset(frameKey);row.v3BountyFrame:SetAspectHeight(34)
+ row.v3BountyFrame:SetShown(S.AssetPath(frameKey)~=nil)
+ row.title:SetText(target(e));row.tooltipName=target(e)
  local d=e.details or {}
  local s=e.sightings and e.sightings[1]
  local bits={}
- if d.reward and d.reward~='' then bits[#bits+1]=S.Code('accentText')..'Reward '..d.reward..'|r' end
- if s then bits[#bits+1]='Seen in '..s.zone..' '..Kit.Age(s.receivedAt) elseif d.location and d.location~='' then bits[#bits+1]='Posted at '..d.location end
- if d.reason and d.reason~='' then bits[#bits+1]=d.reason end
+ if s then bits[#bits+1]=S.Code('warn')..'Last seen '..s.zone..'|r'
+ elseif d.location and d.location~='' then bits[#bits+1]='Last known '..d.location
+ else bits[#bits+1]='No sighting reported' end
+ if d.reward and d.reward~='' then bits[#bits+1]=S.Code('accentText')..d.reward..'|r' end
  row.sub:SetText(table.concat(bits,'   '))
- row.meta:SetText(Kit.Age(e.created))
+ local wide=row:GetWidth()>=385
+ row.location:SetShown(wide)
+ if wide then
+  row.location:SetWidth(math.floor(row:GetWidth()*.31))
+  local posted=d.location or tostring(e.text or ''):match('@%s*([^|]+)')
+  row.location:SetText(s and s.zone or (posted and posted~='' and posted) or 'Unknown')
+  row.title:SetPoint('RIGHT',row.location,'LEFT',-10,0)
+  row.sub:SetPoint('RIGHT',row.location,'LEFT',-10,0)
+  row.sub:SetText(d.reward and d.reward~='' and d.reward or (st=='ACTIVE' and 'Open contract' or 'Closed contract'))
+ end
+ row.meta:SetText(s and (Kit.Age(s.receivedAt)..' ago') or Kit.Age(e.created))
  local claims=0;for _ in pairs(e.claims or {}) do claims=claims+1 end
- row.meta2:SetText(st=='ACTIVE' and (claims>0 and (claims..' claim'..(claims>1 and 's' or '')) or 'Open') or st)
+ row.meta2:SetText(st=='ACTIVE' and (claims>0 and (claims..' claim'..(claims>1 and 's' or '')) or 'Hunt') or st)
  row:Select(state.selected==e.id)
 end
 
@@ -62,10 +83,10 @@ local function buildView(pane)
  view.terms=P.Section(c,'Contract',w)
  view.sightings=P.Section(c,'Sightings',w)
  view.claims=P.Section(c,'Claims',w)
- view.actionsLabel=S.Text(c,'kicker','faint');view.actionsLabel:SetText('ACTIONS')
  view.actions=CreateFrame('Frame',nil,c);view.actions:SetSize(w,40)
  local A=view.actions
  view.btn={
+  more=S.Button(A,'More options','secondary',function() state.more=not state.more;page:Update() end,112),
   sight=S.Button(A,'Report sighting','primary',function() state.mode='sight';sight.filled=false;page:Update() end,150),
   claim=S.Button(A,'Claim kill','secondary',act(function() O().ClaimBounty(state.selected) end),110),
   edit=S.Button(A,'Edit','secondary',function() state.mode='edit';form.filled=false;page:Update() end,80),
@@ -76,7 +97,12 @@ local function buildView(pane)
   delete=S.Button(A,'Delete','danger',function()
    local id=state.selected
    S.Confirm('Delete this bounty?','It is removed for every guildmate and cannot come back from an old copy. This cannot be undone.','Delete',function()
-    if O().Delete('BOUNTY',id) then state.selected=nil end;W.Refresh(true)
+    if O().Delete('BOUNTY',id) then
+     state.selected=nil;state.detail=false;state.more=false;state.mode='view'
+     local nextRow=entries();state.selected=nextRow[1] and nextRow[1].id or nil
+     page:Update()
+    end
+    W.Refresh(true)
    end)
   end,90),
  }
@@ -86,11 +112,19 @@ local function buildView(pane)
 end
 local function renderView(e)
  local st=view.stack;st:Reset()
- for _,k in ipairs({'head','terms','sightings','claims','actionsLabel','actions','empty'}) do view[k]:Hide() end
+ for _,k in ipairs({'head','terms','sightings','claims','actions','empty'}) do view[k]:Hide() end
  if not e then st:Place(view.empty,60);return end
  local status=e.status or 'ACTIVE'
- view.head:Set('Bounty  -  '..status,P.Short(target(e)))
+ view.head:Set('Bounty  -  '..status,target(e))
  st:Place(view.head,nil,14)
+ local B=view.btn;local active=status=='ACTIVE';local manage=canManage(e)
+ B.sight:SetShown(active);B.claim:SetShown(active)
+ B.edit:SetShown(state.more and active and manage);B.complete:SetShown(state.more and active and manage);B.cancel:SetShown(state.more and active and manage)
+ B.reopen:SetShown(not active and manage);B.more:SetLabel(state.more and 'Fewer options' or 'More options');B.report:SetShown(state.more);B.delete:SetShown(state.more and O().CanDelete(e))
+ local h=P.Flow({B.sight,B.claim,B.reopen,B.more,B.edit,B.complete,B.cancel,B.report,B.delete},view.actions,st.width,0,8)
+ view.actions:SetHeight(h)
+ st:Place(view.actions,h,10)
+
  local d=e.details or {}
  local t={}
  t[#t+1]='Reward: '..((d.reward and d.reward~='') and d.reward or S.Code('faint')..'unspecified|r')
@@ -109,13 +143,6 @@ local function renderView(e)
  for who,at in pairs(e.claims or {}) do c[#c+1]=P.Short(who)..S.Code('faint')..'  '..tostring(at)..'|r' end
  table.sort(c)
  view.claims:Set(#c>0 and table.concat(c,'\n') or S.Code('faint')..'No claims yet.|r');st:Place(view.claims,nil,16)
- local B=view.btn;local active=status=='ACTIVE';local manage=canManage(e)
- B.sight:SetShown(active);B.claim:SetShown(active)
- B.edit:SetShown(active and manage);B.complete:SetShown(active and manage);B.cancel:SetShown(active and manage)
- B.reopen:SetShown(not active and manage);B.report:SetShown(true);B.delete:SetShown(O().CanDelete(e))
- local h=P.Flow({B.sight,B.claim,B.edit,B.complete,B.cancel,B.reopen,B.report,B.delete},view.actions,st.width,0,8)
- view.actions:SetHeight(h)
- st:Place(view.actionsLabel,14,6);st:Place(view.actions,h,10)
 end
 
 ------------------------------------------------------------------ compose / edit
@@ -149,7 +176,7 @@ local function buildForm(pane)
    if not ok then form.target:Error('Not posted - see chat for the reason.');return end
    state.selected=id
   end
-  state.mode='view';form.filled=false;W.Refresh(true);page:Update()
+  state.detail=true;state.mode='view';form.filled=false;W.Refresh(true);page:Update()
  end)
 end
 local function renderForm(e)
@@ -197,33 +224,65 @@ end
 
 ------------------------------------------------------------------ page
 function page.Build(self,host)
- local left,right=P.Split(host,380)
+ K.Operations.SelectedBountyID=function()return state.selected end
+ self.host=host
+ local left=CreateFrame('Frame',nil,host);board=left
+ local right=CreateFrame('Frame',nil,host);drawer=right
+ S.Art(right,'panel','BACKGROUND')
+ back=S.Button(right,'Back to board','secondary',function()
+  state.detail=false;state.more=false;state.mode='view';self:Update()
+ end,132,26)
+ back:SetPoint('TOPLEFT',12,-6)
+ host:HookScript('OnSizeChanged',function() if self.ready then self:Update() end end)
  toolbar=P.Toolbar(left,{search=function(t) state.query=t;if list then list:ScrollTo(1) end;self:Update() end,searchHint='Search targets',
   segments={{'ACTIVE','Active'},{'CLOSED','Closed'},{'ALL','All'}},get=function() return state.filter end,
   set=function(v) state.filter=v;self:Update() end,segWidth=72,
   action='New bounty',onAction=function() state.mode='compose';form.filled=false;self:Update();form.target.edit:SetFocus() end,actionWidth=130})
- list=Kit.List(left,60,6,function(row) S.RowBuild(row);row:SetScript('OnClick',function(r) state.selected=r.item.id;state.mode='view';self:Update() end) end,fillRow)
- P.ListHeading(left,list,toolbar,'Contracts')
+ list=Kit.List(left,42,2,function(row) S.RowBuild(row)
+  row.location=S.Text(row,'body','muted');row.location:SetPoint('RIGHT',row,'RIGHT',-85,0)
+  row:SetScript('OnClick',function(r) state.selected=r.item.id;state.detail=true;state.more=false;state.mode='view';self:Update() end) end,fillRow)
+ local heading=P.ListHeading(left,list,toolbar,'Target')
+ local zone=S.Text(heading,'kicker','paperText');zone:SetText('LAST LOCATION')
+ local function align(_,width)
+  zone:ClearAllPoints();zone:SetPoint('LEFT',heading,'LEFT',width-99-math.floor((width-14)*.31),0)
+  zone:SetShown(width>=400)
+ end
+ heading:HookScript('OnSizeChanged',align);align(heading,heading:GetWidth())
  Kit.Paint(list.thumb,OWNER,'line','fill')
- list.empty=S.Empty(list,'The board is clear','Post a bounty to mark an enemy. Right-click a player frame and choose the bounty option where your client supports it.',420)
+ list.empty=S.Empty(list,'The board is clear','Post a bounty to mark an enemy. Right-click a player frame and choose the bounty option where your client supports it.',420,'EmptyBounties')
  list.empty:SetPoint('TOPLEFT',4,-6)
- for _,x in ipairs({view,form,sight}) do x.pane=CreateFrame('Frame',nil,right);x.pane:SetAllPoints(right) end
- buildView(view.pane);buildForm(form.pane);buildSight(sight.pane)
+ for _,x in ipairs({view,form,sight}) do x.pane=CreateFrame('Frame',nil,right);x.pane:SetPoint('TOPLEFT',right,'TOPLEFT',0,-36);x.pane:SetPoint('BOTTOMRIGHT',right,'BOTTOMRIGHT') end
+ buildView(view.pane);buildForm(form.pane);buildSight(sight.pane);self.ready=true
 end
 function page.OnShow(self,arg)
+ state.detail=false;state.more=false;state.mode='view'
  if type(arg)=='table' then
   if arg.compose then state.mode='compose';form.filled=false;state.prefill=arg.target end
-  if arg.select then state.selected=arg.select;state.filter='ALL';state.mode=arg.sighting and 'sight' or 'view';state.sightZone=arg.sighting;sight.filled=false end
+  if arg.select then state.detail=true;state.selected=arg.select;state.filter='ALL';state.mode=arg.sighting and 'sight' or 'view';state.sightZone=arg.sighting;sight.filled=false end
  end
  if toolbar and toolbar.seg then toolbar.seg:Update() end
 end
 function page.Update(self)
- if not list then return end
+ if not self.ready then return end
+ local showDetail=state.detail or state.mode~='view'
+ local width=self.host:GetWidth()
+ local split=showDetail and width>=930
+ board:ClearAllPoints();board:SetPoint('TOPLEFT')
+ drawer:ClearAllPoints();drawer:SetPoint('TOPRIGHT');drawer:SetPoint('BOTTOMRIGHT')
+ drawer:SetWidth(math.max(1,split and math.floor(width*.46) or width))
+ if split then board:SetPoint('BOTTOMRIGHT',drawer,'BOTTOMLEFT',-12,0)
+ else board:SetPoint('BOTTOMRIGHT',self.host,'BOTTOMRIGHT') end
+ board:SetShown(not showDetail or split);drawer:SetShown(showDetail)
+ for _,component in ipairs({view,form,sight}) do
+  component.stack.width=math.max(1,drawer:GetWidth()-48)
+  component.head.title:SetWidth(component.stack.width)
+ end
  local rows=entries()
  if state.mode=='view' and not state.selected and rows[1] then state.selected=rows[1].id end
  list:SetData(rows)
  local e=state.selected and find(state.selected)
  view.pane:SetShown(state.mode=='view');form.pane:SetShown(state.mode=='compose' or state.mode=='edit');sight.pane:SetShown(state.mode=='sight')
+ if not showDetail then return end
  if state.mode=='view' then renderView(e)
  elseif state.mode=='sight' then if not e then state.mode='view';return self:Update() end;renderSight(e)
  else renderForm(state.mode=='edit' and e or nil) end

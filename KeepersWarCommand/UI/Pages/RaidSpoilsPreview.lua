@@ -23,7 +23,7 @@ function P.BuildSpoilsPreview(host)
   card(proposal.label,table.concat(lines,'\n'))
  end
  local function layout()
-  local width=host:GetWidth()
+  local width=body:GetWidth()
   P.CardGrid(body,width>0 and width or 650,cards,320)
  end
  host:HookScript('OnSizeChanged',layout)

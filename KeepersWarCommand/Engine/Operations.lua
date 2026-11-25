@@ -495,20 +495,50 @@ function O.ChangeStatus(kind,id,status)
  K.UI.Refresh()
 end
 function O.Delete(kind,id)
- if K.GuildScope and not K.GuildScope() then return end
- if kind~='CTA' and kind~='BOUNTY' then return false end
+ if K.GuildScope and not K.GuildScope() then return false,'Guild scope is not ready.' end
+ if kind~='CTA' and kind~='BOUNTY' then return false,'Unsupported record kind.' end
  local e=findEntry(kind,id)
- if not e then K.Say('Entry not found.');return false end
- local who=UnitName('player') or ''
- if not canManage(e,who) then K.Say('Only the creator, War Council, or Warchief may delete this record.');return false end
- if not K.Sync or not K.Sync.Delete then K.Say('Deletion sync unavailable.');return false end
- if not K.Sync.Delete(kind,e) then K.Say('Deletion failed.');return false end
+ if not e then local reason='Record ID '..tostring(id)..' is not present on the local board.';K.Say(reason);return false,reason end
+ if not K.Sync or not K.Sync.Delete then local reason='Deletion synchronization module is unavailable.';K.Say(reason);return false,reason end
+ local who=K.VerifiedDeletionActor(e.author)
+ if not who then
+  local reason='The current character is not verified as the creator or an authorized officer.'
+  if K.DeletionAuthorization then local _,why=K.DeletionAuthorization(e.author);reason=why or reason end
+  reason='Deletion authorization denied: '..tostring(reason);K.Say(reason);return false,reason
+ end
+ local ok,result=K.Sync.Delete(kind,e)
+ if not ok then local reason='Deletion refused: '..tostring(result or 'unspecified validation failure');K.Say(reason);return false,reason end
  K.Log(kind,'Deleted '..id..' by '..who)
- K.Say('Record deleted locally. Guild deletion sent; offline members update after sync.')
- return true
+ K.Say(result or 'Record deleted locally. Guild sync will update online and offline members.')
+ return true,result
 end
 function O.CanDelete(e)
- return e and canManage(e,K.CharacterDisplayName(UnitName('player'),true) or '') or false
+ return e and K.VerifiedDeletionActor(e.author)~=nil or false
+end
+function O.DeletionDiagnostics(id)
+ local function describe(kind,e)
+  local d=K.Sync and K.Sync.DeletionDiagnostics and K.Sync.DeletionDiagnostics(kind,e) or {reason='Deletion sync diagnostics are unavailable.'}
+  local auth=d.authorizationDetails or {}
+  K.Say(('Delete diagnostic | %s | id=%s | author=%s'):format(kind,tostring(e and e.id),tostring(e and e.author)))
+  K.Say(('Stored reference: %s | same-ID rows: %s | author conflict: %s | similar text, other IDs: %s | tombstone: %s'):format(tostring(d.storedReference),tostring(d.duplicates),tostring(d.authorConflict or false),tostring(d.similarTextOtherIDs or 0),d.tombstone and ('by '..tostring(d.tombstone.by)..' at '..tostring(d.tombstone.at)) or 'none'))
+  K.Say(('Guild state=%s scope=%s local=%s GUID=%s roster rank=%s player rank=%s companion=%s companion rank=%s'):format(tostring(auth.state),tostring(auth.guild),tostring(auth.actor),tostring(auth.guid),tostring(auth.rank),tostring(auth.playerRank),tostring(auth.companionAuthorized),tostring(auth.companionRank)))
+  K.Say(('Recorded author roster match=%s identity source=%s | transport guild/API/net/guard=%s/%s/%s/%s'):format(tostring(auth.authorRosterName),tostring(auth.identitySource),tostring(d.guildTransportReady),tostring(d.addonTransportReady),tostring(d.netSendReady),tostring(d.guardSupported)))
+  K.Say(('Delete decision: %s'):format(tostring(d.reason)))
+ end
+ if not id and O.SelectedBountyID then id=O.SelectedBountyID() end
+ if not id or id=='' then
+  local allowed,why,auth=false,'Detailed authorization diagnostic unavailable.',nil
+  if K.DeletionAuthorization then allowed,why,auth=K.DeletionAuthorization(nil) end
+  K.Say(('Deletion identity check | guild=%s state=%s local=%s GUID=%s rank=%s companion=%s: %s'):format(tostring(auth and auth.guild),tostring(auth and auth.state),tostring(auth and auth.actor),tostring(auth and auth.guid),tostring(auth and auth.rank),tostring(auth and auth.companionAuthorized),tostring(why)))
+  K.Say('Select a bounty in the War Room, then run /kt deletediag; or pass the exact bounty ID.')
+  return 0
+ end
+ local found=0
+ for _,e in ipairs(KWCDB and KWCDB.bounties or {}) do
+  if e.id==id then describe('BOUNTY',e);found=found+1 end
+ end
+ if found==0 then K.Say('Delete diagnostic: no local bounty matched exact ID '..tostring(id)) end
+ return found
 end
 function O.RememberClaim(e,who,stamp)
  local identity=K.CurrentGuildMember(who)

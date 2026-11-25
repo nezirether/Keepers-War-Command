@@ -21,7 +21,7 @@ local function miniCard(parent,title,n,emptyH,emptyB,openPage,openLabel)
   local function sizeColumns(self)
    local width=self:GetWidth()
    if width<=0 then return end
-   self.meta:SetWidth(math.max(1,math.min(150,math.floor(width*0.40),width-29)))
+   self.meta:SetWidth(math.max(1,math.min(150,math.floor(width*0.28),width-29)))
   end
   b:SetScript('OnSizeChanged',sizeColumns);sizeColumns(b)
   
@@ -33,6 +33,8 @@ local function miniCard(parent,title,n,emptyH,emptyB,openPage,openLabel)
  c.empty=S.Empty(c.body,emptyH,emptyB,300);c.empty:SetPoint('TOPLEFT',0,-2)
  if openPage then c:HeaderAction(openLabel or 'Open',function() W.Show(openPage) end) end
  function c:Fill(items)
+  local count=math.min(#items,#self.lines)
+  if self.lineCount~=count then self.lineCount=count;page.countsChanged=true end
   for i,b in ipairs(self.lines) do
    local it=items[i]
    if it then
@@ -83,83 +85,92 @@ end
 
 function page.Build(self,host)
  local scroll,c=Kit.Scroll(host);scroll:SetAllPoints(host)
- self.content=c
- local banner=CreateFrame('Frame',nil,c)
- banner:SetHeight(108)
- Kit.Fill(banner,OWNER,'accentSoft');Kit.Border(banner,OWNER,'line')
- local scene=CreateFrame('Frame',nil,banner)
- scene:SetPoint('TOPLEFT',banner,'TOP',-42,0);scene:SetPoint('BOTTOMRIGHT',banner,'BOTTOMRIGHT')
- scene:EnableMouse(false);scene:SetFrameLevel(banner:GetFrameLevel())
- S.Art(scene,'banner','BACKGROUND');S.Art(scene,'material','BORDER')
- local trim=CreateFrame('Frame',nil,banner)
- trim:SetPoint('BOTTOMLEFT');trim:SetPoint('BOTTOMRIGHT');trim:SetHeight(8)
- trim:EnableMouse(false);S.Art(trim,'trim','BORDER')
- local stripe=Kit.Rule(banner,OWNER,'accent',false,3);stripe:SetPoint('TOPLEFT');stripe:SetPoint('BOTTOMLEFT')
- local emblem=banner:CreateTexture(nil,'ARTWORK');emblem:SetTexture(Kit.MEDIA..'Emblem')
- emblem:SetSize(50,50);emblem:SetPoint('LEFT',20,0)
- local kicker=S.Text(banner,'kicker','accentText');kicker:SetText('KEEPERS OF TROGDOR')
- kicker:SetPoint('TOPLEFT',emblem,'TOPRIGHT',16,8)
- local heading=S.Text(banner,'display','text');heading:SetText('Guild Operations')
- heading:SetPoint('TOPLEFT',kicker,'BOTTOMLEFT',0,-5)
- self.brief=S.Text(banner,'small','text');self.brief:SetPoint('TOPLEFT',heading,'BOTTOMLEFT',0,-4)
- self.brief:SetPoint('RIGHT',banner,'RIGHT',-298,0)
- local map=S.Button(banner,'PvP activity','secondary',function() W.Show('pvp') end,110,30)
- map:SetPoint('RIGHT',-16,0)
- map:SetFrameLevel(scene:GetFrameLevel()+1)
- local calls=S.Button(banner,'Calls to Arms','primary',function() W.Show('cta') end,120,30)
- calls:SetPoint('RIGHT',map,'LEFT',-10,0);calls:SetFrameLevel(scene:GetFrameLevel()+1)
- banner:SetPoint('TOPLEFT');banner:SetPoint('TOPRIGHT')
+ self.content=c;self.scroll=scroll;self.host=host
  local defs={
-  {'cta','Calls to arms','cta'},{'bounty','Active bounties','bounties'},{'pvp','World PvP 24h','pvp'},
-  {'lfg','Guild groups','lfg'},{'raid','Raid sign-ups','raids'},{'sync','Guild sync','settings'},
+  {'cta','Calls to Arms','cta','iconSword'},
+  {'bounty','Bounties','bounties','iconScroll'},
+  {'pvp','PvP · 24h','pvp','iconSkull'},
+  {'lfg','Guild groups','lfg','iconGroup'},
+  {'raid','Raids','raids','iconCalendar'},
  }
  for i,d in ipairs(defs) do
-  local t=S.Stat(c,d[2]);t:SetHeight(92);t.page=d[3]
+  local t=S.Stat(c,d[2],d[4]);t:SetHeight(78);t.page=d[3]
   t:SetScript('OnClick',function(self) W.Show(self.page) end)
   tiles[d[1]]=t;tiles[i]=t
  end
- cards.cta=miniCard(c,'Calls to arms',4,'No active calls','When the guild needs bodies in the world, calls appear here.','cta','All calls')
- cards.bounty=miniCard(c,'Bounty board',4,'No open bounties','Post one on an enemy who keeps camping your guildmates.','bounties','Board')
- cards.pvp=miniCard(c,'World PvP feed',6,'Quiet out there','Guild kills and guildmate deaths in the open world show up here.','pvp','World PvP')
- cards.lfg=miniCard(c,'Guild groups',4,'No groups forming','Start one from Guild LFG; guildmates in level range are notified.','lfg','Guild LFG')
- cards.spoils=miniCard(c,'WarSpoils awards',3,'No contested awards recorded','Registered raiders and their recent transactions are under Raid Operations.')
+ cards.cta=miniCard(c,'Calls to Arms',4,'No active calls','When the guild needs help in the world, calls appear here.','cta','All calls')
+ cards.bounty=miniCard(c,'Bounty Board',4,'No open bounties','Enemy sightings and claims appear here.','bounties','The board')
+ cards.pvp=miniCard(c,'World PvP',6,'Quiet out there','Recent guild kills and guildmate deaths.','pvp','View encounters')
+ cards.lfg=miniCard(c,'Groups forming',4,'No groups forming','Start a guild group and invite interested members.','lfg','Find a group')
+ cards.spoils=miniCard(c,'War Council notices',3,'No recent awards','Recent raid ledger activity shared with the guild.')
  cards.spoils:HeaderAction('Ledger',function() W.Show('raids',{tab='spoils'}) end)
- cards.raid=miniCard(c,'Raid operations',3,'No raids scheduled','War Council schedules raids; sign-ups sync to every member.','raids','Raids')
+ cards.raid=miniCard(c,'Upcoming raids',3,'No raids scheduled','Find a raid and set your signup status.','raids','Raid signups')
+ cards.quick=S.Card(c,'Quick Actions');cards.quick.fullWidth=true
+ cards.quick.buttons={
+  S.Button(cards.quick.body,'New Call','primary',function() W.Show('cta',{compose=true}) end,112,32),
+  S.Button(cards.quick.body,'Post Bounty','secondary',function() W.Show('bounties',{compose=true}) end,120,32),
+  S.Button(cards.quick.body,'Schedule Raid','secondary',function() W.Show('raids',{compose=true}) end,128,32),
+  S.Button(cards.quick.body,'Start a Group','secondary',function() W.Show('lfg',{compose=true}) end,126,32),
+  S.Button(cards.quick.body,'Leaderboards','ghost',function() W.Show('leaderboards') end,120,32),
+  S.Button(cards.quick.body,'World PvP','ghost',function() W.Show('pvp') end,110,32),
+ }
+ function cards.quick:LayoutBody(st) st:Actions(self.buttons,0) end
  host:SetScript('OnSizeChanged',function() self:Layout() end)
+ -- Kit.Scroll starts with a 10x10 content frame and assigns its real width
+ -- when the hidden War Room host receives its final dimensions. Wait for that
+ -- measured width before laying out cards; host size notifications can arrive
+ -- before the scroll child has been resized.
+ if c.HookScript then c:HookScript('OnSizeChanged',function(_,width) if width>=320 then self:Layout() end end) end
  self:Layout()
 end
 function page.Layout(self)
  local c=self.content;if not c then return end
- local w=self.host:GetWidth();if w<=0 then w=676 end
- local gap=14
- local cols=w>=1042 and 6 or 3
- local tw=math.floor((w-gap*(cols-1))/cols)
- local tileY=122
+ local w=c:GetWidth()
+ if not w or w<320 then self.layoutPending=true;return end
+ if self.layoutBusy then self.layoutPending=true;return end
+ self.layoutBusy=true;self.layoutPending=nil
+ local gap=10
+ local cols=w>=540 and 5 or 3
+ local tileHeight=62
  for i,tile in ipairs(tiles) do
   local slot=i-1
-  tile:ClearAllPoints()
-  tile:SetPoint('TOPLEFT',(slot%cols)*(tw+gap),-(tileY+math.floor(slot/cols)*(92+gap)))
-  tile:SetWidth(tw)
+  local row=math.floor(slot/cols)
+  local count=math.min(cols,#tiles-row*cols)
+  local width=math.floor((w-gap*(count-1))/count)
+  tile:ClearAllPoints();tile:SetPoint('TOPLEFT',(slot%cols)*(width+gap),-row*(tileHeight+gap))
+  tile:SetSize(width,tileHeight)
  end
  local half=math.floor((w-gap)/2)
- local y=tileY+math.ceil(6/cols)*(92+gap)
- local function put(card,x,yy,cw,h)
+ local y=math.ceil(#tiles/cols)*(tileHeight+gap)
+ local function put(card,x,yy,cw,h,hasEmptyState)
   card:ClearAllPoints();card:SetPoint('TOPLEFT',x,-yy);card:SetSize(cw,h)
-  card.empty:SetWidth(cw-28);card.empty.b:SetWidth(cw-28)
+  if hasEmptyState then
+   assert(card.empty and card.empty.b,'Dashboard mini-card requires its empty-state component')
+   card.empty:SetWidth(cw-28);card.empty.b:SetWidth(cw-28)
+  end
  end
- put(cards.cta,0,y,half,166);put(cards.bounty,half+gap,y,half,166)
- y=y+166+gap
- put(cards.pvp,0,y,half,222);put(cards.lfg,half+gap,y,half,118)
- put(cards.raid,half+gap,y+118+gap,half,128)
- local bottom=y+118+gap+128+gap
- put(cards.spoils,0,bottom,w,128)
- c:SetHeight(bottom+138)
+ local function pair(left,right)
+  local function height(card)
+   return 48+math.max(2,card.lineCount or #card.lines)*28
+  end
+  local h=math.max(height(left),height(right))
+  put(left,0,y,half,h,true);put(right,half+gap,y,w-half-gap,h,true)
+  y=y+h+gap
+ end
+ pair(cards.cta,cards.bounty)
+ pair(cards.raid,cards.lfg)
+ pair(cards.pvp,cards.spoils)
+ local actionsHeight=P.Flow(cards.quick.buttons,cards.quick.body,w-28,0,8)
+ local quickHeight=actionsHeight+60
+ put(cards.quick,0,y,w,quickHeight,false)
+ c:SetHeight(y+quickHeight+14)
+ self.layoutBusy=false
+ if self.layoutPending and c:GetWidth()>=320 then self.layoutPending=nil;self:Layout() end
 end
 
 function page.Update(self)
  if not self.content then return end
  local stats=K.Operations.Stats()
- self.brief:SetText(('%d active calls  /  %d open bounties'):format(stats.activeCTA,stats.activeBounty))
  tiles.cta:Set(stats.activeCTA,stats.urgent>0 and (stats.urgent..' urgent  -  '..stats.coming..' coming') or (stats.coming..' guildmates coming'),stats.urgent>0 and 'danger' or 'accent')
  local sightings24=0
  for _,b in ipairs(KWCDB.bounties or {}) do for _,s in ipairs(b.sightings or {}) do if s.receivedAt and time()-s.receivedAt<86400 then sightings24=sightings24+1 end end end
@@ -172,10 +183,6 @@ function page.Update(self)
  local raids=K.RaidSignup and K.RaidSignup.Ordered and K.RaidSignup.Ordered() or {}
  local upcoming=0;for _,e in ipairs(raids) do if not e.cancelled then upcoming=upcoming+1 end end
  tiles.raid:Set(upcoming,upcoming>0 and ('next: '..K.Clean(raids[1].title,22)) or 'none scheduled','accent')
- local h=K.Sync and K.Sync.Health and K.Sync.Health() or {}
- local peers=0;for _ in pairs(h.peers or {}) do peers=peers+1 end
- local last=tonumber(h.lastReceived) or 0
- tiles.sync:Set(peers,last>0 and ('peers  -  last update '..Kit.Age(last)) or 'peers heard since /reload',last>0 and time()-last<900 and 'good' or 'faint')
  -- cards
  local items={}
  for _,e in ipairs(KWCDB.ops or {}) do
@@ -209,5 +216,6 @@ function page.Update(self)
  end
  cards.raid:Fill(items)
  cards.spoils:Fill(spoilsItems())
+ if self.countsChanged then self.countsChanged=nil;self:Layout() end
 end
 W.Register(page)

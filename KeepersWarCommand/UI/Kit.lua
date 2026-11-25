@@ -118,18 +118,24 @@ function Kit.Safe(fn,...)
  return ok,err
 end
 
+local tooltipSpecs=setmetatable({},{__mode='k'})
 function Kit.Tooltip(frame,title,body)
+ local spec=tooltipSpecs[frame]
+ if spec then spec.title,spec.body=title,body;return frame end
+ spec={title=title,body=body};tooltipSpecs[frame]=spec
  frame:HookScript('OnEnter',function(self)
   if not GameTooltip then return end
-  local t=type(title)=='function' and title(self) or title
+  local current=tooltipSpecs[self];if not current then return end
+  local t=type(current.title)=='function' and current.title(self) or current.title
   if not t or t=='' then return end
   GameTooltip:SetOwner(self,'ANCHOR_RIGHT')
   GameTooltip:SetText(t,1,1,1,1,true)
-  local b=type(body)=='function' and body(self) or body
+  local b=type(current.body)=='function' and current.body(self) or current.body
   if b and b~='' then GameTooltip:AddLine(b,0.85,0.82,0.76,true) end
   GameTooltip:Show()
  end)
  frame:HookScript('OnLeave',function() if GameTooltip then GameTooltip:Hide() end end)
+ return frame
 end
 
 -- Edit box mechanics: no template art. Callers draw their own field chrome.
@@ -164,16 +170,35 @@ end
 -- Scroll list with row pooling. Visual rows are built by the caller:
 --   list=Kit.List(parent,rowHeight,gap,buildRow(rowFrame),fillRow(rowFrame,data,index))
 -- list:SetData(array); list:SetEmpty(fontString or fn) shows when empty.
+-- The existing thumb keeps its range, hit target and paint contract. The
+-- square thumb engraving stays centered as the scroll extent changes.
+local function scrollbarArt(track,button)
+ local media=Kit.MEDIA..'WarRoomClassic\\'
+ local rail=track:CreateTexture(nil,'BORDER');rail:SetAllPoints(track);rail:SetTexture(media..'ScrollTrack_Normal')
+ local grip=button:CreateTexture(nil,'OVERLAY');grip:SetSize(12,12);grip:SetPoint('CENTER')
+ grip:SetTexture(media..'ScrollThumb_Normal')
+ button:HookScript('OnEnter',function() grip:SetTexture(media..'ScrollThumb_Hover') end)
+ button:HookScript('OnLeave',function() grip:SetTexture(media..'ScrollThumb_Normal') end)
+end
+
 -- Mouse wheel scrolls; a slim thumb is drawn by the caller through list.thumb.
 function Kit.List(parent,rowHeight,gap,build,fill)
  local list=CreateFrame('Frame',nil,parent)
  list.rows={};list.data={};list.offset=0;list.rowHeight=rowHeight;list.gap=gap or 0
  list:EnableMouseWheel(true)
  local track=CreateFrame('Frame',nil,list)
- track:SetPoint('TOPRIGHT',0,0);track:SetPoint('BOTTOMRIGHT',0,0);track:SetWidth(4)
- list.track=track
+ track:SetPoint('TOPRIGHT',-1,0);track:SetPoint('BOTTOMRIGHT',-1,0);track:SetWidth(10)
+ track:EnableMouse(true);list.track=track
+ local owner=K.WarRoomSkin and K.WarRoomSkin.OWNER or 'warroom'
+ Kit.Fill(track,owner,'base','BACKGROUND',0.35)
+ -- Keep thumb as a Texture: page builders theme list.thumb with Kit.Paint(),
+ -- whose fill operation uses Texture:SetColorTexture. The hit button is a
+ -- separate, transparent interaction layer so it cannot break page builds.
  local thumb=track:CreateTexture(nil,'OVERLAY')
- thumb:SetWidth(4);list.thumb=thumb
+ thumb:SetWidth(8);Kit.Paint(thumb,owner,'line','fill',0.9);list.thumb=thumb
+ local thumbDrag=CreateFrame('Button',nil,track)
+ thumbDrag:SetWidth(14);thumbDrag:EnableMouse(true);list.thumbDrag=thumbDrag
+ scrollbarArt(track,thumbDrag)
  local function visible()
   local h=list:GetHeight() or 0
   return math.max(0,math.floor((h+list.gap)/(rowHeight+list.gap)))
@@ -195,19 +220,25 @@ function Kit.List(parent,rowHeight,gap,build,fill)
    row:SetPoint('RIGHT',self,'RIGHT',-10,0)
    local index=self.offset+i
    local item=self.data[index]
-   if item then row.item=item;row.index=index;Kit.Safe(fill,row,item,index);row:Show() else row.item=nil;row:Hide() end
+   if item then
+    row.item=item;row.index=index;Kit.Safe(fill,row,item,index)
+    if row.UpdateClassicStyle then row:UpdateClassicStyle(index) end
+    row:Show()
+   else row.item=nil;row:Hide() end
   end
   for i=n+1,#self.rows do self.rows[i]:Hide() end
   if self.header then self.header:SetRange(self.offset,n,#self.data) end
   if self.empty then self.empty:SetShown(#self.data==0) end
   if n>0 and #self.data>n then
    local th=self:GetHeight()
-   local size=math.min(th,math.max(18,th*n/#self.data))
+   local size=math.min(th,math.max(28,th*n/#self.data))
    thumb:SetHeight(size)
    thumb:ClearAllPoints()
    thumb:SetPoint('TOP',track,'TOP',0,-(th-size)*(self.offset/maxOffset))
+   thumbDrag:ClearAllPoints();thumbDrag:SetPoint('TOP',thumb,'TOP',0,0);thumbDrag:SetPoint('BOTTOM',thumb,'BOTTOM',0,0);thumbDrag:SetPoint('LEFT',track,'LEFT',-2,0);thumbDrag:SetPoint('RIGHT',track,'RIGHT',2,0)
    track:Show()
-  else track:Hide() end
+   thumb:Show();thumbDrag:Show()
+  else track:Hide();thumb:Hide();thumbDrag:Hide() end
  end
  function list:SetData(data) self.data=data or {};self:Refresh() end
  function list:ScrollTo(index) self.offset=math.max(0,(index or 1)-1);self:Refresh() end
@@ -225,8 +256,20 @@ function Kit.List(parent,rowHeight,gap,build,fill)
   local fraction=Kit.Clamp((top-y/scale)/height,0,1)
   list:ScrollTo(1+math.floor(fraction*math.max(0,#list.data-visible())+0.5))
  end)
- list:SetScript('OnMouseWheel',function(self,delta) self.offset=math.max(0,self.offset-delta*2);self:Refresh() end)
+ list:SetScript('OnMouseWheel',function(self,delta) self.offset=math.max(0,self.offset-delta*3);self:Refresh() end)
  list:SetScript('OnSizeChanged',function(self) self:Refresh() end)
+ local function setFromCursor(y)
+  local top,height=track:GetTop(),track:GetHeight();local scale=track:GetEffectiveScale()
+  if not y or not top or not height or height<=0 or not scale or scale<=0 then return end
+  local thumbHeight=thumb:GetHeight() or 0;local travel=math.max(0,height-thumbHeight)
+  local fraction=travel>0 and Kit.Clamp((top-y/scale-thumbHeight/2)/travel,0,1) or 0
+  list:ScrollTo(1+math.floor(fraction*math.max(0,#list.data-visible())+0.5))
+ end
+ track:SetScript('OnMouseDown',function(_,button)if button=='LeftButton' then local _,y=GetCursorPosition();setFromCursor(y)end end)
+ thumbDrag:SetScript('OnMouseDown',function(self,button)if button=='LeftButton' then self.dragging=true;self.startY=select(2,GetCursorPosition())end end)
+ thumbDrag:SetScript('OnMouseUp',function(self)self.dragging=nil end)
+ thumbDrag:SetScript('OnUpdate',function(self)if self.dragging then local _,y=GetCursorPosition();setFromCursor(y)end end)
+ thumbDrag:SetScript('OnHide',function(self)self.dragging=nil end)
  return list
 end
 
@@ -237,16 +280,45 @@ function Kit.Scroll(parent)
  content:SetSize(10,10)
  scroll:SetScrollChild(content)
  scroll:EnableMouseWheel(true)
+ local owner=K.WarRoomSkin and K.WarRoomSkin.OWNER or 'warroom'
+ local track=CreateFrame('Frame',nil,scroll);track:SetPoint('TOPRIGHT',-1,0);track:SetPoint('BOTTOMRIGHT',-1,0);track:SetWidth(10);track:EnableMouse(true)
+ Kit.Fill(track,owner,'base','BACKGROUND',0.30)
+ local thumb=CreateFrame('Button',nil,track);thumb:SetWidth(8);Kit.Fill(thumb,owner,'line','BACKGROUND',0.95);thumb:EnableMouse(true)
+ scroll.scrollTrack,scroll.scrollThumb=track,thumb
+ scrollbarArt(track,thumb)
+ local function refreshBar(self)
+  local range=self:GetVerticalScrollRange() or 0;local height=self:GetHeight() or 0
+  if range<=1 or height<=0 then track:Hide();self:SetVerticalScroll(0);return end
+  track:Show();local thumbHeight=math.min(height,math.max(32,height*height/(height+range)))
+  thumb:SetHeight(thumbHeight);local travel=math.max(0,height-thumbHeight)
+  local fraction=range>0 and Kit.Clamp((self:GetVerticalScroll() or 0)/range,0,1) or 0
+  thumb:ClearAllPoints();thumb:SetPoint('TOP',track,'TOP',0,-travel*fraction)
+ end
  scroll:SetScript('OnMouseWheel',function(self,delta)
   local range=self:GetVerticalScrollRange() or 0
-  local v=Kit.Clamp((self:GetVerticalScroll() or 0)-delta*40,0,range)
+  local v=Kit.Clamp((self:GetVerticalScroll() or 0)-delta*48,0,range)
   self:SetVerticalScroll(v)
+  refreshBar(self)
  end)
- scroll:SetScript('OnSizeChanged',function(self,w) if w>0 then content:SetWidth(w) end end)
+ scroll:SetScript('OnSizeChanged',function(self,w) if w>0 then content:SetWidth(math.max(1,w-12));refreshBar(self) end end)
  scroll:SetScript('OnScrollRangeChanged',function(self,_,range)
   local value=self:GetVerticalScroll() or 0
   if range and value>range then self:SetVerticalScroll(math.max(0,range)) end
+  refreshBar(self)
  end)
+ local function setFromCursor(y)
+  local top,height=track:GetTop(),track:GetHeight();local scale=track:GetEffectiveScale()
+  if not y or not top or not height or height<=0 or not scale or scale<=0 then return end
+  local thumbHeight=thumb:GetHeight() or 0;local travel=math.max(0,height-thumbHeight)
+  local fraction=travel>0 and Kit.Clamp((top-y/scale-thumbHeight/2)/travel,0,1) or 0
+  scroll:SetVerticalScroll(fraction*(scroll:GetVerticalScrollRange() or 0));refreshBar(scroll)
+ end
+ track:SetScript('OnMouseDown',function(_,button)if button=='LeftButton' then local _,y=GetCursorPosition();setFromCursor(y)end end)
+ thumb:SetScript('OnMouseDown',function(self,button)if button=='LeftButton' then self.dragging=true end end)
+ thumb:SetScript('OnMouseUp',function(self)self.dragging=nil end)
+ thumb:SetScript('OnUpdate',function(self)if self.dragging then local _,y=GetCursorPosition();setFromCursor(y)end end)
+ thumb:SetScript('OnHide',function(self)self.dragging=nil end)
+ scroll:SetScript('OnShow',function(self)refreshBar(self)end)
  return scroll,content
 end
 

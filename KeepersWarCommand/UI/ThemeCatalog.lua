@@ -1,126 +1,52 @@
--- Design recipes in official gallery order. Each entry specifies its panel, rail,
--- upholstery, accent, shared motif, trim treatment and heading face independently.
-local T=KWC.PublicThemes
-local collections={
- {'Trogdor & War',{
-  {'Trogdor','201719','281B1C','342226','EAA26A','scales','forged','display','Scorched iron, bronze heat and a dragon above the forge.'},
-  {'Trogdor Inferno','23130D','422115','42241B','FFAC52','embers','split','block','Copper slag, bright fire lanes and broad industrial trim.'},
-  {'Trogdor Warchief','252317','403522','393325','EBD08D','chevron','standard','block','Gold-chevron command standards on campaign canvas.'},
-  {'Trogdor Bronze','624226','79513B','705337','FFE0A2','rivet','double','body','Warm bronze plates with stamped rivets and double rules.'},
-  {'Trogdor Obsidian','161325','2A2037','27223D','C2A9FF','facet','cut','display','Violet obsidian facets framed in sharply cut metal.'},
-  {'Trogdor Bloodfire','31191D','54222D','49232B','FFA58A','flame','edge','block','Oxblood enamel with hot ember-red edges.'},
-  {'Trogdor Iron','24292E','343E42','353D44','BCD6E4','grate','brackets','narrow','Brushed iron grates with cool steel bracket trim.'},
-  {'Trogdor Ashen','DBD1C5','C9BBAA','EEE5DC','804936','dust','inset','body','Pale ash paper with terracotta ink and inset framing.'},
-  {'Trogdor Royal','291A2C','442844','40304A','FFE09D','filigree','crown','display','Purple royal velvet under a gilded canopy.'},
-  {'Trogdor Legacy','32281A','413721','423621','F1CF79','stone','monolith','body','Old campaign stone, hammered gold and heavy framing.'},
- }},
- {'Warcraft Factions',{
-  {'Classic','29271C','353023','3E372A','E7C988','stone','inset','body','Weathered stone and carved ledger surfaces.'},
-  {'Horde','261719','371C1E','402529','EC9380','chevron','monolith','block','Black iron and red standards above a canyon war camp.'},
-  {'Alliance','19263C','263E5D','2C4060','F3D48D','filigree','standard','body','Royal blue heraldry, pale stone and polished gold.'},
-  {'Horde & Alliance','292638','452D43','38405C','F6C989','chevron','split','block','Two opposing standards meet across a brass seam.'},
-  {'Orgrimmar','554138','73492F','614F3E','FFC08E','rivet','forged','block','Red clay, timber and riveted gate hardware.'},
-  {'Stormwind','D3DCE8','AFC3D8','E4EDF4','355B83','herald','edge','body','Pale limestone, storm-blue ink and civic seals.'},
-  {'Undercity','202B20','283D21','323E2A','C7DE79','chain','monolith','display','Acid green in damp stone and descending iron chains.'},
-  {'Thunder Bluff','3D2A1C','563B2D','4E3B29','F3B87E','weave','standard','body','Ochre woven hide and carved mesa totems.'},
-  {'Ironforge','393429','4A3B25','51472E','FFDA86','forge','brackets','block','Dwarven furnaces behind machined brackets.'},
-  {'Darnassus','25283E','353659','3B4059','DFC6EF','leaf','inset','display','Moonlit indigo, silver foliage and quiet violet trim.'},
- }},
- {'Warcraft Locations',{
-  {'Dalaran','312941','493665','463952','E8BBFF','sigils','double','display','Violet crystal and silver registration marks.'},
-  {'The Barrens','DDC29A','C2A06D','EFDAAE','795018','dust','split','body','Dusty ochre field notes with weathered survey lines.'},
-  {'Felwood','1D3025','294632','273E30','ADEA70','root','edge','block','Poison-bright roots under moss-dark timber.'},
-  {'Ashenvale','20383B','2A4B4B','324C4D','ACDFDB','leaf','crown','display','Blue-shadowed leaves and silvery forest canopy trim.'},
-  {'Stranglethorn','173B32','24534A','244C40','FFE193','vine','forged','body','Jungle jade, curling vines and treasure-map gold.'},
-  {'Winterspring','CDD0F7','AAAEE4','EAE9FF','454380','snow','double','body','Snowbound lake blue and icy etched geometry.'},
-  {'Silithus','4C382C','603F28','654C39','F5CB82','facet','standard','block','Sandstone shards, amber enamel and expedition stripes.'},
-  {'Blackrock Mountain','272522','383431','3B352D','FF9E64','forge','monolith','block','Sooty basalt blocks with glowing furnace apertures.'},
-  {'Tanaris','E4CA94','CBB17B','F6E2AB','8A4F26','dune','brackets','body','Dune ridges, ivory canvas and copper compass corners.'},
-  {'Eastern Plaguelands','37362C','494737','484638','D5CA84','crack','inset','display','Faded olive stone across torn, cracked margins.'},
- }},
- {'Fantasy & Magic',{
-  {'Arcane','2C2450','412D69','423359','CEAFFF','sigils','crown','display','Amethyst spell circles and fine silver arcana.'},
-  {'Fel Magic','203A30','30514B','2D473E','D6FE74','flame','brackets','block','Lime fire crawling over green-black glass.'},
-  {'Frostmourne','182E45','223C5F','233F52','9BE4FE','runes','monolith','block','Ice-blue runes cut into cold tempered steel.'},
-  {'Holy Light','F0E7D0','D8CBA5','FFF8E6','76571C','rays','crown','body','Ivory illumination, radiating gold and chapel trim.'},
-  {'Shadow','211C3C','2D2357','322D49','B5A5FF','waves','inset','display','Soft violet waves behind a recessed shadow edge.'},
-  {'Necromancer','202D26','293D32','25362E','D1E7AA','chain','cut','display','Bone-green iron links in dark verdigris lacquer.'},
-  {'Nature Guardian','2E3E2F','405139','3F5039','D1E5A2','root','double','body','Bark channels, carved roots and spring-green choices.'},
-  {'Elemental','283C44','304E57','3A5051','FFD48A','waves','split','block','Crossing water bands against sparks of orange.'},
-  {'Dragonflight','3F2C38','5C3847','513849','F7BB87','scales','crown','display','Rose-gold scales beneath a vaulted wing profile.'},
-  {'Runic','383846','494854','494653','D2C5E9','runes','edge','block','Slate panels with squared language-like carvings.'},
- }},
- {'Dark & Gothic',{
-  {'Blood Moon','281B2C','3B233A','44263F','F0A2BB','eclipse','crown','display','Crimson eclipse and a black-steel gothic skyline.'},
-  {'Blood Pact','321A23','4A252F','452934','FFAAA5','sigils','forged','display','Red ritual seals rank against heavy steel trim.'},
-  {'Vampire','39243A','50314B','483448','F5C4D1','filigree','edge','display','Rosewood, velvet, and pale embroidered traceries.'},
-  {'Dark Lord','282742','403956','3B3450','E1CBAC','herald','monolith','block','Black-violet standard with broad aged-metal shoulders.'},
-  {'Abyss','142C35','203E44','283D46','94D8D5','waves','cut','narrow','Deep teal waterlines disappearing into dark slate.'},
-  {'Crimson Reaper','40232C','532B30','51343D','FFB085','facet','edge','block','Faceted red steel punctuated by a copper cutting edge.'},
-  {'Gothic Cathedral','353443','3D3951','484557','E6CDD8','arch','crown','display','Vaulted tracery, rose glass and gray stone.'},
-  {'Cursed Iron','383137','453942','4B4148','CEBDDD','chain','brackets','block','Pitted industrial clamps and a chain-pattern ledger.'},
-  {'Dark Ritual','411D3B','57304A','59354B','F7A8D5','runes','split','display','Purple carved tablets under a double ritual seam.'},
-  {'Midnight','19243B','25324E','293650','BDD3F9','stars','double','narrow','Clear blue-black sky and fine silver star grids.'},
- }},
- {'Light & Minimal',{
-  {'Sleek','192131','232F40','2A3849','A2C9FA','line','edge','narrow','Modern graphite with an ice-blue indicator and clean rules.'},
-  {'Sleek Dark','171D23','232B2B','2A3436','84DCCB','grid','inset','narrow','Deep charcoal with an understated teal grid.'},
-  {'Sleek Light','DFE8F2','CDDCEB','F2F6FA','326AA0','line','split','narrow','Cool white drafting surfaces and cobalt divisions.'},
-  {'Pure Black','0B0B0D','151519','1D1D23','E6E5FF','blank','cut','narrow','Black glass with only a narrow bright selection edge.'},
-  {'Pure White','F2F1EA','E3E2D9','FFFFFF','3E4C53','blank','edge','narrow','Paper white, black ink and a single graphite rule.'},
-  {'Graphite','2D3037','3B4147','434751','D9DCDD','grate','monolith','narrow','Stacked graphite sheets and heavy mechanical bands.'},
-  {'Frosted Glass','D5E7EA','BEDBDF','E7F3F1','33676C','facet','inset','narrow','Opaque milky aqua facets with sea-glass borders.'},
-  {'Minimal Bronze','DDD0C3','C8B3A0','EFE2D2','765137','line','forged','body','Chalk linen and spare bronze fittings.'},
-  {'Monochrome','262626','3A3A3A','454545','F1F1F1','checker','split','block','Stepped black-and-white checkerboard and striking type.'},
-  {'Soft Gray','E6DEE2','D5C6CF','F4ECF0','715669','dust','double','narrow','Muted mauve-gray paper with softened double lines.'},
- }},
- {'Science Fiction',{
-  {'Jedi','E0E6E2','C4D5C8','F0F5EE','216A57','rays','inset','narrow','Pale green alloys and a quiet energy-pulse finish.'},
-  {'Sith','3A192D','51243C','4E2439','FF96A9','circuit','cut','block','Black-red circuitry and hard angular bevels.'},
-  {'Galactic Republic','DCE4EF','C3D1E7','F1F5FB','3A5586','herald','standard','narrow','Civic fleet enamel and cool blue heraldic geometry.'},
-  {'Dark Empire','282939','353B50','383F52','D1DCEB','grate','cut','block','Gunmetal ventilation and square monochrome brackets.'},
-  {'Cyberpunk','2C2844','423762','433652','F8ACFC','circuit','split','block','Magenta trace lines and electric stepped trim.'},
-  {'Neon City','182C3F','1D3A50','154456','95F5FB','grid','crown','narrow','Wet cobalt glass and bright cyan skyline grids.'},
-  {'Starship','E9DECC','D6BDA0','F7EFE4','6F4C3C','rivet','inset','narrow','Ivory alloy over copper-brown inset engineering plates.'},
-  {'Holographic','243B43','36535A','36505B','BEFCDD','facet','double','narrow','Mint prism facets on deep sea-green glass.'},
-  {'Synthwave','35284C','4A3762','4A3B60','F8BF9E','rays','edge','block','Peach horizon rays and electric violet instruments.'},
-  {'Void Tech','1E2747','293760','303B55','A6A9FF','stars','cut','narrow','Sparse ultraviolet stars in clipped indigo framing.'},
- }},
- {'Eastern & Zen',{
-  {'Zen','DFDFCF','CBD4C6','F0EFE0','456B59','waves','edge','body','Quiet jade, paper and a gently flowing divider.'},
-  {'Samurai','3D2A34','552D36','503340','FFC492','weave','split','block','Red lacquer, armor lacing and a decisive banner.'},
-  {'Shogun','29212F','3C2A3F','3E303C','F7D79E','herald','crown','display','Black lacquer and a formal gold canopy.'},
-  {'Bamboo','D9E5C4','BED2A7','EDF1D4','526F31','grate','double','body','Young bamboo columns over warm green paper.'},
-  {'Jade Temple','233D3C','325354','315250','B9E4B6','arch','monolith','display','Jade doors under layered temple arches.'},
-  {'Cherry Blossom','EDDBE0','E2C3CE','FAEFF2','8A496C','petals','inset','display','Soft pink petals and mulberry ink on paper.'},
-  {'Koi Garden','DFE6DA','C3D7CA','F5F2DE','8D573D','waves','brackets','body','Pond wakes, ivory stone and warm koi-orange marks.'},
-  {'Mountain Mist','D5E0E1','BBCFD1','E9EFF0','496777','dune','cut','narrow','Ink-wash ridge lines in blue-gray mist.'},
-  {'Onyx Lotus','302B3B','423550','443749','DEC4E8','petals','brackets','display','Lotus geometry engraved into purple onyx.'},
-  {'Golden Dragon','4D302B','62372F','654239','FFD77D','scales','double','display','Red lacquer and bold golden scale bands.'},
- }},
- {'Nature & Elements',{
-  {'Forest','243B2C','34503A','364C37','C2ECA0','leaf','standard','body','Green canopy silhouettes with a mossy rail.'},
-  {'Ancient Oak','403328','544437','514437','E3CA97','root','monolith','display','Heavy oak rings and deep bark channels.'},
-  {'Desert','E9D4AD','D8BE90','F6E6C5','895328','dune','edge','body','Sun-bleached sand and a fine terracotta edge.'},
-  {'Ocean Depths','173444','244757','2C4A5D','9BDDE9','waves','double','narrow','Blue-green currents and double tide lines.'},
-  {'Frozen Tundra','CCDCE8','BACBDA','E7F1F7','3D6388','crack','cut','block','Angular sheet-ice fractures with cold blue ink.'},
-  {'Volcanic','431F17','582821','593329','FFB66C','crack','forged','block','Lava seams running through dark fractured rock.'},
-  {'Thunderstorm','303348','3C4560','444D67','E1DE9E','chevron','brackets','narrow','Storm clouds broken by pale lightning angles.'},
-  {'Autumn','55372B','6B4631','684935','FFD491','leaf','split','body','Burnt orange leaves and separated amber margins.'},
-  {'Moonlit Grove','27344F','334563','3E4861','D4D9FA','stars','inset','display','Silver night sky on the edge of a dark grove.'},
-  {'Sunrise','F0D7B1','E7BE93','FFF0D1','954F49','rays','double','display','Peach dawn rays and soft rose borders.'},
- }},
- {'Special Editions',{
-  {'Royal Gold','40312F','533C3C','594542','FFE395','filigree','double','display','Oxblood court upholstery and an intricate gold frame.'},
-  {'Pirate','192D30','2C3D3C','2A4240','F6D093','chain','split','body','Salt-dark timber, linked brass and a green sea-chart palette.'},
-  {'Steampunk','4A3830','604939','604A3B','F7CA86','gear','forged','block','Copper gear marks over worn brass machinery.'},
-  {'Viking','343335','4B4038','504339','EED1AA','runes','standard','block','Longhouse runes across warm timber and hammered metal.'},
-  {'Dwarven Forge','3A302A','503E32','504137','FFC58B','forge','double','block','Furnace brick and paired cast-bronze rims.'},
-  {'Elven Silver','E3E1EC','CDC9DD','F3EFF8','625884','vine','crown','display','Lavender silverwork with slender botanical curls.'},
-  {'Blood & Steel','3F343D','533542','4E414D','F1B3B8','rivet','brackets','block','Scarred steel rivets, blood-red rails and strong brackets.'},
-  {'Winter Festival','E8E8D4','DDDEB9','FFF9DB','725133','snow','standard','body','Candlelit ivory, evergreen shadow and festive ice geometry.'},
-  {'Hall of Champions','3C343C','524152','514658','FFE1A6','herald','inset','display','A deep purple trophy hall engraved with warm brass.'},
-  {'Burninator','522B20','713A28','774333','FFC56D','embers','monolith','block','Cracked firebrick and a bright wall of embers.'},
- }},
-}
-T.LoadCatalog(collections)
+local Kit=KWC.Kit
+local classic=KWC.PublicThemes.Get()
+if classic then
+ classic.colors.shadow=Kit.Hex('000000',0.55);classic.colors.overlay=Kit.Hex('000000',0.65)
+ local function color(hex)return Kit.Hex(hex)end
+ classic.colors.danger=color('F18986');classic.colors.dangerSoft=color('512A32')
+ classic.colors.info=color('A2C5F3');classic.colors.alliance=color('91B7FF');classic.colors.horde=color('F48C89')
+ classic.colors.base=color('151719');classic.colors.rail=color('1D1C19')
+ classic.colors.surface=color('282725');classic.colors.raised=color('34312B')
+ classic.colors.field=color('171819');classic.colors.hover=color('3A342B')
+ classic.colors.line=color('B89354');classic.colors.lineSoft=color('735D3A')
+ classic.colors.text=color('F0E5D0');classic.colors.muted=color('D5C9B4')
+ classic.colors.faint=color('B1A38D');classic.colors.accent=color('C3A15D')
+ classic.colors.accentSoft=color('482422');classic.colors.accentText=color('E4C782')
+ classic.colors.header=color('211F1C');classic.colors.primary=color('76221F')
+ classic.colors.selected=color('8F2D28');classic.colors.onAccent=color('FFF4E1')
+ classic.colors.paper=color('C5A66F');classic.colors.paperText=color('251B10')
+ classic.colors.good=color('9FC68E');classic.colors.goodSoft=color('29402F')
+ classic.colors.warn=color('E9BC71');classic.colors.warnSoft=color('4B391F')
+ classic.colors.pressed=color('4A3326')
+ classic.assets={
+  background='ConceptDarkIronTile',panel='ConceptCharcoalTile',inset='ClassicSlateInset',inputFrame='ClassicInputFrame',
+  primaryNormal='ConceptPrimaryNormal',primaryHover='ConceptPrimaryHover',primaryPressed='ConceptPrimaryPressed',primaryDisabled='ConceptPrimaryDisabled',
+  secondaryNormal='ConceptSecondaryNormal',secondaryHover='ConceptSecondaryHover',secondaryPressed='ConceptSecondaryPressed',secondaryDisabled='ConceptSecondaryDisabled',
+  dangerNormal='ConceptDangerNormal',dangerHover='ConceptDangerHover',dangerPressed='ConceptDangerPressed',dangerDisabled='ConceptDangerDisabled',
+  acceptNormal='ClassicAcceptNormal',acceptHover='ClassicAcceptHover',acceptPressed='ClassicAcceptPressed',acceptDisabled='ClassicAcceptDisabled',
+  cautionNormal='ClassicCautionNormal',cautionHover='ClassicCautionHover',cautionPressed='ClassicCautionPressed',cautionDisabled='ClassicCautionDisabled',
+  navSelected='ClassicNavActive',navHover='ClassicNavHover',
+  tabSelected='ClassicTabActive',tabNormal='ClassicTabIdle',
+  parchmentHeader='ConceptParchmentHeader',bronzeHeader='ClassicBronzeHeader',tableHeader='ClassicTableHeader',
+  frameEdgeHorizontal='ConceptEdgeH',frameEdgeVertical='ConceptEdgeV',
+  frameCornerTL='ConceptCornerTL',frameCornerTR='ConceptCornerTR',frameCornerBL='ConceptCornerBL',frameCornerBR='ConceptCornerBR',
+  divider='Divider',rowAlternate='RowAlternate',rowHover='RowHover',rowSelected='RowSelected',
+  alertHeader='AlertHeader',rankGold='RankGold',rankSilver='RankSilver',rankBronze='RankBronze',
+  laurelLeft='ConceptLaurelLeft',laurelRight='ConceptLaurelRight',
+  iconSword='ClassicIconSword',iconSkull='ClassicIconSkull',iconShield='ClassicIconShield',iconScroll='ClassicIconScroll',
+  iconFlag='ClassicIconFlag',iconCrown='ClassicIconCrown',iconGroup='ClassicIconGroup',iconCalendar='ClassicIconCalendar',
+  iconAnvil='ClassicIconAnvil',iconTrophy='ClassicIconTrophy',iconGear='ClassicIconGear',
+ }
+ classic.assets.inputNormal='Input_Normal';classic.assets.inputFocus='Input_Focus'
+ classic.assets.searchNormal='Search_Normal';classic.assets.searchFocus='Search_Focus'
+ classic.assets.urgentGlyph='Urgent_Glyph';classic.assets.normalGlyph='Normal_Glyph'
+ classic.art={
+  banner={'WarRoomClassic/ConceptCharcoalTile',0.78,nil,false,nil,nil,true,true},
+  thumbnail={'WarRoomClassic/ConceptCharcoalTile',1,nil,false,nil,nil,true,true},
+  material={'WarRoomClassic/ConceptDarkIronTile',1,nil,false,nil,nil,true,true},
+  panel={'WarRoomClassic/ConceptCharcoalTile',0.95,nil,false,nil,nil,true,true},
+  rail={'WarRoomClassic/ConceptCharcoalTile',0.86,nil,false,nil,nil,true,true},
+  railMark={'WarRoomClassic/ClassicSlateInset',0.85,nil,false,nil,nil,true,true},
+  trim={'WarRoomClassic/Divider',1,nil,false},
+ }
+end

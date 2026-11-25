@@ -44,7 +44,7 @@ U.LFGRefresh=U.Refresh
 U.GuildRecordsRefresh=U.Refresh
 U.CheckerRefresh=U.Refresh
 function U.RecruitmentRefresh() if K.Officer and K.Officer.Refresh then K.Officer.Refresh() end end
-function U.ApplyAppearance() if K.WarRoomSkin then K.WarRoomSkin.Apply(K.WarRoomSkin.Current()) end end
+function U.ApplyAppearance() if K.WarRoomSkin then K.WarRoomSkin.Restore() end end
 function U.GetScale() return KWCDB and KWCDB.settings.ui2Scale or 1 end
 function U.SetScale(v)
  v=K.Kit.Clamp(v,0.75,1.35)
@@ -122,3 +122,5 @@ U.ScanCTAs=scanCTAs
 local baseRefresh=U.Refresh
 function U.Refresh() pcall(scanCTAs);baseRefresh() end
 K.On('PLAYER_ENTERING_WORLD',function() pcall(scanCTAs) end)
+
+K.On('PLAYER_LOGIN',K.PublicThemes.Saved)

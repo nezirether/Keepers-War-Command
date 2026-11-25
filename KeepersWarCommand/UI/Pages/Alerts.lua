@@ -6,7 +6,7 @@ local K=KWC
 local Kit,S,P,W=K.Kit,K.WarRoomSkin,K.WarRoomPages,K.WarRoom2
 local OWNER=S.OWNER
 
-local page={id='alerts',title='Alerts',subtitle='Popups for kills, deaths, bounties, calls to arms and guild groups.',group='system'}
+local page={id='alerts',title='Alerts',subtitle='Popups for PvP, bounties, operations, groups and officer notices.',group='system'}
 local cards={}
 local function v() return KWCDB and KWCDB.settings or {} end
 local function flag(key,default) return function() local x=v()[key];if x==nil then return default end;return x end end
@@ -53,6 +53,11 @@ local DEFS={
    {'New listings in my level range',function() return lfgPrefs().matching==true end,function(x) lfgPrefs().matching=x end},
    {'Guildmates interested in my listing',function() return lfgPrefs().interest==true end,function(x) lfgPrefs().interest=x end},
    {'Invitations from listing leaders',function() return lfgPrefs().invitation==true end,function(x) lfgPrefs().invitation=x end},
+  }},
+ {key='officerNotice',title='Officer announcements',desc='Authorized War Council and Warchief notices. Notices are labeled as officer messages and automatically suppressed in instances.',
+  switches={
+   {'Popup',flag('officerNotice',true),setFlag('officerNotice')},
+   {'Sound',function() return K.QOL.Enabled('officerNoticeSound') end,function(x) v().officerNoticeSound=x end},
   }},
 }
 
@@ -182,7 +187,7 @@ function page.Build(self,host)
 end
 function page.Layout(self)
  local c=self.content;if not c then return end
- local w=self.host:GetWidth()
+ local w=c:GetWidth()
  P.CardGrid(c,w>0 and w or 664,self.cards,340)
 end
 function page.Update(self)

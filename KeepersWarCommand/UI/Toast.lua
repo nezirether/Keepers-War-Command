@@ -1,8 +1,4 @@
--- KWC 2.0 toast notifications (public War Room style).
--- A compact card: tone rail, icon, kicker, headline, detail, actions and a
--- countdown line. Replaces the 1.x full-width banner art entirely.
--- Detection, suppression (instance policy, Smart Mode) and sound decisions stay
--- in the engine modules; this module only presents, positions and times cards.
+-- War Room notification presentation, placement and countdown.
 local K=KWC
 local Kit,S=K.Kit,K.WarRoomSkin
 local OWNER=S.OWNER
@@ -19,39 +15,68 @@ T.ICONS=ICONS
 
 local function settings() return KWCDB and KWCDB.settings end
 
+-- Each event plate has a transparent silhouette. Slice only its horizontal
+-- middle so the emblem and the right metal corners keep their native aspect.
+local eventPlates={pvpKill='alertPvPKill',worldPvPDeath='alertDeath',bountyAlert='alertBounty',
+ ctaNotice='alertCta',lfgNotice='alertLFG'}
+local honors={
+ warCelebration={base='secondaryNormal',badge='crestSmallMark',rim='bountyStandard'},
+ warCelebrationHeroic={base='secondaryNormal',badge='warlord02',rim='bountyEpic'},
+ warCelebrationLegendary={base='primaryNormal',badge='warlord01',rim='bountyLegendary'},
+}
+
 local function build(ch)
  local f=CreateFrame('Frame','KWC2Toast_'..ch.key,UIParent)
  f:SetSize(404,98)
  f:SetFrameStrata('HIGH');f:SetFrameLevel(40+#T.order);f:SetClampedToScreen(true);f:Hide()
  f:EnableMouse(true);f:SetMovable(true);f:RegisterForDrag('LeftButton')
- f.shadow=f:CreateTexture(nil,'BACKGROUND',nil,-2)
- f.shadow:SetPoint('TOPLEFT',-3,3);f.shadow:SetPoint('BOTTOMRIGHT',3,-3)
- Kit.Paint(f.shadow,OWNER,'shadow','fill')
- f.bg=Kit.Fill(f,OWNER,'surface');f.themeArt=S.Art(f,'alert')
- f.border=Kit.Border(f,OWNER,'lineSoft')
- f.rail=Kit.Rule(f,OWNER,'accent',false,4);f.rail:SetPoint('TOPLEFT');f.rail:SetPoint('BOTTOMLEFT')
- -- Card chrome that an event artwork plate replaces (UI/AlertArt.lua).
- f.chrome={f.shadow,f.bg,f.themeArt,f.rail}
- for _,edge in ipairs(f.border) do f.chrome[#f.chrome+1]=edge end
- f.icon=f:CreateTexture(nil,'ARTWORK');f.icon:SetSize(40,40);f.icon:SetPoint('TOPLEFT',16,-14)
- f.icon:SetTexCoord(0.08,0.92,0.08,0.92)
- f.kicker=Kit.Text(f,OWNER,'narrow',12,'accentText');f.kicker:SetPoint('TOPLEFT',f.icon,'TOPRIGHT',12,1)
- f.title=Kit.Text(f,OWNER,'body',15,'text');f.title:SetPoint('TOPLEFT',f.kicker,'BOTTOMLEFT',0,-3);f.title:SetPoint('RIGHT',f,'RIGHT',-34,0)
- f.detail=Kit.Text(f,OWNER,'body',12,'muted');f.detail:SetPoint('TOPLEFT',f.title,'BOTTOMLEFT',0,-4);f.detail:SetPoint('RIGHT',f,'RIGHT',-16,0)
- f.meta=Kit.Text(f,OWNER,'narrow',12,'faint');f.meta:SetPoint('BOTTOMLEFT',f.icon,'BOTTOMRIGHT',12,-30)
- f.close=CreateFrame('Button',nil,f);f.close:SetSize(22,22);f.close:SetPoint('TOPRIGHT',-6,-6)
- f.close.t=Kit.Text(f.close,OWNER,'narrow',16,'faint');f.close.t:SetPoint('CENTER');f.close.t:SetText('x')
+ local plate=eventPlates[ch.key]
+ local aspect=plate and S.AssetAspect(plate)
+ local honor=honors[ch.key]
+ local strips={}
+ if plate then
+  local uv=K.PublicThemes.Get('war-room-classic').assetUV[plate]
+  local cuts={0,.37,.78,1}
+  for i=1,3 do
+   local t=f:CreateTexture(nil,'BACKGROUND')
+   t:SetTexture(S.AssetPath(plate))
+   t:SetTexCoord(uv[1]+(uv[2]-uv[1])*cuts[i],uv[1]+(uv[2]-uv[1])*cuts[i+1],uv[3],uv[4])
+   t:SetPoint('TOPLEFT',i==1 and f or strips[i-1],i==1 and 'TOPLEFT' or 'TOPRIGHT')
+   strips[i]=t
+  end
+ else
+  local base=S.SliceAsset(f,honor and honor.base or 'secondaryNormal',14,256,'BACKGROUND',1,nil,16)
+  if honor then
+   if ch.key=='warCelebration' then
+    for _,t in ipairs(base.textures) do t:SetVertexColor(.82,.70,.56) end
+   end
+   local rim=S.ThemedTexture(f,honor.rim,66,'BORDER',1);rim:SetPoint('LEFT',12,0)
+   local badge=S.ThemedTexture(f,honor.badge,44,'ARTWORK',1);badge:SetPoint('CENTER',rim,'CENTER')
+  else
+   f.icon=f:CreateTexture(nil,'ARTWORK');f.icon:SetSize(40,40);f.icon:SetPoint('LEFT',16,0)
+  end
+ end
+ f.kicker=Kit.Text(f,OWNER,'narrow',12,'accentText')
+ f.title=Kit.Text(f,OWNER,'body',17,'text')
+ f.detail=Kit.Text(f,OWNER,'body',13,'text')
+ f.meta=Kit.Text(f,OWNER,'narrow',12,'muted')
+ local lines={f.kicker,f.title,f.detail,f.meta}
+ for _,line in ipairs(lines) do
+  line:SetWordWrap(true)
+  if line.SetNonSpaceWrap then line:SetNonSpaceWrap(true) end
+ end
+ f.close=CreateFrame('Button',nil,f);f.close:SetSize(18,18)
+ f.close.t=Kit.Text(f.close,OWNER,'body',14,'muted');f.close.t:SetPoint('CENTER');f.close.t:SetText('x')
  f.close:SetScript('OnClick',function() f:Hide() end)
  f.close:SetScript('OnEnter',function(self) Kit.Paint(self.t,OWNER,'text','text') end)
- f.close:SetScript('OnLeave',function(self) Kit.Paint(self.t,OWNER,'faint','text') end)
- f.timer=f:CreateTexture(nil,'OVERLAY');f.timer:SetPoint('BOTTOMLEFT',4,0);f.timer:SetHeight(2)
+ f.close:SetScript('OnLeave',function(self) Kit.Paint(self.t,OWNER,'muted','text') end)
+ f.timer=f:CreateTexture(nil,'OVERLAY');f.timer:SetHeight(2)
  Kit.Paint(f.timer,OWNER,'accent','fill')
  f.hint=Kit.Text(f,OWNER,'narrow',12,'warn');f.hint:SetPoint('BOTTOM',f,'TOP',0,4)
- f.hint:SetText('Drag to position - lock it again in War Room > Alerts')
+ f.hint:SetText('Drag to position - lock it again in War Room > Alerts');f.hint:Hide()
  f.actions={}
  for i=1,4 do
-  local b=S.Button(f,'',i==1 and 'primary' or 'secondary',function(self) if self.fn then self.fn() end end,130,24)
-  b:SetPoint('BOTTOMRIGHT',f,'BOTTOMRIGHT',-12-(i-1)*138,10)
+  local b=S.Button(f,'',i==1 and 'primary' or 'secondary',function(self) if self.fn then self.fn() end end,120,24)
   b:Hide();f.actions[i]=b
  end
  Kit.Tooltip(f,function() return f.title:GetText() end,function() return f.detail:GetText() end)
@@ -63,52 +88,70 @@ local function build(ch)
   v[ch.key..'Position']={point=point,relativePoint=rel,x=x,y=y}
  end)
  f:SetScript('OnUpdate',function(self,dt)
-  if ch:Unlocked() then self:SetAlpha(ch:Opacity());self.timer:SetWidth(self:GetWidth()-4);return end
+  if ch:Unlocked() then self:SetAlpha(ch:Opacity());self.timer:SetWidth(self.timerWidth or 1);return end
   self.elapsed=(self.elapsed or 0)+dt
   local life=ch:Duration()
-  self.timer:SetWidth(math.max(1,(self:GetWidth()-4)*(1-self.elapsed/life)))
+  self.timer:SetWidth(math.max(1,(self.timerWidth or 1)*(1-self.elapsed/life)))
   local preferences=K.Celebrations and K.Celebrations.Preferences()
   if not preferences or (preferences.animations and not preferences.reducedMotion) then
    self:SetAlpha(ch:Opacity()*math.min(1,self.elapsed/0.16,math.max(0,(life-self.elapsed)/0.3)))
   else self:SetAlpha(ch:Opacity()) end
   if self.elapsed>=life then self:Hide() end
  end)
- -- Each text line and action row owns a vertical lane, including wrapped surnames.
+ -- Measure the actual strings at the channel's logical width. The configured
+ -- scale applies to the completed composition, including its artwork and controls.
  function f:LayoutContent()
-  if self.layingOut then return end
-  self.layingOut=true
-  local width=math.max(120,self:GetWidth()-102)
-  local y=14
-  local function line(region,size)
-   region:ClearAllPoints()
-   region:SetPoint('TOPLEFT',self,'TOPLEFT',68,-y)
-   region:SetWidth(width)
-   region:SetWordWrap(true)
-   if region.SetMaxLines then region:SetMaxLines(0) end
-   region:SetHeight(0)
-   local text=region:GetText() or ''
-   local height=text~='' and math.max(size,region:GetStringHeight() or size) or 0
-   region:SetHeight(height)
-   y=y+height
-  end
-  line(self.kicker,12);y=y+3
-  line(self.title,18);y=y+4
-  line(self.detail,14)
-  if (self.meta:GetText() or '')~='' then y=y+6;line(self.meta,14) end
-  local active=0
-  for _,button in ipairs(self.actions) do if button:IsShown() then active=active+1 end end
-  if active>0 then
-   y=y+10
-   for i,button in ipairs(self.actions) do
-    button:ClearAllPoints()
-    button:SetPoint('TOPRIGHT',self,'TOPRIGHT',-12-((i-1)%2)*138,-y-math.floor((i-1)/2)*30)
+  local target=self.preferredWidth or 404
+  local left=honor and 91 or 68
+  local right=18
+  local width=plate and target-134 or target-left-right
+  local rowWidth=math.floor((width-6)/2)
+  local actions=0
+  for _,button in ipairs(self.actions) do if button:IsShown() then actions=actions+1 end end
+  local offsets={}
+  local used=0
+  for i,line in ipairs(lines) do
+   line:SetWidth(width-(used==0 and 22 or 0));line:SetHeight(0)
+   if (line:GetText() or '')~='' then
+    if used>0 then used=used+2 end
+    offsets[i]=used
+    local height=math.ceil(line:GetStringHeight())+1
+    line:SetHeight(height);used=used+height
    end
-   y=y+math.ceil(active/2)*30
   end
-  self:SetHeight(math.max(98,y+12))
-  self.layingOut=false
+  local actionTop=used+5
+  if actions>0 then used=actionTop+math.ceil(actions/2)*27-3 end
+  local h,top
+  if plate then
+   -- The common clear field is between 28% and 72% of the cropped art.
+   h=math.max(116,math.ceil((used+8)/.44))
+   local nativeWidth=h*aspect
+   left=math.ceil(nativeWidth*.38);right=math.ceil(nativeWidth*.057)
+   local w=math.max(left+width+right,nativeWidth*.59+8)
+   local capL,capR=nativeWidth*.37,nativeWidth*.22
+   strips[1]:SetSize(capL,h);strips[2]:SetSize(w-capL-capR,h);strips[3]:SetSize(capR,h)
+   self:SetSize(w,h)
+   top=math.floor(h*.28+(h*.44-used-6)/2)
+   self.timerY=h*.72-2
+  else
+   h=math.max(90,used+34);self:SetSize(target,h)
+   top=math.floor((h-used)/2)-1;self.timerY=h-9
+  end
+  for i,line in ipairs(lines) do
+   line:ClearAllPoints();line:SetPoint('TOPLEFT',self,'TOPLEFT',left,-top-(offsets[i] or 0))
+  end
+  self.close:ClearAllPoints();self.close:SetPoint('TOPRIGHT',self,'TOPRIGHT',-right,-top)
+  local slot=0
+  for _,button in ipairs(self.actions) do
+   if button:IsShown() then
+    button:SetSize(math.min(136,rowWidth),24);button:ClearAllPoints()
+    button:SetPoint('TOPLEFT',self,'TOPLEFT',left+(slot%2)*(math.min(136,rowWidth)+6),-top-actionTop-math.floor(slot/2)*27)
+    slot=slot+1
+   end
+  end
+  self.timerWidth=width;self.timer:ClearAllPoints()
+  self.timer:SetPoint('TOPLEFT',self,'TOPLEFT',left,-self.timerY);self.timer:SetWidth(width)
  end
- f:HookScript('OnSizeChanged',function(self) self:LayoutContent() end)
  return f
 end
 
@@ -199,9 +242,9 @@ function Channel:Present(content,automatic)
  if automatic and not T.Claim(self.key,content.eventID) then return false end
  local f=self.frame
  local tone=content.tone or self.tone or 'accent'
- Kit.Paint(f.rail,OWNER,tone,'fill');Kit.Paint(f.timer,OWNER,tone,'fill')
+ Kit.Paint(f.timer,OWNER,tone,'fill')
  Kit.Paint(f.kicker,OWNER,tone=='accent' and 'accentText' or tone,'text')
- f.icon:SetTexture(content.icon or ICONS[self.icon] or ICONS.cta)
+ if f.icon then f.icon:SetTexture(content.icon or ICONS[self.icon] or ICONS.cta) end
  f.kicker:SetText((content.kicker or ''):upper())
  f.title:SetText(content.title or '')
  f.detail:SetText(content.detail or '')
@@ -210,7 +253,6 @@ function Channel:Present(content,automatic)
   local a=content.actions and content.actions[i]
   if a then b:SetLabel(a.label);b.fn=a.fn;b:Show() else b.fn=nil;b:Hide() end
  end
- -- Optional event artwork behind the live content; failures keep the classic card.
  f:LayoutContent()
  if T.Decorate then Kit.Safe(T.Decorate,self,content) end
  self.automatic=automatic==true
@@ -243,14 +285,14 @@ end
 -- Simple notice channels for new CTAs and Guild LFG (engine-side policy already
 -- checked by the caller; this only respects the per-channel popup toggle).
 local recent={}
-function T.Notice(kind,title,detail,action,eventID)
+function T.Notice(kind,title,detail,action,eventID,kicker)
  local ch=T.channels[kind];if not ch or not ch:Enabled() then return false end
  local now=time and time() or 0
  local key=kind..'\001'..tostring(eventID or title)
  if recent[key] and now-recent[key]<20 then return false end
  for id,at in pairs(recent) do if now-at>=20 then recent[id]=nil end end
  recent[key]=now
- ch:Present({eventID=eventID,kicker=ch.label,title=title,detail=detail,actions=action and {action} or nil},true)
+ ch:Present({eventID=eventID,kicker=kicker or ch.label,title=title,detail=detail,actions=action and {action} or nil},true)
  if PlaySound and not K.Celebrations and K.QOL and K.QOL.Enabled('alertSound') and K.QOL.Enabled(kind..'Sound') then pcall(PlaySound,8960,'Master') end
  return true
 end

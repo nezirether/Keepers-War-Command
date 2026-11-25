@@ -59,6 +59,7 @@ end
 local list,empty,toolbar
 local function fillRow(row,e)
  local pr=priorityOf(e);local active=(e.status or 'ACTIVE')=='ACTIVE'
+ S.RowIcon(row,S.AssetPath(pr=='URGENT' and 'urgentGlyph' or pr=='NORMAL' and 'normalGlyph' or 'iconSword'))
  row:Tone(active and PRIORITY_TONE[pr] or 'faint')
  row.title:SetText(headline(e))
  local c=counts(e)
@@ -86,7 +87,8 @@ local function buildView(pane)
  view.respond=CreateFrame('Frame',nil,c);view.respond:SetSize(w,30)
  view.rb={}
  for i,st in ipairs({'Coming','Maybe','Busy'}) do
-  local b=S.Button(view.respond,st,'secondary',act(function() O().Respond(state.selected,st) end),104,30)
+  local variant=st=='Coming' and 'success' or st=='Maybe' and 'warning' or 'danger'
+  local b=S.Button(view.respond,st,variant,act(function() O().Respond(state.selected,st) end),104,30)
   b:SetPoint('LEFT',(i-1)*112,0);view.rb[st]=b
  end
  view.joinLabel=S.Text(c,'kicker','faint');view.joinLabel:SetText('JOIN REQUESTS')
@@ -298,7 +300,7 @@ function page.Build(self,host)
  list=Kit.List(left,60,6,function(row) S.RowBuild(row);row:SetScript('OnClick',function(r) state.selected=r.item.id;state.mode='view';self:Update() end) end,fillRow)
  P.ListHeading(left,list,toolbar,'Calls')
  Kit.Paint(list.thumb,OWNER,'line','fill')
- empty=S.Empty(list,'No calls here yet','When a guildmate posts a Call to Arms it appears here instantly. Post one with "New call to arms".',420)
+ empty=S.Empty(list,'No calls here yet','When a guildmate posts a Call to Arms it appears here instantly. Post one with "New call to arms".',420,'EmptyCTA')
  empty:SetPoint('TOPLEFT',4,-6);list.empty=empty
  view.pane=CreateFrame('Frame',nil,right);view.pane:SetAllPoints(right)
  form.pane=CreateFrame('Frame',nil,right);form.pane:SetAllPoints(right)

@@ -529,6 +529,9 @@ end
 local function canDelete(sender,author)
  return K.SameGuildMember(sender,author) or (K.IsSenderOfficer and K.IsSenderOfficer(sender))
 end
+local function sameRecordedAuthor(a,b)
+ return K.RecordedAuthorMatches and K.RecordedAuthorMatches(a,b) or K.SameGuildMember(a,b)
+end
 local function deletePacket(kind,id,author,stamp)
  return 'D|'..kind..'|'..encode(id)..'|'..encode(author)..'|'..tostring(stamp)
 end
@@ -541,8 +544,8 @@ local function applyDelete(sender,kind,id,author,stamp,recovered)
  for _,e in ipairs(t) do if e.id==id then entry=e;break end end
  local old=deleted(kind,id)
  -- Do not allow a relayed deletion to claim a different author for a known entry.
- if entry and not K.SameGuildMember(entry.author,author) then return end
- if old and not K.SameGuildMember(old.author,author) then return end
+ if entry and not sameRecordedAuthor(entry.author,author) then S.RecordOutcome(PREFIX,'Record author mismatch');health.rejected=health.rejected+1;return end
+ if old and not sameRecordedAuthor(old.author,author) then S.RecordOutcome(PREFIX,'Tombstone author mismatch');health.rejected=health.rejected+1;return end
  if not entry and not old and not recovered and (not K.GuildScope() or not K.SameGuildMember(sender,author)) then return end
  if not canDelete(sender,author) then S.RecordOutcome(PREFIX,'Unauthorized deletion');health.rejected=health.rejected+1;return end
  local current=old and (tonumber(old.at) or 0) or 0
@@ -560,22 +563,61 @@ local function applyDelete(sender,kind,id,author,stamp,recovered)
  health.applied=health.applied+1
  if K.UI and K.UI.Refresh then K.UI.Refresh() end
 end
-function S.Delete(kind,e)
- if not e or not e.id then return false end
+function S.DeletionDiagnostics(kind,e)
  local code=kind=='CTA' and 'C' or kind=='BOUNTY' and 'B'
- if not code then return false end
- local sender=UnitName('player') or ''
- if not canDelete(sender,e.author) then return false end
+ local out={kind=kind,id=e and e.id,code=code,duplicates=0,stored=false}
+ if not code then out.reason='Unsupported record kind.';return out end
+ if type(e)~='table' or type(e.id)~='string' then out.reason='Selected record or ID is missing.';return out end
+ local storedRows={}
+ for _,row in ipairs(list(code) or {}) do if type(row)=='table' and row.id==e.id then storedRows[#storedRows+1]=row end end
+ out.duplicates=#storedRows;out.storedReference=false;out.recordedAuthor=e.author
+ for _,row in ipairs(storedRows) do
+  if row==e then out.stored=true;out.storedReference=true end
+  if not sameRecordedAuthor(row.author,e.author) then out.authorConflict=true end
+ end
+ local old=deleted(code,e.id);out.tombstone=old
+ out.tombstoneMatches=not old or sameRecordedAuthor(old.author,e.author)
+ if K.DeletionAuthorization then
+  out.authorization,out.authorizationReason,out.authorizationDetails=K.DeletionAuthorization(e.author)
+ else out.authorization=false;out.authorizationReason='Detailed authorization diagnostic unavailable.' end
+ out.guildTransportReady=IsInGuild and IsInGuild()==true
+ out.addonTransportReady=C_ChatInfo and type(C_ChatInfo.SendAddonMessage)=='function'
+ out.netSendReady=K.Net and type(K.Net.Send)=='function'
+ out.guardSupported=K.Net and K.Net.GuardSupported==true
+ out.transportAvailable=K.Sync==S and sendDelete~=nil and out.guildTransportReady and out.addonTransportReady and out.netSendReady and out.guardSupported
+ if code=='B' then
+  local exact=tostring(e.text or ''):lower():match('^%s*(.-)%s*$');local similar=0
+  for _,row in ipairs(KWCDB.bounties or {})do
+   if row.id~=e.id and tostring(row.text or ''):lower():match('^%s*(.-)%s*$')==exact then similar=similar+1 end
+  end
+  out.similarTextOtherIDs=similar
+ end
+ if not out.stored then out.reason=#storedRows==0 and 'Record ID is no longer in the local board.' or 'Selected record is stale; refresh the board and select the live row.'
+ elseif out.authorConflict then out.reason='Duplicate record IDs have conflicting stored authors; no deletion was attempted.'
+ elseif not out.tombstoneMatches then out.reason='An existing tombstone names a different author; no deletion was attempted.'
+ elseif not out.authorization then out.reason=out.authorizationReason
+ elseif not out.transportAvailable then out.reason='Deletion transport unavailable (guild='..tostring(out.guildTransportReady)..', addon API='..tostring(out.addonTransportReady)..', Net.Send='..tostring(out.netSendReady)..', guard='..tostring(out.guardSupported)..').'
+ else out.allowed=true;out.reason='Deletion may proceed for this stored record; transmission is queued after the local tombstone is committed.' end
+ return out
+end
+function S.Delete(kind,e)
+ local check=S.DeletionDiagnostics(kind,e)
+ if not check.allowed then return false,check.reason end
+ local code=check.code;local author=e.author
+ local sender=K.VerifiedDeletionActor(author)
+ if not sender then return false,'Local guild identity became unavailable before deletion.' end
  local stamp=time()
- tombstones()[code..':'..e.id]={author=e.author,at=stamp,by=sender}
+ local current=deleted(code,e.id)
+ if current and not sameRecordedAuthor(current.author,author) then return false,'Existing deletion tombstone conflicts with this record author.' end
+ tombstones()[code..':'..e.id]={author=author,at=stamp,by=sender}
  removeLocal(code,e.id)
- sendDelete(code,e.id,e.author,stamp)
+ local queued=sendDelete(code,e.id,author,stamp)
  if K.UI and K.UI.Refresh then K.UI.Refresh() end
- return true
+ return true,queued and 'Local deletion recorded; guild deletion queued. Offline members update after recovery.' or 'Local deletion recorded; guild transport did not accept the update. Tombstone will retry during sync.'
 end
 local function sendTombstones()
  local guild=K.GuildScope()
- local sender=UnitName('player')
+ local sender=K.LocalGuildMember()
  local entries={}
  for k,v in pairs(tombstones()) do
   local kind,id=k:match('^([CB]):(.+)$')
@@ -592,19 +634,25 @@ local function sendTombstones()
  tombstoneCursor=((start+total-1)%#entries)+1
  for offset=0,total-1 do
   local e=entries[((start+offset-1)%#entries)+1]
-  local function emit() if guild==K.GuildScope() and canDelete(sender,e.author) then sendDelete(e.kind,e.id,e.author,e.at) end end
+  local function emit() if guild==K.GuildScope() and sender==K.LocalGuildMember() and canDelete(sender,e.author) then sendDelete(e.kind,e.id,e.author,e.at) end end
   if C_Timer and C_Timer.After then C_Timer.After(offset*0.12,emit) else emit() end
  end
 end
 -- Request one bounded page from a roster-verified officer. Each retry
 -- rotates to the next candidate; only the chosen officer can reply.
 local recoveryCursor=0
-local recoveryPages={}
 local recoveryGuild
+local recoveryPages={}
 function S.RecoveryOfficers()
  local candidates={}
  if not GetNumGuildMembers or not GetGuildRosterInfo then return candidates end
- for i=1,GetNumGuildMembers() or 0 do
+ local total,online=GetNumGuildMembers()
+ local show=GetGuildRosterShowOffline
+ local showOK,visible=true,true
+ if show then showOK,visible=pcall(show);visible=showOK and visible==true end
+ local count=visible and total or online
+ count=tonumber(count) or tonumber(total) or 0
+ for i=1,count do
   local name,_,rank,_,_,_,_,_,online=GetGuildRosterInfo(i)
   if name and online and rank and rank<=1 and not K.SameGuildMember(name,K.LocalGuildMember()) then
    candidates[#candidates+1]=name
@@ -616,15 +664,17 @@ end
 local function requestRecovery(now)
  local guild=K.GuildScope()
  if not guild then return false end
- if recoveryGuild~=guild then recoveryGuild=guild;recoveryPages={};recoveryCursor=0 end
+ if recoveryGuild~=guild then recoveryGuild=guild;recoveryCursor=0 end
  local candidates=S.RecoveryOfficers()
  if #candidates==0 then return false end
  recoveryCursor=recoveryCursor+1
  local target=candidates[(recoveryCursor-1)%#candidates+1]
  local token=tostring(now)..'-'..tostring(math.random(100000,999999))
  local key=target
- local page=recoveryPages[key] or 0
- recoveryPages[key]=(page+1)%20
+ local peerGuid=K.Identity and K.Identity.RosterGUID(target) or target:lower()
+ local pageKey=guild..':'..tostring(peerGuid)
+ local page=math.max(0,tonumber(recoveryPages[pageKey]) or 0)%20
+ recoveryPages[pageKey]=page+1
  recoveryRequest={target=target,token=token,expires=now+29,guild=guild}
  return K.Net.Send(PREFIX,'RQ|'..guild..'|'..token..'|'..page,'WHISPER',target,'ALERT')
 end
@@ -632,8 +682,9 @@ local function onRecovery(msg,sender)
  local guild=K.GuildScope and K.GuildScope()
  if not guild then return end
  local now=time()
- local requestedGuild,token,page=msg:match('^RQ|(%d+)|(%d+%-%d+)|(%d%d?)$')
- if requestedGuild==guild and token and #token<=24 and tonumber(page)<20 then
+ local requestedGuild,token,page=msg:match('^RQ|(%d+)|(%d+%-%d+)|(%d+)$')
+ page=tonumber(page)
+ if requestedGuild==guild and token and #token<=24 and page and page<=1000000 then
   local peer=K.CurrentGuildMember(sender)
   if not peer or not K.IsSenderOfficer(K.LocalGuildMember()) or now-lastRecoveryReply<3 then return end
   for name,at in pairs(lastRecoveryBy) do
@@ -705,7 +756,9 @@ function S.Request(silent)
  local now=time()
  if now-lastRequest<30 then if not silent then K.Say('Board sync cooldown: wait 30 seconds.') end;return false end
  lastRequest=now;health.lastRequest=now;health.requests=health.requests+1
- if requestRecovery(now) or (not (K.GuildScope and K.GuildScope()) and send('Q|'..tostring(now))) then if not silent then K.Say('Board sync requested. Other online members can reply with saved operations.') end;return true
+ local officer=requestRecovery(now)
+ local guildRequest=send('Q|'..tostring(now))
+ if officer or guildRequest then if not silent then K.Say('Board sync requested. Other online members can reply with saved operations.') end;return true
  else if not silent then K.Say('Board sync request could not be sent.') end;return false end
 end
 -- Unified guild refresh: board records/tombstones plus current peer honor.

@@ -9,7 +9,7 @@ function P.Split(host,detailWidth)
  local left=CreateFrame('Frame',nil,host)
  local right=CreateFrame('Frame',nil,host)
  right:SetPoint('TOPRIGHT');right:SetPoint('BOTTOMRIGHT');right:SetWidth(detailWidth or 380)
- Kit.Fill(right,OWNER,'surface');Kit.Border(right,OWNER,'lineSoft')
+ S.Art(right,'panel','BACKGROUND')
  left:SetPoint('TOPLEFT');left:SetPoint('BOTTOMLEFT');left:SetPoint('RIGHT',right,'LEFT',-18,0)
  return left,right
 end
@@ -24,11 +24,14 @@ function P.Toolbar(parent,opts)
  end
  if opts.search then
   box=CreateFrame('Frame',nil,bar);box:SetHeight(28)
-  Kit.Fill(box,OWNER,'field');local line=Kit.Rule(box,OWNER,'line',true,1);line:SetPoint('BOTTOMLEFT');line:SetPoint('BOTTOMRIGHT')
+  local chrome=S.SliceAsset(box,'searchNormal',12,256,'BORDER',2,nil,16)
   local e=Kit.EditBox(box,OWNER,'body',13,40);e:SetAllPoints(box)
   local ph=Kit.Text(box,OWNER,'body',12,'faint');ph:SetPoint('LEFT',8,0);ph:SetText(opts.searchHint or 'Search')
   e:SetScript('OnTextChanged',function(self) ph:SetShown(self:GetText()=='');Kit.Safe(opts.search,self:GetText()) end)
   e:SetScript('OnEnterPressed',function(self) self:ClearFocus() end)
+  e:SetTextInsets(28,8,0,0);ph:ClearAllPoints();ph:SetPoint('LEFT',28,0)
+  e:HookScript('OnEditFocusGained',function() chrome:SetAsset('searchFocus') end)
+  e:HookScript('OnEditFocusLost',function() chrome:SetAsset('searchNormal') end)
   bar.search=e
  end
  if opts.segments then
@@ -155,17 +158,18 @@ end
 
 -- Section label + paragraph pair used in detail drawers.
 function P.Section(parent,label,width)
- local f=CreateFrame('Frame',nil,parent);f:SetSize(width,20)
- f.k=S.Text(f,'kicker','faint');f.k:SetPoint('TOPLEFT');f.k:SetText((label or ''):upper())
- f.p=S.Para(f,width,'text',13);f.p:SetPoint('TOPLEFT',f.k,'BOTTOMLEFT',0,-5)
+ local f=CreateFrame('Frame',nil,parent);f:SetSize(width,48)
+ f.head=S.SectionHeader(f,label,width);f.head:SetPoint('TOPLEFT');f.head:SetPoint('TOPRIGHT')
+ f.k=f.head.text
+ f.p=S.Para(f,width,'text',13);f.p:SetPoint('TOPLEFT',f.head,'BOTTOMLEFT',8,-7);f.p:SetPoint('RIGHT',f,'RIGHT',-8,0)
  function f:Set(text,label2)
-  if label2 then self.k:SetText(label2:upper()) end
+  if label2 then self.head:SetLabel(label2) end
   self.p:SetText(text or '')
   self:FitHeight(self:GetWidth())
  end
  function f:FitHeight(w)
-  self.p:SetWidth(w)
-  self:SetHeight(18+math.max(14,self.p:GetStringHeight() or 14))
+  self.head:SetWidth(w);self.p:SetWidth(math.max(1,w-16))
+  self:SetHeight(34+math.max(14,self.p:GetStringHeight() or 14))
  end
  return f
 end
@@ -202,11 +206,18 @@ function P.ListHeading(parent,list,anchor,label)
  h:SetHeight(29)
  h.label=S.Text(h,'kicker','accentText');h.label:SetPoint('LEFT',8,0);h.label:SetText(label:upper())
  h.range=S.Text(h,'small','muted');h.range:SetPoint('RIGHT',-61,0)
+ h.classicHeader=S.SliceAsset(h,'tableHeader',8,512,'BACKGROUND',2,nil,16)
  local prev=S.Button(h,'‹','ghost',function() list:Page(-1) end,23,23)
  local next=S.Button(h,'›','ghost',function() list:Page(1) end,23,23)
  next:SetPoint('RIGHT',-2,0);prev:SetPoint('RIGHT',next,'LEFT',-4,0)
  local rule=Kit.Rule(h,OWNER,'lineSoft',true,1)
  rule:SetPoint('BOTTOMLEFT');rule:SetPoint('BOTTOMRIGHT')
+ S.OnThemeChange(h,function()
+  local parchment=S.AssetPath('tableHeader')~=nil
+  Kit.Paint(h.label,OWNER,parchment and 'paperText' or 'accentText','text')
+  Kit.Paint(h.range,OWNER,parchment and 'paperText' or 'muted','text')
+  rule:SetAlpha(parchment and 0 or 1)
+ end)
  function h:SetAnchor(target)
   self:ClearAllPoints();self:SetPoint('TOPLEFT',target,'BOTTOMLEFT',0,-10);self:SetPoint('RIGHT',parent,'RIGHT',0,0)
  end
@@ -231,7 +242,7 @@ function P.CardNavigation(host,scroll,entries)
   buttons[#buttons+1]=S.Button(nav,label,'secondary',function()
    scroll:SetVerticalScroll(Kit.Clamp(card.layoutTop or 0,0,scroll:GetVerticalScrollRange() or 0))
    for _,tab in ipairs(buttons) do tab:SetSelected(tab.destination==card) end
-  end,entry[3] or 105,32)
+  end,entry[3] or 105,32,true)
   buttons[#buttons].destination=card
  end
  if buttons[1] then buttons[1]:SetSelected(true) end

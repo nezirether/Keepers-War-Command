@@ -13,7 +13,6 @@ local HELP={
  {'/kt bounty <name>','Open the bounty composer (/kt bounty addtarget uses your target)'},
  {'/kt sync','Request a manual guild sync'},
  {'/kt autosync on|off','Automatic guild sync'},
- {'/kt skin <id>','Switch War Room skin'},
  {'/kt scale 75-135','War Room window scale'},
  {'/kt minimap show|hide|reset','Minimap button'},
  {'/kt tutorial','Replay the guided tutorial'},
@@ -23,6 +22,7 @@ local HELP={
  {'/kt deathreport <name>','Report your own open-world death attacker while dead'},
  {'/kt instancestatus','Explain the current automatic-alert policy'},
  {'/kt guilddebug | syncdiag | pvpdiag | net','Diagnostics'},
+ {'/kt deletediag [record ID]','Explain bounty deletion authorization, stored identity, duplicate IDs, tombstones and sync readiness'},
  {'/kt addons','Check which guildmates run KWC'},
 }
 function C.Help()
@@ -69,9 +69,7 @@ function C.Run(input)
  elseif cmd=='autosync' then
   if arg:lower()=='on' then K.Sync.SetAutoSync(true) elseif arg:lower()=='off' then K.Sync.SetAutoSync(false)
   else K.Say('Auto Guild Sync: '..(K.Sync.AutoSyncEnabled() and 'ON' or 'OFF')..'. /kt autosync on|off') end
- elseif cmd=='skin' then
-  local s=K.PublicThemes.Resolve(arg:lower());if not s then K.Say('Available skins: '..table.concat(K.PublicThemes.order,', '));return end
-  if K.WarRoomSkin.Apply(s) then K.Say('War Room skin: '..s) else K.Say('Character appearance is unavailable until login completes.') end
+ elseif cmd=='skin' then K.Say('War Room Classic is the official interface.')
  elseif cmd=='scale' then
   local n=tonumber(arg);if not n then K.Say('War Room scale '..math.floor(K.UI.GetScale()*100+0.5)..'%. /kt scale 75-135') else K.UI.SetScale(n/100) end
  elseif cmd=='minimap' then
@@ -101,6 +99,7 @@ function C.Run(input)
   local d=K.Sync.BoardDiagnostics()
   for _,kind in ipairs({'CTA','Bounty'}) do local x=d[kind];K.Say(kind..' sync: sent='..x.sent..' received='..x.received..' applied='..x.applied..' rejected='..x.rejected) end
   if K.RaidSignup and K.RaidSignup.Diagnostics then local x=K.RaidSignup.Diagnostics();K.Say('Raid sign-up sync: sent='..x.sent..' received='..x.received..' applied='..x.applied..' rejected='..x.rejected..' requests='..x.requests) end
+ elseif cmd=='deletediag' then K.Operations.DeletionDiagnostics(arg~='' and arg or nil)
  elseif cmd=='pvpdiag' and arg~='' then K.Say(K.PvP.MemberDiagnostic(arg,'world'))
  elseif cmd=='pvpdiag' then
   local x=K.PvP.Diagnostics()

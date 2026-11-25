@@ -21,8 +21,8 @@ local function build()
  button=CreateFrame('Button','KWC2_MinimapButton',Minimap)
  button:SetSize(32,32);button:SetFrameStrata('MEDIUM');button:SetFrameLevel(8)
  button:RegisterForClicks('LeftButtonUp','RightButtonUp');button:RegisterForDrag('LeftButton')
- local icon=button:CreateTexture(nil,'ARTWORK');icon:SetAllPoints();icon:SetTexture(Kit.MEDIA..'Emblem')
- local glow=button:CreateTexture(nil,'HIGHLIGHT');glow:SetAllPoints();glow:SetTexture(Kit.MEDIA..'Emblem');glow:SetBlendMode('ADD');glow:SetAlpha(0.35)
+ local icon=button:CreateTexture(nil,'ARTWORK');icon:SetAllPoints();icon:SetTexture(K.WarRoomSkin.AssetPath('crestSmallMark'))
+ local glow=button:CreateTexture(nil,'HIGHLIGHT');glow:SetAllPoints();glow:SetTexture(K.WarRoomSkin.AssetPath('crestSmallMark'));glow:SetBlendMode('ADD');glow:SetAlpha(0.35)
  button:SetScript('OnClick',function(_,mouse)
   if mouse=='RightButton' then
    if officer() then Kit.Safe(K.Officer.Open) else K.UI.Open('settings') end
