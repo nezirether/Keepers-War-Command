@@ -67,7 +67,8 @@ H.Check('replayed result cannot celebrate twice',not C.AcceptOutcome(campaign.id
 campaign.status='ACTIVE';campaign.revision=campaign.revision+1
 H.Check('unauthorized peer cannot claim victory',not C.AcceptOutcome(campaign.id,'VICTORY',campaign.revision,math.floor(w.now),'Bo Pike'))
 for _,id in ipairs(K.PublicThemes.order) do
- K.WarRoomSkin.Apply(id)
+ K.WarRoomSkin.Restore()
+ assert(K.WarRoomSkin.Active()==id)
  C.Preferences().reducedMotion=true
  for _,level in ipairs({'Standard','Heroic','Legendary'}) do C.Preview(level) end
 end

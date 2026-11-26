@@ -5,7 +5,7 @@
 ## Version: 2.0.3
 ## SavedVariables: KWCDB, KeepersRaidToolsDB, KeepersRaidToolsAttendanceDB, KeepersRaidToolsRosterDB, KRTForeverNotesDB
 ## OptionalDeps: Overlord, WarEffortScout
-## X-Build: public release 2.0.3 - War Room Classic
+## X-Build: stable 2.0.3
 ## X-Curse-Project-ID: 1801567
 Engine/Core.lua
 UI/Kit.lua

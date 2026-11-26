@@ -1,5 +1,5 @@
 -- Run from the repository root with Lua 5.1.
-local LFG = assert(loadfile("KeepersWarCommand/GuildLFGModel.lua"))()
+local LFG = assert(loadfile("KeepersWarCommand/Engine/GuildLFGModel.lua"))()
 local storage, now = {}, 1000
 local function clock() return now end
 local function open(actor, guild) return LFG.Open(storage, guild or "guild-a", actor, clock) end

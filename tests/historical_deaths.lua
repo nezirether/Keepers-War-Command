@@ -65,14 +65,15 @@ A.GuildRecords.DeathRankings=function(tab)
  end
  return oldRankings(tab)
 end
-for _,id in ipairs({'trogdor','horde','alliance','blood-moon','holy-light','sleek'}) do
+-- War Room Classic is the only appearance.
+for _,id in ipairs(A.PublicThemes.order) do
  for _,size in ipairs({{920,580,308},{1280,720,668}}) do
   local W=A.WarRoom2
   W.Frame():SetSize(size[1],size[2]);bar:SetWidth(size[3])
   assert(viewTab('lifetime'))
   bar.search:SetText('Ember')
   bar.search:GetScript('OnTextChanged')(bar.search)
-  A.WarRoomSkin.Preview(id)
+  A.WarRoomSkin.Restore()
   local row
   for _,widget in ipairs(a.allWidgets) do
    if widget.item and widget.item.key=='longname' and widget:IsVisible() then row=widget;break end

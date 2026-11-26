@@ -1,4 +1,6 @@
--- Alert Art Pack v1 integration (UI/AlertArt.lua), run through the real add-on
+-- Alert artwork. War Room Classic (the only theme) draws its own channel plates,
+-- so the older Alert Art Pack plates stand down; its mapping and assets remain.
+-- Run through the real add-on
 -- files in TOC order inside the simulated client. Presentation-only checks:
 -- mapping, live text/button preservation, mouse safety, theme policy, motion
 -- settings, texture loading and asset integrity. Simulated: no in-game capture.
@@ -51,24 +53,25 @@ check('unknown channels get no plate',R('someFutureChannel',{})==nil)
 
 -- Live presentation on every existing channel ------------------------------
 local function frames() local n=0;for _,x in ipairs(c.allWidgets) do if x.kind~='Texture' and x.kind~='FontString' then n=n+1 end end;return n end
+local function plateStrips(f,key)
+ local path,n=S.AssetPath(key),0
+ for _,x in ipairs(c.allWidgets) do if x.kind=='Texture' and x.parent==f and x:GetTexture()==path then n=n+1 end end
+ return n
+end
+local classicPlate={worldPvPDeath='alertDeath',pvpKill='alertPvPKill',bountyAlert='alertBounty',ctaNotice='alertCta',lfgNotice='alertLFG'}
 local before=frames()
-local expect={worldPvPDeath='fallen',pvpKill='honorableKill',bountyAlert='bountySighting',ctaNotice='callToArms',lfgNotice=false}
-for key,want in pairs(expect) do
+for key,plate in pairs(classicPlate) do
  local ch=T[key];ch.frame:Hide();ch.demo()
  local f=ch.frame
- if want then
-  check('preview '..key..' shows plate '..want,f:IsShown() and f.artKey==want and f.plate:IsShown(),tostring(f.artKey))
-  check('preview '..key..' hides only the card chrome',not f.bg:IsShown() and not f.rail:IsShown() and not f.border[1]:IsShown() and f.icon:IsShown() and f.title:IsShown() and f.close:IsShown())
-  check('preview '..key..' plate uses painted rows only',f.plate.points[1] and f.plate.points[1][1]=='CENTER')
- else
-  check('preview '..key..' keeps classic chrome',f:IsShown() and f.artKey==nil and f.bg:IsShown() and f.rail:IsShown())
- end
+ check('preview '..key..' shows the War Room Classic plate',f:IsShown() and plateStrips(f,plate)==3,plateStrips(f,plate))
+ check('preview '..key..' keeps live text and close control',f.title:GetText()~='' and f.title:IsShown() and f.close:IsShown())
+ check('preview '..key..' adds no second art layer',f.artKey==nil and f.plate==nil)
+ local info=tgaHeader('KeepersWarCommand/Media/WarRoomClassic/'..S.AssetPath(plate):match('([^\\]+)$')..'.tga')
+ check('plate '..plate..' is a 32-bit power-of-two TGA',info and info.type==2 and info.bits==32 and info.w%2==0 and info.h%2==0)
 end
-check('artwork adds no mouse-capable frames (textures only)',frames()==before,frames()..' vs '..before)
-for _,key in ipairs({'plate','plateGlint','scrim','scrimFade'}) do check('plate part '..key..' is a Texture',T.pvpKill.frame[key].kind=='Texture') end
-check('close backing is a texture on the existing close button',T.pvpKill.frame.closeBack.kind=='Texture' and T.pvpKill.frame.closeBack.parent==T.pvpKill.frame.close)
+check('presentation adds no frames',frames()==before,frames()..' vs '..before)
 
--- Text, names, actions and coordinates are byte-identical with art on/off ----
+-- Text, names, actions and coordinates do not depend on the artwork setting --
 local death=T.worldPvPDeath
 local content={kicker='Guildmate slain  |  World PvP',title='Filibuster Fente was slain',detail='Killed by: Brightblade-Stormrage',
  meta='Hillsbrad Foothills  48.2, 61.7',tone='danger',actions={{label='Post bounty',fn=function() end},{label='Death log',fn=function() end}}}
@@ -78,8 +81,7 @@ C.Preferences().eventArt=false
 death:Present(content,false)
 local off={death.frame.kicker:GetText(),death.frame.title:GetText(),death.frame.detail:GetText(),death.frame.meta:GetText(),death.frame.actions[1]:IsShown(),death.frame.actions[2]:IsShown()}
 local same=true;for i=1,#on do if on[i]~=off[i] then same=false end end
-check('live text, coordinates and both actions identical with and without art',same and on[4]=='Hillsbrad Foothills  48.2, 61.7' and on[5] and on[6])
-check('Event artwork off restores the classic card',death.frame.artKey==nil and death.frame.bg:IsShown() and not death.frame.plate:IsShown())
+check('live text, coordinates and both actions identical with the setting on or off',same and on[4]=='Hillsbrad Foothills  48.2, 61.7' and on[5] and on[6])
 C.Preferences().eventArt=true
 local clicked=false
 death:Present({title='X',actions={{label='Go',fn=function() clicked=true end}}},false)
@@ -88,74 +90,60 @@ check('action buttons still fire over the artwork',clicked)
 local frames0=frames()
 local full=K.CharacterDisplayName('Nezdankdabs',true)
 C.Preview('Legendary')
-local m=T.warCelebration.frame
+-- Each celebration level has its own channel.
+local m=assert(T.warCelebrationLegendary,'legendary channel').frame
 check('celebration preview keeps the full character name',m.title:GetText()==full and full~='')
-check('Legendary preview uses KillStreak',m.artKey=='killStreak')
-check('Epic/Legendary width still drives plate size',m.artW and m.artW>=m:GetWidth()*1.12-0.01)
 check('no frames created on later presentations',frames()==frames0)
-
--- Scrim follows text so long names stay readable -----------------------------
-local k=T.pvpKill
-k:Present({kicker='Enemy slain',title='A',detail='',meta=''},false)
-local short=k.frame.artScrim
-k:Present({kicker='Enemy slain',title='Nezdankdabs slew Brightblade-Stormrage of the Silver Hand',detail='Honorable kill',meta='Hillsbrad Foothills'},false)
-check('backing widens under long text and never exceeds the body',k.frame.artScrim>short and k.frame.artScrim<=k.frame:GetWidth()-28,short..' -> '..tostring(k.frame.artScrim))
-check('scrim is painted by the theme engine (base role)',k.frame.scrim.kind=='Texture')
 
 -- Motion settings -----------------------------------------------------------
 local p=C.Preferences()
-p.animations,p.reducedMotion=true,false
-C.Preview('Heroic')
-check('arrival animation runs when animations are on',m.artAnimating==true and m.plateGlint:IsShown())
-w:Advance(1)
-check('arrival settles to exact size and the glint clears',not m.artAnimating and math.abs(m.plate.width-m.artW)<0.01 and not m.plateGlint:IsShown())
-p.reducedMotion=true
-C.Preview('Heroic')
-check('reduced motion: no scale or glint',not m.artAnimating and math.abs(m.plate.width-m.artW)<0.01 and not m.plateGlint:IsShown())
-p.reducedMotion=false;p.animations=false
-C.Preview('Legendary')
-check('animations off: no scale or glint',not m.artAnimating and not m.plateGlint:IsShown())
-p.animations=true
-death:Present({title='Fallen'},false)
-check('death plate is somber (no glint)',death.frame.artGlintPeak==0)
-
--- Themes: every curated skin presents; light skins keep the classic card ----
-local order=K.PublicThemes.order
-check('curated collection still has 13 skins',#order==13,#order)
-local lightSeen,darkSeen=false,false
-for _,id in ipairs(order) do
- S.Preview(id)
- local ok=pcall(function() k:Present({kicker='Enemy slain',title='Nezdankdabs slew X',detail='Honorable kill'},false) end)
- local txt=S.Color('text');local lum=0.2126*txt[1]+0.7152*txt[2]+0.0722*txt[3]
- local want=lum>=0.55
- check('skin '..id..' presents; art '..(want and 'on' or 'off (light skin)'),ok and (k.frame.artKey~=nil)==want)
- if want then darkSeen=true else lightSeen=true end
+local kill=T.pvpKill
+local function alphaAfter(step)
+ kill:Present({kicker='Enemy slain',title='Motion'},false)
+ kill.frame:GetScript('OnUpdate')(kill.frame,step)
+ return kill.frame:GetAlpha()
 end
-S.CancelPreview()
-check('both dark-art and light-classic paths exercised',darkSeen and lightSeen)
+p.animations,p.reducedMotion=true,false
+check('arrival fades in when animations are on',alphaAfter(0.04)<1)
+p.reducedMotion=true
+check('reduced motion: shown at full strength',alphaAfter(0.04)==1)
+p.reducedMotion=false;p.animations=false
+check('animations off: shown at full strength',alphaAfter(0.04)==1)
+p.animations=true
 
--- Texture memory: lazy, one plate per visible channel ------------------------
-local loaded={}
-for path in pairs(c.textures) do if path:find('Media\\Alerts\\',1,true) and not path:find('ScrimFade',1,true) then loaded[#loaded+1]=path end end
-check('only plates actually shown were requested',#loaded<=10 and #loaded>=1,#loaded)
+-- Theme ----------------------------------------------------------------------
+check('one theme is offered',#K.PublicThemes.order==1)
+check('the older plates stand down under the themed alerts',A.Enabled()==false)
 
--- Artwork gallery preview cycles all ten plates -----------------------------
+-- Only the classic plates are loaded ------------------------------------------
+local loaded=0
+for path in pairs(c.textures) do if path:find('Media\\Alerts\\',1,true) then loaded=loaded+1 end end
+check('no unused older plate is loaded',loaded==0,loaded)
+
+-- Artwork gallery preview cycles all ten labels -------------------------------
 local seen={}
-for i=1,10 do A.Preview();seen[m.artKey or '?']=true end
-local n=0;for key in pairs(seen) do if A.plates[key] then n=n+1 end end
-check('Artwork preview cycles all ten plates',n==10,n)
+local levels={T.warCelebration,T.warCelebrationHeroic,T.warCelebrationLegendary}
+for i=1,10 do
+ for _,ch in ipairs(levels) do ch.frame:Hide() end
+ A.Preview();w:Advance(1)
+ for _,ch in ipairs(levels) do if ch.frame:IsShown() then seen[ch.frame.kicker:GetText():match('(%d+)/10') or '?']=true end end
+end
+local n=0;for i=1,10 do if seen[tostring(i)] then n=n+1 end end
+check('Artwork preview cycles all ten entries',n==10,n)
 check('previews create no Chronicle entries',#C.History()==0)
 check('previews send no network traffic',#w.bus==0)
 
--- Instance suppression still dismisses automatic plated toasts --------------
+-- Instance suppression still dismisses automatic toasts -----------------------
+local k=T.pvpKill
 k:Present({kicker='Enemy slain',title='auto',eventID='art-test-1'},true)
+check('automatic toast appears in the open world',k.frame:IsShown())
 c.instance='party';w:Fire(c,'PLAYER_ENTERING_WORLD',false,false);w:Advance(1)
-check('automatic plated toast hidden inside an instance',not k.frame:IsShown())
+check('automatic toast hidden inside an instance',not k.frame:IsShown())
 c.instance=nil;w:Fire(c,'PLAYER_ENTERING_WORLD',false,false);w:Advance(1)
 
--- Move / lock still works with a plate ---------------------------------------
+-- Move / lock -----------------------------------------------------------------
 k:SetUnlocked(true)
-check('Move mode shows the plated demo with drag hint',k.frame:IsShown() and k.frame.hint:IsShown() and k.frame.artKey=='honorableKill')
+check('Move mode shows the demo with a drag hint',k.frame:IsShown() and k.frame.hint:IsShown())
 k:SetUnlocked(false)
 
 check('no Lua errors',#c.errors==0,c.errors[1])

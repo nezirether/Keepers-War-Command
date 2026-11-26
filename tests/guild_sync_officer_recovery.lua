@@ -24,6 +24,14 @@ for _,size in ipairs({2,5,10,25,50}) do
         local mark=A.KWCDB.deletions["B:"..deleted]
         packet(officer,"KWC4",("D|B|%s|%s|%d"):format(deleted,mark.author,mark.at),author)
     end
+    -- The same fixture step for a close lost on the impaired live path.
+    if find(officer.e.KWCDB.ops,cid).status~="RESOLVED" then
+        for _,sent in ipairs(n.packets) do
+            if sent.from==author.name and sent.message:find("S|C|"..cid.."|",1,true)==1 and sent.message:find("|RESOLVED|",1,true) then
+                packet(officer,"KWC4",sent.message,author)
+            end
+        end
+    end
     assert(find(officer.e.KWCDB.bounties,bid) and officer.e.KWCDB.deletions["B:"..deleted])
     assert(find(officer.e.KWCDB.ops,cid).status=="RESOLVED")
     author.online=false

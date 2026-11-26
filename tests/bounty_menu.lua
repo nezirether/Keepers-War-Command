@@ -1,53 +1,50 @@
--- Run from the repository root with Lua 5.1.
-local events, tags, messages = {}, {}, {}
-local picked
-local target = "Enemy"
-local env = setmetatable({
-    CreateFrame = function() return {
-        RegisterEvent = function() end,
-        SetScript = function(_, _, callback) events.dispatch = callback end,
-    } end,
-    SlashCmdList = {},
-    print = function(msg) table.insert(messages, msg) end,
-    UnitExists = function(unit) return unit ~= "missing" end,
-    UnitIsPlayer = function(unit) return unit ~= "npc" end,
-    UnitFullName = function(unit) if unit == "target" then return target, "Realm" end end,
-    UnitName = function() return "Focus-Realm", "Realm" end,
-}, {__index = _G})
-setfenv(assert(loadfile("KeepersWarCommand/Core.lua")),env)()
-setfenv(assert(loadfile("KeepersWarCommand/UITheme.lua")),env)()
-setfenv(assert(loadfile("KeepersWarCommand/UI.lua")),env)()
-env.KWC.UI.OpenBountyForName = function(name) picked = name end
-setfenv(assert(loadfile("KeepersWarCommand/BountyContextMenu.lua")),env)()
-events.dispatch(nil,"PLAYER_LOGIN")
-assert(next(tags) == nil)
-env.SlashCmdList.KEEPERSWARCOMMAND("bounty addtarget")
-assert(picked == "Enemy-Realm")
-env.Menu = {ModifyMenu = function(tag, cb)
-    assert(not tags[tag], "duplicate registration")
-    tags[tag] = cb
+-- Run from the repository root with Lua 5.1 or LuaJIT.
+local H=dofile('tests/harness/wow.lua')
+local w=H.World()
+w:AddMember({name='Grom Warcry',rank=1,guid='Player-1-0000000B'})
+local c=w:Client('Grom Warcry')
+local env=c.env
+local tags,picked,target={},nil,'Enemy'
+w:LoadAddon(c,'KeepersWarCommand')
+env.UnitExists=function(unit) return unit~='missing' end
+env.UnitIsPlayer=function(unit) return unit~='npc' end
+env.UnitFullName=function(unit)
+ if unit=='target' then return target,'Realm' end
+ if unit=='focus' then return 'Focus','Realm' end
+ if unit=='player' then return 'Grom Warcry' end
+end
+env.UnitName=env.UnitFullName
+w:Login(c);w:Advance(6)
+local K=env.KWC
+assert(next(tags)==nil)
+K.UI.OpenBountyForName=function(name) picked=name end
+env.SlashCmdList.KEEPERSWARCOMMAND('bounty addtarget')
+assert(picked=='Enemy-Realm',tostring(picked))
+env.Menu={ModifyMenu=function(tag,callback)
+ assert(not tags[tag],'duplicate registration');tags[tag]=callback
 end}
-events.dispatch(nil,"ADDON_LOADED","Blizzard_Menu")
-events.dispatch(nil,"PLAYER_ENTERING_WORLD")
-events.dispatch(nil,"PLAYER_LOGIN")
-assert(tags.MENU_UNIT_PLAYER and tags.MENU_UNIT_RAID and tags.MENU_UNIT_ENEMY_PLAYER)
-local options = {}
-local root = {CreateButton = function(_, text, cb)
-    assert(text == "KWC: Add Bounty")
-    table.insert(options, cb)
+w:Fire(c,'ADDON_LOADED','Blizzard_Menu')
+w:Fire(c,'PLAYER_ENTERING_WORLD')
+w:Fire(c,'PLAYER_LOGIN')
+assert(tags.MENU_UNIT_PLAYER and tags.MENU_UNIT_RAID and tags.MENU_UNIT_ENEMY_PLAYER and tags.MENU_UNIT_PARTY)
+local options={}
+local root={CreateButton=function(_,text,callback)
+ assert(text=='KWC: Add Bounty');table.insert(options,callback)
 end}
-local cb = tags.MENU_UNIT_ENEMY_PLAYER
-cb(nil, root, {unit="npc"})
-cb(nil, root, {})
-assert(#options == 0)
-cb(nil, root, {unit="target"})
-cb(nil, root, {unit="target"})
-assert(#options == 1)
-target = "Different"
+local callback=tags.MENU_UNIT_ENEMY_PLAYER
+callback(nil,root,{unit='npc'})
+callback(nil,root,{})
+assert(#options==0)
+callback(nil,root,{unit='target'})
+callback(nil,root,{unit='target'})
+assert(#options==1)
+target='Different'
 options[1]()
-assert(picked == "Enemy-Realm")
-env.KWC.UI.OpenBountyForUnit("focus")
-assert(picked == "Focus-Realm")
-env.KWC.UI.OpenBountyForUnit("missing")
-assert(messages[1]:find("Target a player first.",1,true))
-print("PASS: Forever tagged menus, delayed and duplicate registration, captured full name and target fallback")
+assert(picked=='Enemy-Realm')
+K.UI.OpenBountyForUnit('focus')
+assert(picked=='Focus-Realm',tostring(picked))
+local said=#c.printed
+K.UI.OpenBountyForUnit('missing')
+assert(c.printed[said+1]:find('Target a player first.',1,true))
+assert(#c.errors==0,c.errors[1])
+print('PASS: Forever tagged menus, delayed and duplicate registration, captured full name and target fallback')

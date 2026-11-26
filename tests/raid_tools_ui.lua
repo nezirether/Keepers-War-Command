@@ -1,5 +1,5 @@
 -- Run from the repository root with Lua 5.1.
-local root = "KeepersWarCommand/Modules/RaidTools/"
+local root = "KeepersWarCommand/Engine/RaidTools/"
 local env = setmetatable({ KeepersRaidTools = {}, UISpecialFrames = {} }, { __index = _G })
 local frames = {}
 local noop = function() end
@@ -69,8 +69,9 @@ env.hooksecurefunc = function(object, key, after)
     local prior = object[key]
     object[key] = function(self, ...) prior(self, ...); after(self, ...) end
 end
-env.KWC=env.KWC or {}
-setfenv(assert(loadfile("KeepersWarCommand/UITheme.lua")), env)()
+-- The War Room supplies KRT's palette through UI/KRTTheme.lua.
+env.KWC={Kit={MEDIA="Interface\\AddOns\\KeepersWarCommand\\Media\\\\",Hex=function() return {1,1,1,1} end}}
+setfenv(assert(loadfile("KeepersWarCommand/UI/KRTTheme.lua")), env)()
 setfenv(assert(loadfile(root .. "ConfigFrame.lua")), env)()
 local krt = env.KeepersRaidTools
 local ui = krt.Components

@@ -9,8 +9,7 @@ local W={pages={},order={},groups={},PrivatePageSupported=true};K.WarRoom2=W
 
 W.GROUPS={
  {id='ops',label='War Room'},
- {id='guild',label='Guild'},
- {id='records',label='Honors'},
+ {id='guild',label='Guild Support'},
  {id='system',label='Advanced'},
 }
 -- page={id,title,subtitle,group,Build(page,host),Update(page),Badge()->n,OnShow(page,arg)}
@@ -30,8 +29,28 @@ local function pageAllowed(page)
  local ok,allowed=pcall(page.CanShow);return ok and allowed==true
 end
 local RAIL_W,STRIP_H=212,72
-local NAV_ORDER={dashboard=1,bounties=2,cta=3,leaderboards=4,pvp=5,raids=6,lfg=7,
- ['officer-command']=8,records=9,services=10,alerts=11,settings=12}
+-- Guild Hall: one rail entry for three pages. Each stays its own registered
+-- page, so commands and direct links keep working; the strip carries the tabs.
+local HALL={{'lfg','Guild LFG'},{'raids','Raid Operations'},{'services','Guild Services'}}
+local inHall={lfg=true,raids=true,services=true}
+local hallLast,hallTabs='lfg',nil
+local function badgeCount(page)
+ local n=page and page.Badge and select(2,pcall(page.Badge))
+ return type(n)=='number' and n>0 and n or 0
+end
+local function badgeText(n) return n>99 and '99+' or tostring(n) end
+local function updateHallTabs()
+ if not hallTabs then return end
+ local shown=current and inHall[current.id] and true or false
+ hallTabs:SetShown(shown);W.pageSub:SetShown(not shown)
+ for i,s in ipairs(hallTabs.segs) do
+  local n=badgeCount(W.pages[HALL[i][1]])
+  s.text:SetText(HALL[i][2]..(n>0 and ' ('..badgeText(n)..')' or ''))
+ end
+ hallTabs:Update()
+end
+local NAV_ORDER={dashboard=1,leaderboards=2,pvp=3,bounties=4,cta=5,records=6,
+ lfg=7,raids=8,services=9,['officer-command']=10,alerts=11,settings=12}
 local CLASSIC_ICON={dashboard='iconShield',bounties='iconScroll',cta='iconSword',leaderboards='iconTrophy',
  pvp='iconSkull',raids='iconCalendar',lfg='iconGroup',['officer-command']='iconCrown',records='iconFlag',
  services='iconAnvil',alerts='iconFlag',settings='iconGear'}
@@ -103,7 +122,9 @@ local function buildRail()
  local y=0
  for _,group in ipairs(W.GROUPS) do
   local items={}
-  for _,p in ipairs(W.order) do if p.group==group.id then items[#items+1]=p end end
+  for _,p in ipairs(W.order) do
+   if p.group==group.id and (p.id=='lfg' or not inHall[p.id]) then items[#items+1]=p end
+  end
   table.sort(items,function(a,b) return (NAV_ORDER[a.id] or 100)<(NAV_ORDER[b.id] or 100) end)
   if #items>0 then
    local label=S.Text(nav,'kicker','accentText');label:SetPoint('TOPLEFT',18,y-11);label:SetText(group.label:upper())
@@ -111,26 +132,28 @@ local function buildRail()
    y=y-26
    for _,p in ipairs(items) do
     local b=CreateFrame('Button',nil,nav)
-    b:SetPoint('TOPLEFT',8,y);b:SetPoint('RIGHT',nav,'RIGHT',-12,0);b:SetHeight(31)
+    b:SetPoint('TOPLEFT',8,y);b:SetPoint('RIGHT',nav,'RIGHT',-12,0);b:SetHeight(28)
     b.contentTop=-y
     b.bg=Kit.Fill(b,OWNER,'rail')
     b.bar=Kit.Rule(b,OWNER,'accent',false,3);b.bar:SetPoint('TOPLEFT');b.bar:SetPoint('BOTTOMLEFT');b.bar:Hide()
     b.iconKey=V3_NAV_ICON[p.id] or CLASSIC_ICON[p.id] or 'iconFlag'
     b.icon=S.ThemedTexture(b,b.iconKey,20,'ARTWORK',2);b.icon:SetPoint('LEFT',8,0)
-    b.text=S.Text(b,'body','muted');b.text:SetPoint('LEFT',b.icon,'RIGHT',8,0);b.text:SetPoint('RIGHT',b,'RIGHT',-34,0);b.text:SetText(p.id=='records' and 'Guild Records' or p.title);b.text:SetJustifyH('LEFT')
-    Kit.Tooltip(b,p.title,p.subtitle)
+    b.text=S.Text(b,'body','muted');b.text:SetPoint('LEFT',b.icon,'RIGHT',8,0);b.text:SetPoint('RIGHT',b,'RIGHT',-34,0);b.text:SetText(p.id=='records' and 'Guild Records' or p.id=='lfg' and 'Guild Hall' or p.title);b.text:SetJustifyH('LEFT')
+    b.hall=p.id=='lfg'
+    if b.hall then Kit.Tooltip(b,'Guild Hall','Guild LFG, Raid Operations and Guild Services.')
+    else Kit.Tooltip(b,p.title,p.subtitle) end
     b.badge=Kit.Text(b,OWNER,'narrow',13,'accentText');b.badge:SetPoint('RIGHT',-10,0)
     b.page=p
-    b:SetScript('OnClick',function(self) W.Show(self.page.id) end)
+    b:SetScript('OnClick',function(self) W.Show(self.hall and hallLast or self.page.id) end)
     b.classicSlice=S.SliceAsset(b,'navSelected',8,256,'BORDER',2,nil,16)
     b.hovered=false
     b:SetScript('OnEnter',function(self)
-     self.hovered=true;if current~=self.page then Kit.Paint(self.bg,OWNER,'hover','fill') end
-     self.classicSlice:SetAsset(current==self.page and 'navSelected' or 'navHover')
+     self.hovered=true;if not self.selected then Kit.Paint(self.bg,OWNER,'hover','fill') end
+     self.classicSlice:SetAsset(self.selected and 'navSelected' or 'navHover')
     end)
     b:SetScript('OnLeave',function(self)
-     self.hovered=false;Kit.Paint(self.bg,OWNER,current==self.page and 'accentSoft' or 'rail','fill')
-     self.classicSlice:SetAsset(current==self.page and 'navSelected' or nil)
+     self.hovered=false;Kit.Paint(self.bg,OWNER,self.selected and 'accentSoft' or 'rail','fill')
+     self.classicSlice:SetAsset(self.selected and 'navSelected' or nil)
     end)
     navButtons[#navButtons+1]=b
     navRows[#navRows+1]={frame=b,page=p,group=group.id}
@@ -172,6 +195,9 @@ local function buildStrip()
  W.pageGroup=line('kicker','accentText',4,13)
  W.pageTitle=line('display','text',17,27)
  W.pageSub=line('small','muted',40,16)
+ hallTabs=S.Segmented(strip,HALL,function() return current and current.id end,function(id) W.Show(id) end,130)
+ hallTabs:SetPoint('TOPLEFT',strip,'TOPLEFT',24,-43);hallTabs:Hide()
+ W.hallTabs=hallTabs
  local function updateHeraldryStrip()
   local key=current and V3_PAGE_HEADER[current.id]
   local use=key and S.AssetPath(key) and strip:GetWidth()>=590
@@ -221,15 +247,19 @@ local function updateNav()
  end
  if navContent then navContent:SetHeight(-y+5) end
  for _,b in ipairs(navButtons) do
-  local on=current==b.page
+  local on=current==b.page or (b.hall and current and inHall[current.id]) or false
+  b.selected=on
   b.classicSlice:SetAsset(on and 'navSelected' or b.hovered and 'navHover' or nil)
   b.bar:SetShown(on)
   Kit.Paint(b.bg,OWNER,on and 'accentSoft' or 'rail','fill')
   Kit.Paint(b.text,OWNER,on and 'text' or 'muted','text')
   if b.icon.SetVertexColor then b.icon:SetVertexColor(on and 1 or 0.82,on and 0.88 or 0.82,on and 0.68 or 0.82) end
-  local n=b.page.Badge and select(2,pcall(b.page.Badge))
-  b.badge:SetText(type(n)=='number' and n>0 and (n>99 and '99+' or tostring(n)) or '')
+  local n=0
+  if b.hall then for _,entry in ipairs(HALL) do n=n+badgeCount(W.pages[entry[1]]) end
+  else n=badgeCount(b.page) end
+  b.badge:SetText(n>0 and badgeText(n) or '')
  end
+ updateHallTabs()
  if W.officerButton then
   local visible=not W.pages['officer-command'] and officerAvailable() and true or false
   if visible~=W.officerButton:IsShown() then W.officerButton:SetShown(visible) end
@@ -303,11 +333,12 @@ function W.Show(id,arg)
  if page.Layout then Kit.Safe(page.Layout,page) end
  if W.UpdateHeaderArtwork then W.UpdateHeaderArtwork() end
  W.pageGroup:SetText((page.groupLabel or page.group):upper())
- W.pageTitle:SetText(page.title);W.pageSub:SetText(page.subtitle or '')
+ if inHall[page.id] then hallLast=page.id end
+ W.pageTitle:SetText(inHall[page.id] and 'Guild Hall' or page.title);W.pageSub:SetText(page.subtitle or '')
  frame:Show()
  if page.OnShow then Kit.Safe(page.OnShow,page,arg) end
  for _,button in ipairs(navButtons) do
-  if button.page==page then
+  if button.page==page or (button.hall and inHall[page.id]) then
    local top=navScroll:GetVerticalScroll() or 0
    local height=navScroll:GetHeight() or 0
    if height>0 and (button.contentTop<top or button.contentTop+27>top+height) then

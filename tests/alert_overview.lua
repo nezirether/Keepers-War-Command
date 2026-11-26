@@ -1,118 +1,49 @@
-local frames={}
-local methods={}
-for _,key in ipairs({"SetPoint","ClearAllPoints","SetSize","SetScale","SetAllPoints","SetDrawLayer",
- "SetTexture","SetColorTexture","SetJustifyH","SetTextColor","SetWidth","SetAlpha",
- "SetHighlightTexture","SetFontObject","SetTexCoord","SetClampedToScreen","SetMovable",
- "EnableMouse","RegisterForDrag","RegisterEvent","SetFrameStrata"}) do methods[key]=function() end end
-function methods:SetFont() return true end
-function methods:SetFrameLevel(value) self.level=value end
-function methods:GetFrameLevel() return self.level or 0 end
-function methods:GetWidth() return 1600 end
-function methods:GetHeight() return 900 end
-function methods:SetText(value) self.text=value end
-function methods:SetScript(key,value) self[key]=value end
-function methods:Show() self.shown=true end
-function methods:Hide() self.shown=false end
-function methods:SetShown(value) self.shown=value end
-function methods:IsShown() return self.shown end
-function methods:SetEnabled(value) self.enabled=value end
-function methods:Disable() self.enabled=false end
-function methods:Enable() self.enabled=true end
-local function object() return setmetatable({shown=true},{__index=methods}) end
-methods.CreateTexture=object
-methods.CreateFontString=object
-UIParent=object()
-UISpecialFrames={}
-SlashCmdList={}
-local combat=false
-InCombatLockdown=function() return combat end
-function CreateFrame(kind,name,parent)
-    local f=object()
-    f.parent=parent
-    frames[#frames+1]=f
-    if name then _G[name]=f end
-    return f
+-- The Alerts page (successor of the 1.x Alert Command Center window): per-alert
+-- preview, move, lock, reset, enable and sound controls, routing, instance
+-- behaviour and widget reuse. Run from the repository root.
+local H=dofile('tests/harness/wow.lua')
+local w=H.World()
+w:AddMember({name='Grom Warcry',rank=1,guid='Player-1-0000000B'})
+local c=w:Client('Grom Warcry');w:LoadAddon(c,'KeepersWarCommand');w:Login(c);w:Advance(6)
+local K,env=c.env.KWC,c.env
+local W=K.WarRoom2
+W.Show('alerts')
+local page=W.pages.alerts
+local settings=env.KWCDB.settings
+local function card(key) for _,x in ipairs(page.cards) do if x.def and x.def.key==key then return x end end end
+local function switch(key,label) for _,s in ipairs(card(key).sw) do if s.text:GetText()==label then return s end end error(key..' has no switch '..label) end
+local death,bounty=K.Toast.channels.worldPvPDeath,K.Toast.channels.bountyAlert
+assert(W.Current()==page and card('worldPvPDeath') and card('bountyAlert') and card('pvpKill') and card('ctaNotice'))
+card('worldPvPDeath').preview:Click()
+assert(death.frame:IsShown() and #(env.KWCDB.worldPvPDeaths or {})==0)
+death.frame:Hide()
+card('worldPvPDeath').place:Click()
+assert(settings.worldPvPDeathUnlocked and death.frame:IsShown() and not settings.bountyAlertUnlocked)
+settings.worldPvPDeathPosition={point='TOP',relativePoint='TOP',x=40,y=-60}
+card('worldPvPDeath').place:Click()
+assert(not settings.worldPvPDeathUnlocked and not death.frame:IsShown() and settings.worldPvPDeathPosition.x==40)
+card('worldPvPDeath').reset:Click()
+assert(settings.worldPvPDeathPosition==nil)
+local was=settings.bountyAlerts~=false
+switch('bountyAlert','Popup'):Click();assert((settings.bountyAlerts~=false)==not was)
+switch('bountyAlert','Popup'):Click();assert((settings.bountyAlerts~=false)==was)
+local sound=K.QOL.Enabled('bountySound')
+switch('bountyAlert','Sound'):Click();assert(K.QOL.Enabled('bountySound')==not sound and settings.worldPvPDeathUnlocked~=true)
+card('bountyAlert').place:Click();assert(settings.bountyAlertUnlocked and not settings.worldPvPDeathUnlocked)
+card('bountyAlert').place:Click();assert(not settings.bountyAlertUnlocked)
+card('bountyAlert').preview:Click();assert(bounty.frame:IsShown());bounty.frame:Hide()
+print('PASS: alert preview, placement, reset, enable and sound controls')
+local before=#c.allWidgets
+for _=1,15 do page:Update() end
+assert(#c.allWidgets==before,'redrawing should reuse frames')
+for _,route in ipairs({'dashboard','bounties','lfg','records','settings'}) do
+ W.Show(route);assert(W.Current().id==route);K.UI.Open('Alerts');assert(W.Current()==page,route)
 end
-local function visible(item)
-    return item:IsShown() and (not item.parent or visible(item.parent))
-end
-local function click(text,index)
-    local count=0
-    for _,f in ipairs(frames) do
-        if f.caption and f.caption.text==text and visible(f) then
-            count=count+1
-            if count==(index or 1) then
-                assert(f.enabled,"button disabled: "..text)
-                f:OnClick()
-                return
-            end
-        end
-    end
-    error("button missing: "..text)
-end
-local settings={bountyAlerts=false}
-KWCDB={settings=settings}
-local opened={}
-local tested={}
-local function api(key,enabledKey)
-    return {
-        Demo=function() tested[#tested+1]=key end,
-        SetEnabled=function(value) settings[enabledKey]=value end,
-        SetUnlocked=function(value) settings[key.."Unlocked"]=value end,
-        ResetPosition=function() settings[key.."Position"]=nil end,
-        SetSound=function(value) settings[key.."Sound"]=value end,
-    }
-end
-KWC={
-    UITheme={warRoomArt="Interface\\\\AddOns\\\\KeepersWarCommand\\\\Textures\\\\WarRoom\\\\"},
-    WorldPvPDeaths=api("worldPvPDeath","worldPvPDeathAlerts"),
-    BountyAlerts=api("bountyAlert","bountyAlerts"),
-    QOL={Toggle=function(key) settings[key]=settings[key]==false end},
-    UI={Toggle=function(destination) opened[#opened+1]=destination end},
-}
-assert(loadfile("KeepersWarCommand/AlertOverview.lua"))()
-KWC.AlertOverview.Toggle()
-assert(KWCWarRoomAlerts:IsShown() and #UISpecialFrames==1)
-click("Test alert")
-assert(tested[1]=="worldPvPDeath")
-click("Move alert")
-assert(settings.worldPvPDeathUnlocked)
-settings.worldPvPDeathPosition={nx=0.8,ny=0.7}
-KWCWarRoomAlerts:OnUpdate(0.25)
-click("Lock position")
-assert(not settings.worldPvPDeathUnlocked)
-click("Reset position")
-assert(not settings.worldPvPDeathPosition)
-click("Configure",2)
-click("Enable popup")
-assert(settings.bountyAlerts)
-click("Disable sound")
-assert(settings.bountySound==false)
-click("Position")
-click("Move alert")
-assert(settings.bountyAlertUnlocked and not settings.worldPvPDeathUnlocked)
-click("Lock position")
-click("Test alert",2)
-assert(tested[2]=="bountyAlert")
-local count=#frames
-for _=1,15 do
-    click("Configure")
-    click("Position")
-end
-assert(#frames==count,"redrawing should reuse frames")
-for _,route in ipairs({{"Command Center","Home"},{"Bounties","Bounty Board"},{"Guild","Guild Roster"},{"Reports","Sync Health"},{"Settings","Settings"}}) do
-    click(route[1])
-    assert(opened[#opened]==route[2] and not KWCWarRoomAlerts:IsShown())
-    KWC.AlertOverview.Toggle()
-end
-combat=true
-click("Test alert")
-assert(#tested==2)
-combat=false
-KWC.AlertOverview.Toggle()
-assert(not KWCWarRoomAlerts:IsShown())
-KWC.BountyAlerts=nil
-KWC.AlertOverview.Toggle()
-click("Test alert")
-assert(#tested==3)
-print("PASS: navigation, alert APIs, placement, missing module, combat guard, and widget reuse")
+for _,button in ipairs(page.previews) do assert(button.text:GetText()~='Artwork preview','retired control') end
+for _,control in ipairs(page.celebrationControls) do assert(control.text:GetText()~='Event artwork','retired control') end
+assert(K.Celebrations.Preferences().eventArt==true,'the saved preference is kept')
+c.instance='party';w:Fire(c,'PLAYER_ENTERING_WORLD',false,false);w:Advance(1)
+card('worldPvPDeath').preview:Click();assert(death.frame:IsShown(),'manual previews work anywhere')
+assert(not death:Present({title='automatic'},true),'automatic alerts stay suppressed')
+assert(#c.errors==0 and not table.concat(c.printed,'\n'):find('Interface error',1,true),c.errors[1])
+print('PASS: routes, widget reuse, retired artwork controls and instance behaviour')

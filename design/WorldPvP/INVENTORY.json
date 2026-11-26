@@ -1,0 +1,180 @@
+[
+ {
+  "name": "WorldPvP_Header",
+  "width": 1024,
+  "height": 256,
+  "sourceSha256": "165199c06fd5629be108195a8c19ca50594b141d4c382caac11ad536f742e32d",
+  "shipped": true,
+  "adaptation": "none (byte-identical)",
+  "path": "Media/WarRoomClassic/WorldPvP/WorldPvP_Header.tga",
+  "sha256": "165199c06fd5629be108195a8c19ca50594b141d4c382caac11ad536f742e32d"
+ },
+ {
+  "name": "Warlords_Banner",
+  "width": 1024,
+  "height": 256,
+  "sourceSha256": "29dfd51256a4cef62eee6a620d6eec93e535a7423f723b6b3c1e803008a41b1e",
+  "shipped": true,
+  "adaptation": "none (byte-identical)",
+  "path": "Media/WarRoomClassic/WorldPvP/Warlords_Banner.tga",
+  "sha256": "29dfd51256a4cef62eee6a620d6eec93e535a7423f723b6b3c1e803008a41b1e"
+ },
+ {
+  "name": "KWC_Crest",
+  "width": 1024,
+  "height": 256,
+  "sourceSha256": "954e552229da689735e18fef8ffd8aea5551674dcb41c1e3509bee99bcf22122",
+  "shipped": true,
+  "adaptation": "none (byte-identical)",
+  "path": "Media/WarRoomClassic/WorldPvP/KWC_Crest.tga",
+  "sha256": "954e552229da689735e18fef8ffd8aea5551674dcb41c1e3509bee99bcf22122"
+ },
+ {
+  "name": "Tab_Active",
+  "width": 256,
+  "height": 64,
+  "sourceSha256": "0ed8ebd429197ac93e632f098d0743eed20225386129b8c089690f13eda31a07",
+  "shipped": true,
+  "adaptation": "none (byte-identical)",
+  "path": "Media/WarRoomClassic/WorldPvP/Tab_Active.tga",
+  "sha256": "0ed8ebd429197ac93e632f098d0743eed20225386129b8c089690f13eda31a07"
+ },
+ {
+  "name": "Tab_Inactive",
+  "width": 256,
+  "height": 64,
+  "sourceSha256": "8b36e45431ad089d4e568bf06e186728f1fde3c9a3cb9b086e2e6a63d9bd6200",
+  "shipped": true,
+  "adaptation": "none (byte-identical)",
+  "path": "Media/WarRoomClassic/WorldPvP/Tab_Inactive.tga",
+  "sha256": "8b36e45431ad089d4e568bf06e186728f1fde3c9a3cb9b086e2e6a63d9bd6200"
+ },
+ {
+  "name": "Tab_Hover",
+  "width": 256,
+  "height": 64,
+  "sourceSha256": "3ccc105e7b37b3a83a15482f10407c37e63ced4917228a577cff8588048b82bc",
+  "shipped": true,
+  "adaptation": "none (byte-identical)",
+  "path": "Media/WarRoomClassic/WorldPvP/Tab_Hover.tga",
+  "sha256": "3ccc105e7b37b3a83a15482f10407c37e63ced4917228a577cff8588048b82bc"
+ },
+ {
+  "name": "Tab_Selected",
+  "width": 256,
+  "height": 64,
+  "sourceSha256": "0ed8ebd429197ac93e632f098d0743eed20225386129b8c089690f13eda31a07",
+  "shipped": true,
+  "adaptation": "none (byte-identical)",
+  "path": "Media/WarRoomClassic/WorldPvP/Tab_Selected.tga",
+  "sha256": "0ed8ebd429197ac93e632f098d0743eed20225386129b8c089690f13eda31a07"
+ },
+ {
+  "name": "Row_Legendary",
+  "width": 1024,
+  "height": 64,
+  "sourceSha256": "17cc042c28918daf3565ba6248ec524a3b47dbb845b7053e1a5db31fa05c100a",
+  "shipped": true,
+  "adaptation": "removed leftover laurel/crown fragments (x 36-219)",
+  "path": "Media/WarRoomClassic/WorldPvP/Row_Legendary.tga",
+  "sha256": "2f31ba7629c0ee75a6237eee409bbcdede634545610fe417345caca61e30319b"
+ },
+ {
+  "name": "Row_Epic",
+  "width": 1024,
+  "height": 64,
+  "sourceSha256": "6eecfb2b6645ef831cbfd5b21954e38d181a413df25fd031d11e53bd79fdb084",
+  "shipped": true,
+  "adaptation": "removed leftover laurel/crown fragments (x 36-219)",
+  "path": "Media/WarRoomClassic/WorldPvP/Row_Epic.tga",
+  "sha256": "2cbab504c3c470f984735a39c38729b4f85d6e7e6a94c9eacbc2e4a2603cc433"
+ },
+ {
+  "name": "Row_Elite",
+  "width": 1024,
+  "height": 64,
+  "sourceSha256": "0a4e536ac4a018dd70bb3917014d392e81a5b313703db0e5fe7dc272899b5954",
+  "shipped": true,
+  "adaptation": "removed leftover laurel/crown fragments (x 36-219)",
+  "path": "Media/WarRoomClassic/WorldPvP/Row_Elite.tga",
+  "sha256": "3390f0b29c9d73732a844d556c72872e394b353e21f21b9b80bd3dd4ebcda33b"
+ },
+ {
+  "name": "Row_Standard",
+  "width": 1024,
+  "height": 64,
+  "sourceSha256": "98b10c83e84dc26d961b7cd69ae74c0d3556a5285fc94f6d5689837d5829ae5e",
+  "shipped": true,
+  "adaptation": "none (byte-identical)",
+  "path": "Media/WarRoomClassic/WorldPvP/Row_Standard.tga",
+  "sha256": "98b10c83e84dc26d961b7cd69ae74c0d3556a5285fc94f6d5689837d5829ae5e"
+ },
+ {
+  "name": "Emblem_Legendary",
+  "width": 128,
+  "height": 128,
+  "sourceSha256": "659e15a5a87a8584305f430e6e8efc0900cfbe8ad523163ceb97cc0864d3e492",
+  "shipped": true,
+  "adaptation": "dark backing keyed to transparency",
+  "path": "Media/WarRoomClassic/WorldPvP/Emblem_Legendary.tga",
+  "sha256": "f109a39ea622e68cdabb50ab0280fc72282b7c5001bfeb1223f0b4ff382b3124"
+ },
+ {
+  "name": "Emblem_Epic",
+  "width": 128,
+  "height": 128,
+  "sourceSha256": "43c650efccadb48de385c62fbbf9608b0f5cca0a28b088280972bb12f08a975c",
+  "shipped": true,
+  "adaptation": "dark backing keyed to transparency",
+  "path": "Media/WarRoomClassic/WorldPvP/Emblem_Epic.tga",
+  "sha256": "d0eff8050abdb19f883d46c75aa15aca293de8ec9c74220cd6d9545dd499834f"
+ },
+ {
+  "name": "Emblem_Elite",
+  "width": 128,
+  "height": 128,
+  "sourceSha256": "38b9904af0e3dcab557978beff27bfb8da807d14e960563478252dc839f1a87b",
+  "shipped": true,
+  "adaptation": "dark backing keyed to transparency",
+  "path": "Media/WarRoomClassic/WorldPvP/Emblem_Elite.tga",
+  "sha256": "5a70be72b3c787b5c2d666eede46d97dfc0c98b926bf242aa176a8b828df9eb5"
+ },
+ {
+  "name": "Icon_WorldPvP",
+  "width": 128,
+  "height": 128,
+  "sourceSha256": "b453383f4f03ec1ce9566c554bc007940eb37ef6500acd45223bc8a5de0a5d59",
+  "shipped": true,
+  "adaptation": "dark backing keyed to transparency",
+  "path": "Media/WarRoomClassic/WorldPvP/Icon_WorldPvP.tga",
+  "sha256": "5217a9edee407d56269d909faa7373e67130a362e5af022266be2f20cdebc94f"
+ },
+ {
+  "name": "Icon_Battlegrounds",
+  "width": 128,
+  "height": 128,
+  "sourceSha256": "85b2a08eddc1a1d5026a9c3bd762bed56dc1dd997e9d6d99b4dfef5c05ceee21",
+  "shipped": true,
+  "adaptation": "dark backing keyed to transparency",
+  "path": "Media/WarRoomClassic/WorldPvP/Icon_Battlegrounds.tga",
+  "sha256": "529f71138d74b4ca4543fbe7607e2f85904b78c8d90f8550154bc07d83b90123"
+ },
+ {
+  "name": "Icon_Lifetime",
+  "width": 128,
+  "height": 128,
+  "sourceSha256": "b75b84d8ba164d6099dc3ce2205ce15d9094b6eb55fa944ee6a6f8a00366a23c",
+  "shipped": true,
+  "adaptation": "dark backing keyed to transparency",
+  "path": "Media/WarRoomClassic/WorldPvP/Icon_Lifetime.tga",
+  "sha256": "60d2a2202a1679fccba1df7205d159fb9395893520015565a237404b0ad22218"
+ },
+ {
+  "name": "Icon_Deaths",
+  "width": 128,
+  "height": 128,
+  "sourceSha256": "962a0e29018005b24a4ba10d596a5220bfa96ae3079ead8e252684c3d58493e3",
+  "shipped": false,
+  "reason": "no deaths board on the leaderboard page"
+ }
+]

@@ -236,6 +236,33 @@ function N.Send(prefix,msg,channel,target,priority,opts)
  if type(msg)~='string' or #msg>250 then return false end
  return enqueue(prefix,{msg},channel,target,priority,opts)
 end
+-- Emergency traffic (Guild SOS): take N.Mark(), queue through the usual calls,
+-- then N.Expedite(mark). Those messages move ahead of the backlog in their original
+-- order, behind any earlier expedited ones. Nothing extra is sent. Group (bulk)
+-- items are never moved, because their stream order must hold.
+local EXPEDITED_ATTEMPTS=6
+-- After this many expedited sends in a row, one ordinary message goes through, so
+-- repeated emergency traffic can never stall synchronization.
+local EXPEDITED_BURST=4
+local expeditedRun=0
+function N.Mark() return nextSequence end
+-- onDone(true|false), when given, runs once per moved message as it is handed to
+-- the game or dropped. It reports local transmission only, never receipt.
+function N.Expedite(mark,onDone)
+ local moved={}
+ for i=#queue,1,-1 do
+  local item=queue[i]
+  if item.sequence>mark and not item.bulk then table.remove(queue,i);table.insert(moved,1,item) end
+ end
+ local at=1
+ for i,item in ipairs(queue) do if item.expedited then at=i+1 end end
+ for i,item in ipairs(moved) do
+  item.expedited,item.alert,item.recovery=true,true,false
+  if onDone then item.callbacks=item.callbacks or {};table.insert(item.callbacks,onDone) end
+  table.insert(queue,at+i-1,item)
+ end
+ return #moved
+end
 -- Queue one message made of ordered pieces (each at most 250 bytes). The pieces are sent
 -- one per turn in order. A receiver reassembles them per prefix, channel and sender, so
 -- no other multi-piece item on the same stream may start until this one is finished.
@@ -308,6 +335,11 @@ frame:SetScript('OnUpdate',function(_,dt)
    if not blocked(active,first,queued) then index=i;break end
   end
  end
+ if queue[index].expedited and expeditedRun>=EXPEDITED_BURST then
+  for i,queued in ipairs(queue) do
+   if not queued.expedited and not blocked(active,first,queued) then index=i;break end
+  end
+ end
  local item=table.remove(queue,index)
  if not item.group and (not IsInGuild() or item.scope~=(K.GuildScope and K.GuildScope())) then finish(item,false);return end
  if item.group and (item.groupEpoch~=currentEpoch or (item.requireGroup and not inGroup())) then
@@ -352,13 +384,15 @@ frame:SetScript('OnUpdate',function(_,dt)
   local retry=item.channel~='WHISPER' or result==resultCode('AddonMessageThrottle','AddOnMessageThrottle',3)
    or result==resultCode('ChannelThrottle',nil,8)
   if whisperKey and not retry then unavailable[whisperKey]=time()+30 end
-  if retry and item.attempts<3 then
+  if retry and item.attempts<(item.expedited and EXPEDITED_ATTEMPTS or 3) then
    -- A started multi-piece item keeps its place so its remaining pieces stay in order.
-   if item.parts and item.cursor>1 then table.insert(queue,index,item) else queue[#queue+1]=item end
+   -- So does an expedited item, which would otherwise rejoin the whole backlog.
+   if item.expedited or (item.parts and item.cursor>1) then table.insert(queue,index,item) else queue[#queue+1]=item end
    elapsed=-3
   else dropped=dropped+1;finish(item,false) end
  else
   sent=sent+1
+  expeditedRun=item.expedited and expeditedRun+1 or 0
   if item.parts and item.cursor<#item.parts then
    -- Next piece: let one other queued item go first so a long message cannot starve the queue.
    item.cursor=item.cursor+1;item.attempts=0

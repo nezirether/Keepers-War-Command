@@ -92,10 +92,13 @@ local own
 for _,listing in ipairs(A.GuildLFG.Browse({mine=true})) do if listing.id==id then own=listing end end
 H.Check('Guild LFG owner sees the listing',own and own.name=='Public test group')
 
-A.WarRoomSkin.Apply('classic')
+-- War Room Classic is the only appearance; older saved choices migrate to it.
+a.env.KWCDB.settings.ui2Skin='classic'
+A.WarRoomSkin.Restore()
 A.UI.SetScale(0.9)
 H.Check('skin and scale write to SavedVariables',
- A.WarRoomSkin.Current()=='classic' and a.env.KWCDB.settings.ui2Scale==0.9)
+ A.WarRoomSkin.Current()=='war-room-classic' and a.env.KWCDB.settings.ui2Skin=='war-room-classic'
+ and a.env.KWCDB.settings.ui2Scale==0.9)
 local errorText=table.concat(a.errors,' | ')..table.concat(b.errors,' | ')
 H.Check('no simulated client runtime errors',errorText=='',errorText)
 os.exit(H.Summary('public_features') and 0 or 1)

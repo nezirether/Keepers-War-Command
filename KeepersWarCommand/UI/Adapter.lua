@@ -95,6 +95,7 @@ end
 local seen,seeded,seenScope={},false,nil
 local function scanCTAs()
  if not KWCDB or not KWCDB.ops then return end
+ if K.Operations and K.Operations.ExpireSOS then K.Operations.ExpireSOS() end
  local scope=K.GuildScope()
  if scope~=seenScope then seenScope=scope;seen={};seeded=false end
  if not seeded then
@@ -106,13 +107,17 @@ local function scanCTAs()
  for _,e in ipairs(KWCDB.ops) do
   local revision=e.revision or e.updated or e.created
   current[e.id]=revision
-  if seen[e.id]~=revision then
-   local fresh=type(e.created)=='number' and time()-e.created<600
+  -- An SOS alerts once; edits never repeat it, and an expired one never alerts.
+  local sos=K.Operations.IsSOS(e)
+  local left=sos and K.Operations.SOSRemaining(e)
+  if seen[e.id]~=revision and not (sos and (seen[e.id]~=nil or left==0)) then
+   -- A live SOS is judged by its time left, which allows for clock differences.
+   local fresh=sos and left~=nil and left>0 or (not sos and type(e.created)=='number' and time()-e.created<600)
    local mine=me and K.SameGuildMember and K.SameGuildMember(e.author,me)
    if fresh and not mine and (e.status or 'ACTIVE')=='ACTIVE' and KWCDB.settings.alerts~=false
     and K.InstanceAlerts and K.InstanceAlerts.Allowed() and K.Toast then
     local id=e.id
-    K.Toast.Notice('cta',K.Clean(e.text,90),'Posted by '..tostring(e.author),{label='Open',fn=function() W.Show('cta',{select=id}) end},tostring(id)..':'..tostring(revision))
+    K.Toast.Notice('cta',K.Clean(e.text,90),'Posted by '..tostring(e.author)..(sos and ('  -  '..K.Operations.SOSTimeText(e)) or ''),{label='Open',fn=function() W.Show('cta',{select=id}) end},tostring(id)..':'..tostring(revision))
    end
   end
  end

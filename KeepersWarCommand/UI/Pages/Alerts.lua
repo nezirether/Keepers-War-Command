@@ -130,7 +130,7 @@ function page.Build(self,host)
  self.celebrationControls={}
  local options={{'PvP celebrations','pvp'},{'Streak milestones','streaks'},{'Bounty celebrations','bounties'},
  {'Personal milestones','milestones'},{'CTA celebrations','cta'},{'Guild achievements','guild'},
- {'Animations','animations'},{'Reduced motion','reducedMotion'},{'Event artwork','eventArt'}}
+ {'Animations','animations'},{'Reduced motion','reducedMotion'}}
  for _,option in ipairs(options) do
   local key=option[2]
   self.celebrationControls[#self.celebrationControls+1]=S.Switch(self.status.body,option[1],
@@ -146,7 +146,6 @@ function page.Build(self,host)
   self.previews[#self.previews+1]=S.Button(self.status.body,level..' preview','secondary',function() K.Celebrations.Preview(value) end,145,30)
  end
  self.previews[#self.previews+1]=S.Button(self.status.body,'Sound preview','secondary',function() K.Celebrations.PreviewSound() end,145,30)
- self.previews[#self.previews+1]=S.Button(self.status.body,'Artwork preview','secondary',function() K.AlertArt.Preview() end,145,30)
  self.previews[#self.previews+1]=S.Button(self.status.body,'Unlock all','secondary',function()
   for _,ch in ipairs(K.Toast.order) do ch:SetUnlocked(true) end;page:Update()
  end,145,30)

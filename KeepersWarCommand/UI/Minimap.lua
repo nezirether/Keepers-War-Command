@@ -48,6 +48,8 @@ local function build()
   GameTooltip:Show()
  end)
  button:SetScript('OnLeave',function() if GameTooltip then GameTooltip:Hide() end end)
+ -- Follow minimap resizing by other interface add-ons.
+ if Minimap.HookScript then Minimap:HookScript('OnSizeChanged',place) end
  place()
 end
 function M.IsVisible() return settings().ui2MinimapHidden~=true end

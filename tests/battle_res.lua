@@ -74,7 +74,7 @@ local function session(settings,initialGroup)
   return frame
  end
 
- for _,file in ipairs({"AlertFrameControls.lua","Modules/RaidTools/Modules/BattleResCounter.lua"}) do
+ for _,file in ipairs({"Engine/AlertFrameControls.lua","Engine/RaidTools/Modules/BattleResCounter.lua"}) do
   setfenv(assert(loadfile("KeepersWarCommand/"..file)),env)()
  end
  for key,value in pairs(api.defaults.battleResCounter) do
