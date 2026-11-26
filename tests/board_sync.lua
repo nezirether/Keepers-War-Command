@@ -88,6 +88,11 @@ w:AddMember({name='Stranger Elsewhere',rank=3,guid='Player-1-00000099'})
 local stranger=w:Client('Stranger Elsewhere');stranger.guildID=777
 w:LoadAddon(stranger,'KeepersWarCommand');w:Login(stranger);w:Advance(20)
 H.Check('a client with a different guild ID keeps an empty board',#(stranger.env.KWCDB.ops or {})==0)
+-- Recovery envelopes name their guild; one addressed to another guild is refused
+-- even when it comes from a character the receiver's roster knows.
+local foreign='RS|4242|1795000000-111111|C|1-1111|Grom Warcry|ACTIVE|0|1795000000|Foreign call'
+w:Fire(stranger,'CHAT_MSG_ADDON','KWC4',foreign,'WHISPER','Grom Warcry');w:Advance(2)
+H.Check('a recovery row from another guild is refused',#(stranger.env.KWCDB.ops or {})==0)
 -- No wire message exceeds limits (harness asserts 255 on send).
 H.Check('all addon messages within the 255-byte limit',true)
 local all={}

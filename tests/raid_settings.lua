@@ -4,7 +4,7 @@ local function loadSettings(db)
         KeepersRaidToolsDB = db,
         CreateFrame = function() return {RegisterEvent = function() end, SetScript = function() end} end,
     }, {__index = _G})
-    setfenv(assert(loadfile("KeepersWarCommand/Modules/RaidTools/KeepersRaidTools.lua")), env)()
+    setfenv(assert(loadfile("KeepersWarCommand/Engine/RaidTools/KeepersRaidTools.lua")), env)()
     local krt = env.KeepersRaidTools
     krt.defaults.autoInvite = {enabled = true, inviteRanks = {officer = false}, keywords = "inv"}
     krt.defaults.attendance = {enabled = true}

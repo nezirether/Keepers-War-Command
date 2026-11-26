@@ -30,6 +30,10 @@ H.Check('filtering a scrolled list clamps selection back into range',list.offset
 local _,content=K.Kit.Scroll(frame)
 local scroll=content:GetParent()
 scroll:SetVerticalScroll(95)
+-- The client reports the new range both as the event argument and from the getter.
+scroll.GetVerticalScrollRange=function() return 40 end
+-- A visible scroll frame has a height; without one the bar resets to the top.
+scroll:SetHeight(100)
 scroll:GetScript('OnScrollRangeChanged')(scroll,0,40)
 H.Check('shrinking scroll range clamps the current position',scroll:GetVerticalScroll()==40)
 

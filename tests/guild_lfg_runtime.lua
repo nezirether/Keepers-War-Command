@@ -69,6 +69,9 @@ assert(first and joined and withdrawn)
 local notices=0
 c.e.UnitLevel=function() return 40 end
 c.e.UIErrorsFrame={AddMessage=function() notices=notices+1 end}
+-- Notices are War Room toasts now; the error frame is only the fallback.
+local present=c.e.KWC.Toast.Notice
+c.e.KWC.Toast.Notice=function(...) local shown=present(...);if shown then notices=notices+1 end;return shown end
 c.e.KWCDB.settings.guildLFG={matching=true}
 packet(c,"KWL1",withdrawn,b);packet(c,"KWL1",joined,b)
 packet(c,"KWL1",first,a);packet(c,"KWL1",first,a);packet(c,"KWL1",joined,b)

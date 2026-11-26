@@ -1,5 +1,10 @@
--- Run from the repository root with LuaJIT (WoW-style bit library).
-local root = "KeepersWarCommand/Modules/RaidTools/"
+-- Run from the repository root with Lua 5.1 or LuaJIT. Loads every TOC file against
+-- a stub client, initializes the Raid Tools modules, then exercises the Raid
+-- Notepad, ready-check wording and a reload. The 1.x navigation, Settings and
+-- board screens this file once drove were replaced by the War Room; their current
+-- coverage is in nav_groups, world_pvp_board, ui_layout, guild_lfg_runtime and
+-- raid_command_sync.
+local root = "Engine/RaidTools/"
 local env = setmetatable({ UISpecialFrames = {} }, { __index = _G })
 local frames = {}
 local noop = function() end
@@ -218,7 +223,12 @@ local function makeFrame(kind, name, parent, template)
     frame.texture=false
     frame.x,frame.y=0,0
     if name then env[name]=frame end
-    if template=="UIPanelScrollFrameTemplate" then frame.ScrollBar=widget(frame) end
+    if template=="UIPanelScrollFrameTemplate" then
+        -- The client template supplies a scroll bar with a thumb and two arrows.
+        frame.ScrollBar=widget(frame);frame.ScrollBar.ThumbTexture=widget(frame.ScrollBar)
+        local function arrow() local a=widget(frame.ScrollBar);local t=widget(a);a.GetNormalTexture=function() return t end;return a end
+        frame.ScrollBar.ScrollUpButton,frame.ScrollBar.ScrollDownButton=arrow(),arrow()
+    end
     if template=="UIPanelScrollBarTemplate" then
         frame.ThumbTexture=widget(frame)
         frame.ScrollUpButton,frame.ScrollDownButton=widget(frame),widget(frame)
@@ -337,73 +347,8 @@ local function click(caption)
     button.scripts.OnClick(button)
 end
 
-local ui=env.KWC.UI
-env.KWC.IsOfficer=function() return true end
-env.SlashCmdList.KEEPERSWARCOMMAND("alerts")
-assert(env.KWCWarRoomAlerts and env.KWCWarRoomAlerts:IsShown())
-assert(control("Button","Configure") and control("Button","Test alert"))
-env.SlashCmdList.KEEPERSWARCOMMAND("alerts")
-assert(not env.KWCWarRoomAlerts:IsShown())
-ui.Toggle()
-assert(control("Button","Command Center").kwcPage=="Home")
-assert(not control("Button","Commendations") and not env.KWC.GuildService.DrawCommendations)
-assert(not env.KWC.QOL.Points and not env.KWC.QOL.BroadcastPoints)
-assert(control("Button","Open Find a Group") and control("Button","Open Guild Overview"))
-local sidebar=control("Button","Command Center"):GetParent():GetParent()
-sidebar.scripts.OnMouseWheel(sidebar,-10)
-assert(sidebar:GetVerticalScroll()>0)
-sidebar.scripts.OnMouseWheel(sidebar,10)
-assert(sidebar:GetVerticalScroll()==0)
-click("Open Find a Group")
-assert(not control("Button","Open Find a Group"))
-click("Command Center")
-click("Open PvP Operations")
-assert(control("Button","War Room").kwcPage=="War Room")
-click("Command Center")
-click("Open Settings")
-assert(control("Button","View Guild Roster"))
-assert(control("Button","Sharing unavailable").enabled==false)
-click("View Guild Roster")
-assert(control("Button","Check addon versions"))
-click("Command Center")
-click("Open Guild Services")
-assert(not control("Button","Open Find a Group"))
-ui.Toggle()
-ui.Toggle()
-assert(control("Button","Open Find a Group"))
-click("Raid Operations")
-assert(control("Button","Raid Sign-Ups"))
-ui.Toggle("Raid Tools: Battle Resurrection")
-assert(control("Button","Show Preview").enabled==false)
-local lock=assert(control("Button","Unlock Position"))
-assert(lock.enabled==false)
-print("PASS: Home, shortcut and sidebar navigation, Preferences access and unavailable controls")
-
-ui.Toggle("Raid Tools")
-assert(control("Button","Raid Operations").kwcPage=="Raid Tools")
-assert(not control("Button","War Intelligence"))
-assert(rawget(control("Button","Raid Command"),"kwcPage")==nil)
-click("Raid Sign-Ups")
-local title=assert(control("EditBox","Molten Core"))
-title:SetText("Raid draft")
-title.scripts.OnTextChanged(title)
-click("Raid Command")
-assert(control("Button","Raid Sign-Ups"))
-click("Raid Sign-Ups")
-assert(control("EditBox","Raid draft"))
-env.IsInGuild=function() return true end
-env.C_Club={GetGuildClubId=function() return 1 end}
-click("Create Raid Sign-Up")
-local id,event=next(env.KWCDB.raidSignups.events)
-assert(id and event.title=="Raid draft")
-env.IsInGuild=function() return true end
-click("Attending")
-assert(env.KWCDB.raidSignups.responses[id].Tester.status=="Attending")
-ui.Toggle("KT Raid")
-assert(control("Button","Raid Sign-Ups"))
-print("PASS: Raid Operations tabs, legacy route, draft, raid creation and RSVP")
-
-ui.Toggle("Raid Tools: Notes")
+assert(krt:SelectUnifiedTab("Notes"))
+assert(krt:MountInWarCommand(widget(env.UIParent),"Notes"))
 assert(not env.KRTForeverNoteDisplay)
 click("Show Note")
 assert(not env.KRTForeverNoteDisplay, "blank note opened a window")
@@ -453,32 +398,10 @@ end
 display.CloseButton:Click()
 assert(not display:IsShown())
 print("PASS: Raid Notepad Show, Hide, Save, New and Delete preserve the intended notes")
-
 env.GetNumGroupMembers=function() return 2 end
 env.UnitIsGroupLeader=function(unit) return unit=="player" end
 env.UnitIsConnected=function() return true end
 env.KWC.Net.Send=function() return true end
-ui.Toggle("Raid Tools: Command")
-click("G1 Tester")
-local duty
-for _,widget in ipairs(frames) do
-    if rawget(widget,"kind")=="EditBox" and visible(widget) then duty=widget;break end
-end
-assert(duty)
-duty:SetText("Assign interrupts")
-duty.scripts.OnTextChanged(duty)
-click("Set Assignment")
-assert(env.KWCDB.raidCommand.assignments.Tester=="Assign interrupts")
-local template=assert(control("EditBox",""))
-template:SetText("Progression")
-template.scripts.OnTextChanged(template)
-click("Raid Sign-Ups")
-assert(control("Button","> Raid draft"))
-click("Raid Command")
-assert(control("EditBox","Progression"))
-click("Save Template")
-assert(env.KWCDB.raidCommand.templates.Progression.Tester=="Assign interrupts")
-
 local whispers={}
 env.C_ChatInfo.SendChatMessage=function(message,channel,_,player)
     assert(channel=="WHISPER")
@@ -503,428 +426,21 @@ krt.ReadyCheck:OnReadyCheck()
 assert(whispers.Fallen=="Please accept your resurrection before the pull.")
 assert(whispers.Priest=="Missing raid buff: Power Word: Fortitude.")
 assert(whispers.Warlock=="No healer has a Soulstone. Please apply one before the pull.")
-ui.Toggle("Raid Tools: Ready Check")
-assert(not control("Button","Playful messages"))
-print("PASS: Raid Command assignment and template drafts, professional readiness messages with legacy settings")
-
--- Exercise the real leaderboard controls and each view's displayed totals.
-local player = env.KWC.PvP.PlayerName()
-if not player then
-    env.UnitFullName=function() return "Tester Example" end
-    player=env.KWC.PvP.PlayerName()
-end
-env.KWCDB.pvp[player]={
-    honor={available=true,lifetime=473},
-    honorByArea={world={value=37,at=1},battleground={value=129,at=1}}
-}
-local function hasLabel(value)
-    for _, frame in ipairs(frames) do
-        if visible(frame) then
-            for _, region in ipairs(frame.regions) do
-                if region.text==value and region:IsShown() then return true end
-            end
-        end
-    end
-end
-ui.Toggle("Settings")
-local beforeSettings=env.CopyTable(env.KWCDB.settings)
-local originalSend=env.C_ChatInfo.SendAddonMessage
-local searchSends=0
-env.C_ChatInfo.SendAddonMessage=function() searchSends=searchSends+1 end
-click("Search Settings")
-local search=assert(control("EditBox",""))
-local function findSetting(term,caption)
-    search:SetText(term)
-    search.scripts.OnTextChanged(search)
-    assert(control("Button",caption),caption)
-end
-findSetting("battle rez","Battle Resurrection")
-assert(not control("Button","Guild Services Sharing"))
-findSetting("minimap","Minimap Launcher")
-findSetting("sharing","Guild Services Sharing")
-findSetting("bounty","Bounty Alerts")
-click("Bounty Alerts")
-assert(control("Button","Friendly bounty test mode: OFF") and not control("Button","Apply Smart Mode settings"))
-ui.Toggle("Settings")
-click("Search Settings")
-search=assert(control("EditBox",""))
-findSetting("guild death","Guild Death Alerts")
-click("Guild Death Alerts")
-assert(control("Button","Apply Smart Mode settings") and not control("Button","Friendly bounty test mode: OFF"))
-ui.Toggle("Settings")
-click("Search Settings")
-search=assert(control("EditBox",""))
-findSetting("autoscout","Auto Scout")
-findSetting("sync","Sync Health")
-findSetting("sound","Alert Sound")
-findSetting("scale","Window Scale")
-search:SetText("impossible term")
-search.scripts.OnTextChanged(search)
-assert(hasLabel("No settings match this search."))
-findSetting("battle rez","Battle Resurrection")
-click("Battle Resurrection")
-assert(control("Button","Show Preview").enabled==false)
-assert(hasLabel("Show the Battle Resurrection button while in a raid."))
-for key,value in pairs(beforeSettings) do
-    if type(value)~="table" then assert(env.KWCDB.settings[key]==value,key) end
-end
-assert(searchSends==0)
-env.C_ChatInfo.SendAddonMessage=originalSend
-ui.Toggle("CTA Board")
-assert(control("Button","New Call to Arms") and not control("Button","+ New CTA"))
-print("PASS: settings terms, search empty state and routing, no outgoing traffic, and full Call to Arms label")
-
-ui.Toggle("PvP Leaderboard")
-assert(control("Button","All-Time HKs") and hasLabel("473") and hasLabel("Warlord"))
-click("World PvP")
-assert(hasLabel("WORLD HKs") and hasLabel("37") and not hasLabel("473"))
-click("Battlegrounds")
-assert(hasLabel("BATTLEGROUND HKs") and hasLabel("129") and not hasLabel("37"))
-click("All-Time HKs")
-assert(hasLabel("473") and hasLabel("Bounties") and hasLabel("Calls to Arms"))
-print("PASS: all three leaderboard views and lifetime tiers, bounty and CTA columns")
-
-local savedAttendance=env.KeepersRaidToolsAttendanceDB
-env.KeepersRaidToolsAttendanceDB={}
-ui.Toggle("Raid Attendance")
-assert(hasLabel("No attendance has been recorded yet."))
-assert(control("Button","Open Attendance Records").anchorY==-88)
-click("Open Attendance Records")
-assert(control("Button","Back"))
-env.KeepersRaidToolsAttendanceDB=savedAttendance
-print("PASS: empty attendance keeps record management above the empty state")
-
--- Drive the actual Recruitment buttons and the Core WHO_LIST_UPDATE handler.
-local whoTime=1000
-local queries, timers, whoRows, drafts = {}, {}, {}, {}
-env.GetTime=function() return whoTime end
-env.GetNormalizedRealmName=function() return "Home" end
-env.C_Timer.After=function(delay,fn) timers[#timers+1]={at=whoTime+delay,fn=fn} end
-env.C_FriendList={
-    SetWhoToUi=function() end,
-    SendWho=function(query) queries[#queries+1]=query end,
-    GetNumWhoResults=function() return #whoRows,#whoRows>0 and 95 or 0 end,
-    GetWhoInfo=function(index) return whoRows[index] end,
-}
-env.ChatFrame_OpenChat=function(text) drafts[#drafts+1]=text end
-local function deliverWho()
-    for _,frame in ipairs(frames) do
-        if rawget(frame,"events") and frame.events.WHO_LIST_UPDATE then
-            frame.scripts.OnEvent(frame,"WHO_LIST_UPDATE")
-            return
-        end
-    end
-    error("WHO_LIST_UPDATE listener missing")
-end
-local function advanceWho(seconds)
-    whoTime=whoTime+seconds
-    local previous=timers
-    timers={}
-    for _,timer in ipairs(previous) do
-        if timer.at<=whoTime then timer.fn() else timers[#timers+1]=timer end
-    end
-end
-for i=1,50 do
-    whoRows[i]={fullName=("Candidate%02d-Home"):format(i),fullGuildName=i<=16 and "" or "Already Guilded",
-        level=15,classStr="Warrior",area="Durotar"}
-end
-ui.Toggle("Recruitment")
-assert(not control("Button","Prepare invite"):IsEnabled())
-local search=assert(control("Button","Search /who"))
-local query=assert(control("EditBox","10-20"))
-click("Search /who")
-assert(#queries==1 and queries[1]=="10-20")
-assert(not search:IsEnabled())
-env.KWC.Recruiter.Search("10-20")
-assert(#queries==1)
-deliverWho()
-assert(#env.KWC.Recruiter.results==16)
-for i=1,16 do assert(control("Button",("Candidate%02d-Home"):format(i))) end
-assert(hasLabel("Level 15  |  Warrior  |  Durotar"))
-local last=control("Button","Candidate16-Home")
-assert(last:GetParent():GetHeight()>=16*46 and last:GetParent():GetParent().kind=="ScrollFrame")
-click("Candidate16-Home")
-assert(hasLabel("Selected: Candidate16-Home") and control("Button","Prepare invite"):IsEnabled())
-click("Prepare whisper")
-click("Prepare invite")
-assert(drafts[1]:find("/w Candidate16-Home ",1,true)==1 and drafts[2]=="/ginvite Candidate16-Home")
-assert(hasLabel("invite prepared"))
-assert(not search:IsEnabled())
-advanceWho(8)
-assert(search:IsEnabled())
-click("Search /who")
-assert(#queries==2 and control("Button","Candidate01-Home"))
-local first=whoRows[1]
-whoRows={{fullName="Unrelated",fullGuildName="",level=40,classStr="Priest"}}
-deliverWho()
-assert(env.KWC.Recruiter.pending and #env.KWC.Recruiter.results==16)
-whoRows={first,{fullName="CANDIDATE01",fullGuildName="",level=15,classStr="Warrior"}}
-deliverWho()
-assert(#env.KWC.Recruiter.results==1 and not control("Button","Candidate16-Home"))
-assert(control("EditBox","10-20")==query, "result refresh recreated the active query field")
-advanceWho(8)
-click("Search /who")
-whoRows={}
-deliverWho()
-assert(hasLabel("No eligible candidates in the latest results."))
-advanceWho(8)
-click("Search /who")
-whoRows={first}
-deliverWho()
-assert(control("Button","Candidate01-Home"))
-local savedRecruitment=env.CopyTable(env.KWCDB.recruiter)
-env.KWCDB.recruiter=savedRecruitment
-local recruiterChunk=assert(loadfile(addon.."Recruiter.lua"))
-setfenv(recruiterChunk,env)()
-env.KWC.Recruiter.Restore()
-assert(#env.KWC.Recruiter.results==1 and savedRecruitment.candidates.candidate16.status=="invite prepared")
-assert(not env.KWC.Recruiter.SearchReady(),"reload reset WHO cooldown")
-print("PASS: WHO event renders 16 selectable candidates, drafts actions, deduplicates results, throttles and restores state")
-
--- Drive the runtime Guild LFG sidebar through late club and roster readiness.
-local guildMember,clubID,rosterCount=true,nil,0
-local rosterRequests=0
-env.IsInGuild=function() return guildMember end
-env.C_Club={GetGuildClubId=function() return clubID end}
-env.C_GuildInfo={GuildRoster=function() rosterRequests=rosterRequests+1 end}
-env.GetNormalizedRealmName=function() return "Home" end
-env.UnitFullName=function() return "Tester","Home" end
-env.GetNumGuildMembers=function() return rosterCount end
-env.GetGuildRosterInfo=function(i)
-    return i==1 and "Tester" or "Guildmate","Member",i==1 and 1 or 3,40,"Warrior","","","",true
-end
-local function lfgEvent(event)
-    for _,f in ipairs(frames) do
-        if rawget(f,"events") and f.events[event] and f.scripts.OnEvent then f.scripts.OnEvent(f,event) end
-    end
-end
-ui.Toggle("Overview")
-click("Looking for Group")
-assert(hasLabel("Guild identity unavailable") and control("Button","Retry"))
-assert(not control("Button","Create Listing"))
-clubID=1
-lfgEvent("INITIAL_CLUBS_LOADED")
-advanceWho(1)
-assert(hasLabel("Waiting for guild roster") and rosterRequests>0)
-rosterCount=2
-lfgEvent("GUILD_ROSTER_UPDATE")
-advanceWho(1)
-assert(control("Button","> Browse Groups") and control("Button","Create Listing"))
-click("Settings Center")
-assert(env.KWC.GuildServices.IsSharing() and control("Button","Sharing On"))
-click("Sharing On")
-assert(not env.KWC.GuildServices.IsSharing() and control("Button","Sharing Off"))
-click("Hide Minimap Icon")
-assert(not env.KWC.MinimapLauncher.IsVisible() and control("Button","Show Minimap Icon"))
-click("Show Minimap Icon")
-assert(env.KWC.MinimapLauncher.IsVisible())
-click("Looking for Group")
--- A populated roster can coexist with an unresolved local character.
-local oldRoster=env.GetGuildRosterInfo
-local oldName,oldFull,oldGet=env.UnitName,env.UnitFullName,env.GetUnitName
-env.UnitName=function() return "Nez","Home" end
-env.UnitFullName=env.UnitName
-env.GetUnitName=env.UnitName
-rosterCount=84
-local showGuid=false
-env.GetGuildRosterInfo=function(i)
-    local name=i==1 and "Nez Dankdabs-Home" or i==2 and "Righteous Bonez-Home" or ("Green Burninator "..i.."-Home")
-    local guid=i==1 and showGuid and "Player-1-0001" or nil
-    return name,"Member",i==1 and 1 or 3,40,"Warrior","","","",true,nil,nil,nil,nil,nil,nil,nil,guid
-end
-lfgEvent("GUILD_ROSTER_UPDATE")
-assert(env.KWCDB.roster["nez dankdabs-home"] and env.KWC.GuildReadiness()=="Local character not verified")
-assert(hasLabel("Local character not verified") and not control("Button","Create Listing"))
-click("Guild Services")
-assert(hasLabel("Local character not verified") and not control("Button","Professions"))
-env.C_Club.GetMemberInfoForSelf=function(id) assert(id==1);return {isSelf=true,name="Nez Dankdabs-Home"} end
-lfgEvent("GUILD_ROSTER_UPDATE")
-assert(control("Button","Professions") and control("Button","Recipes"))
-assert(env.KWC.AddonChecker.ForRoster("Nez Dankdabs-Home").localClient)
-env.C_Club.GetMemberInfoForSelf=nil
-showGuid=true
-lfgEvent("GUILD_ROSTER_UPDATE")
-assert(not env.KWC.AddonChecker.ForRoster("Righteous Bonez-Home"))
-local function checkerPacket(body,sender)
-    for _,handler in ipairs(env.KWC.listeners.CHAT_MSG_ADDON) do handler("KWCCHK",body,"GUILD",sender) end
-end
-checkerPacket("R|1.6.0-dev.55","Righteous Bonez-Home")
-assert(env.KWC.AddonChecker.ForRoster("Righteous Bonez-Home").version=="1.6.0-dev.55")
-checkerPacket("V2|R|2.0","Righteous Bonez-Home")
-assert(env.KWC.AddonChecker.ForRoster("Righteous Bonez-Home").unsupported)
-local messages={}
-local say=env.KWC.Say
-env.KWC.Say=function(msg) messages[#messages+1]=msg end
-for i,alias in ipairs({"/kwc","/kt","/keepers"}) do
-    assert(env["SLASH_KEEPERSWARCOMMAND"..i]==alias)
-    env.SlashCmdList.KEEPERSWARCOMMAND("help")
-    assert(#messages==i,"help must print once per invocation")
-end
-env.SlashCmdList.KEEPERSWARCOMMAND("guilddebug")
-assert(messages[4]:find("84 readable",1,true) and messages[5]:find("roster GUID",1,true))
-env.KWC.Say=say
-click("Looking for Group")
-assert(control("Button","> Browse Groups") and control("Button","Create Listing"))
--- An ambiguous given name is not accepted for remote authorization.
-assert(not env.KWC.CurrentGuildMember("Nez-Home"))
-env.UnitName,env.UnitFullName,env.GetUnitName=oldName,oldFull,oldGet
-env.GetGuildRosterInfo=oldRoster
-rosterCount=2
-lfgEvent("GUILD_ROSTER_UPDATE")
-print("PASS: 84-row readiness reproduction, GUID match, shared page refresh, checker identity and one help line")
-click("Create Listing")
-local function typeIn(box,value)
-    box:SetText(value)
-    box.scripts.OnTextChanged(box)
-end
--- The name and description are initially empty. Locate the name by its width.
-local activityBox
-for _,f in ipairs(frames) do
-    if f.kind=="EditBox" and visible(f) and f:GetWidth()==340 then activityBox=f end
-end
-typeIn(assert(activityBox),"Library LFG")
-click("Create")
-assert(control("Button","> My Listings") and control("Button","[Mine] Library LFG"))
-click("Edit")
-typeIn(assert(control("EditBox","Library LFG")),"Armory LFG")
-click("Save Listing")
-assert(control("Button","[Mine] Armory LFG"))
-local listing=env.KWC.GuildLFG.Browse({mine=true})[1]
-local invited
-env.C_PartyInfo={InviteUnit=function(name) invited=name end}
-for _,handler in ipairs(env.KWC.listeners.CHAT_MSG_ADDON) do
-    handler("KWL1","1|I|"..listing.id.."|guildmate|1|"..env.time().."|1","GUILD","Guildmate-Home")
-end
-ui.Toggle("Looking for Group")
-click("Invite")
-assert(invited=="guildmate")
-click("Close")
-click("Delete")
-assert(#env.KWC.GuildLFG.Browse({mine=true})==0)
-local row="1|L|guildmate/1|1|1|open|"..env.time().."|"..env.time().."|"..(env.time()+3600)..
-    "|1|8|1|60|2|5|60|0|Guildmate Dungeon|"
-for _,handler in ipairs(env.KWC.listeners.CHAT_MSG_ADDON) do handler("KWL1",row,"GUILD","Guildmate-Home") end
-click("Browse Groups")
-click("Guildmate Dungeon")
-click("Interested")
-assert(control("Button","Withdraw Interest"))
-click("Whisper Leader")
-assert(drafts[#drafts]=="/w guildmate ")
-local whisperTarget
-env.ChatFrameUtil={SendTell=function(name) whisperTarget=name end}
-click("Whisper Leader")
-assert(whisperTarget=="guildmate")
-click("Withdraw Interest")
-assert(control("Button","Interested"))
-clubID=nil
-lfgEvent("PLAYER_GUILD_UPDATE")
-advanceWho(1)
-assert(hasLabel("Guild identity unavailable") and not control("Button","Guildmate Dungeon"))
-clubID=2
-lfgEvent("CLUB_UPDATED")
-advanceWho(1)
-assert(control("Button","> Browse Groups") and not control("Button","Guildmate Dungeon"))
-guildMember=false
-lfgEvent("PLAYER_GUILD_UPDATE")
-advanceWho(1)
-assert(hasLabel("Not currently in a guild"))
-guildMember=true;clubID=1
-click("Looking for Group")
-advanceWho(1)
-assert(control("Button","Guildmate Dungeon"))
--- Silent availability without an event is picked up by the bounded retry.
-clubID=nil
-lfgEvent("CLUB_UPDATED")
-advanceWho(1)
-assert(hasLabel("Guild identity unavailable"))
-clubID=1
-advanceWho(8)
-assert(control("Button","Guildmate Dungeon"))
-print("PASS: Guild LFG sidebar, form, selection, edit, interest, withdrawal, invite and whisper callbacks")
-
--- Exercise the real Bounty Board toolbar at supported scale and viewport sizes.
-local bounty=env.CopyTable(env.KWCDB.bounties)
-env.KWCDB.bounties={{id="toolbar-active",author="Tester",text="Toolbar Rival",status="ACTIVE",details={target="Toolbar Rival"}}}
-local targetAvailable=false
-env.UnitExists=function(unit) return unit=="player" or (unit=="target" and targetAvailable) end
-env.UnitIsPlayer=env.UnitExists
-env.UnitFullName=function(unit) return unit=="target" and "Rival" or "Tester","Home" end
-local titles={"New Bounty","Report Sighting","Capture Target","Report to Guild"}
-for _,config in ipairs({{1024,768,0.65},{1600,900,1},{2560,1440,1.35}}) do
-    env.UIParent:SetSize(config[1],config[2])
-    env.KWC.UI.SetScale(config[3])
-    env.KWC.UI.Toggle("Bounty Board")
-    local items={}
-    for _,title in ipairs(titles) do
-        local b=assert(control("Button",title),title)
-        assert(b.anchorX and b.anchorY and b:GetWidth()>0)
-        for _,region in ipairs(b.regions) do
-            if region.text==title then assert(region:GetWidth()>=region:GetStringWidth(),title.." clipped") end
-        end
-        for _,other in ipairs(items) do
-            assert(b.anchorX+b:GetWidth()<=other.anchorX or other.anchorX+other:GetWidth()<=b.anchorX
-                or b.anchorY-b:GetHeight()>=other.anchorY or other.anchorY-other:GetHeight()>=b.anchorY,
-                title.." overlaps another action")
-        end
-        items[#items+1]=b
-    end
-end
-assert(not control("Button","Report Sighting"):IsEnabled())
-assert(not control("Button","Capture Target"):IsEnabled())
-click("Report Sighting")
-assert(control("Button","New Bounty"))
-click("Toolbar Rival")
-assert(control("Button","Report Sighting"):IsEnabled())
-click("Report Sighting")
-assert(control("Button","SUBMIT SIGHTING"))
-click("Back to Bounty Board")
-env.KWCDB.bounties[1].status="COMPLETED"
-click("Report Sighting")
-assert(control("Button","New Bounty"),"stale selection opened a sighting form")
-click("COMPLETED")
-assert(not control("Button","Report Sighting"):IsEnabled())
-targetAvailable=true
-lfgEvent("PLAYER_TARGET_CHANGED")
-assert(control("Button","Capture Target"):IsEnabled())
-click("Capture Target")
-assert(control("EditBox","Rival-Home") and control("Button","POST BOUNTY"))
-env.KWC.UI.Toggle("Bounty Board")
-local reports=0
-local listActive=env.KWC.Operations.ListActive
-env.KWC.Operations.ListActive=function(kind,draft)
-    assert(kind=="BOUNTY" and draft==true)
-    reports=reports+1
-end
-click("Report to Guild")
-assert(reports==1)
-env.KWC.Operations.ListActive=listActive
-click("New Bounty")
-assert(control("Button","POST BOUNTY"))
-env.KWCDB.bounties=bounty
-print("PASS: Bounty toolbar spacing, label widths, scales, selection, target and action callbacks")
-
+print("PASS: professional readiness messages with legacy settings")
 -- Simulate a new Lua session loading the same saved notes in the actual TOC.
+krt:UnmountFromWarCommand()
 local savedNotes = env.CopyTable(env.KRTForeverNotesDB)
+local longNote = savedNotes.notes["Raid Plan"]
 env.KRTForeverNoteDisplay = nil
 env.KRTForeverNotesDB = savedNotes
-env.KWC.UI.Toggle()
 assert(loadTOC()==count)
--- On reload, saved listings remain hidden until both sources return.
-clubID=nil;rosterCount=0
+krt=env.KeepersRaidTools
 for _,f in ipairs(frames) do
     if rawget(f,"events") and f.events.ADDON_LOADED and f.scripts.OnEvent then
         f.scripts.OnEvent(f,"ADDON_LOADED","KeepersWarCommand")
     end
 end
-env.KWC.UI.Toggle("Looking for Group")
-assert(hasLabel("Guild identity unavailable") and not control("Button","Guildmate Dungeon"))
-clubID=1
-lfgEvent("INITIAL_CLUBS_LOADED")
-assert(hasLabel("Waiting for guild roster"))
-rosterCount=2
-lfgEvent("GUILD_ROSTER_UPDATE")
-assert(control("Button","> Browse Groups") and control("Button","Guildmate Dungeon"))
-assert(env.KeepersRaidTools:MountInWarCommand(widget(env.UIParent),"Notes"))
+assert(krt:MountInWarCommand(widget(env.UIParent),"Notes"))
 local restored
 for i=#frames,1,-1 do
     if frames[i].kind=="EditBox" and frames[i]:GetText()==longNote then
@@ -932,6 +448,6 @@ for i=#frames,1,-1 do
         break
     end
 end
-assert(restored and env.KRTForeverNotesDB.notes["Raid Plan"]==longNote)
+assert(restored and longNote:find("Second line",1,true))
 assert(not env.KRTForeverNoteDisplay)
 print("PASS: existing multiline raid notes survive TOC reload and remain closed on startup")

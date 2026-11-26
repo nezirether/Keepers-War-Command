@@ -59,6 +59,14 @@ for _,size in ipairs({2,5,10,25,50}) do
  a.online=true
  assert(A.SetSharing(false))
  n.run(10)
+ -- On an impaired network the one live notice can be lost; officer recovery
+ -- must then deliver the withdrawal.
+ local repaired=0
+ while next(db.characters[a.name:lower()].professions) and repaired<3 do
+  repaired=repaired+1
+  n.run(46);B.Refresh(true);b.e.KWC.Sync.Request(true);n.run(30)
+ end
+ if repaired>0 then print(("%d clients | withdrawal recovered after %d request(s)"):format(size,repaired)) end
  assert(not next(db.characters[a.name:lower()].professions))
  packet(b,"KWPRO1",prior,a)
  assert(not next(db.characters[a.name:lower()].professions))
@@ -96,7 +104,8 @@ for _,previous in ipairs({"fresh","off","on"}) do
  assert(not A.Context() and not a.e.KWCDB.settings.guildServicesSharingMigration)
  a.e.GetNumGuildMembers=getRoster
  a.event("GUILD_ROSTER_UPDATE")
- assert(A.IsSharing() and a.e.KWCDB.settings.guildServicesSharingMigration[actor]==1)
+ -- The one-time migration is remembered per character GUID.
+ assert(A.IsSharing() and a.e.KWCDB.settings.guildServicesSharingMigration[a.e.UnitGUID("player")]==1)
  local notices=0
  for _,message in ipairs(a.logs) do
   if message:find("profession and recipe sharing was enabled",1,true) then notices=notices+1 end
@@ -145,5 +154,7 @@ for _,alias in ipairs({"/kwc","/kt","/keepers"}) do
 end
 assert(toggles==3 and sync==3 and scout==3 and death==3)
 local reload=n.client(1,e.KWCDB)
-assert(reload.e.SLASH_KEEPERSWARCOMMAND1=="/kwc" and reload.e.SLASH_KEEPERSWARCOMMAND2=="/kt")
+local registered={}
+for i=1,3 do registered[reload.e["SLASH_KEEPERSWARCOMMAND"..i] or i]=true end
+assert(registered["/kwc"] and registered["/kt"] and registered["/keepers"])
 print("PASS: slash aliases, shared handler, subcommands, help and reload registration")

@@ -7,14 +7,26 @@ local roster = {
     delta={name="Delta Four"},
 }
 
+-- The engine verifies every name against the live guild roster.
+local members={"Alpha One","Bravo Two","Charlie Three","Delta Four"}
+local function member(name)
+    local base=tostring(name):lower():match("^[^-]+")
+    for _,full in ipairs(members) do
+        if full:lower()==base or full:lower():match("^%S+")==base then return full:lower() end
+    end
+end
+
 local function client(player, saved)
     local handlers, packets, timers = {}, {}, {}
     local c = {now=epoch, world="--", bg="--", lifetime=123, refreshes=0, slots={381,382,399}}
     local env = setmetatable({
-        KWCDB=saved or {pvp={},roster=roster},
+        KWCDB=saved or {pvp={},roster=roster,guildPartitionBound="4242"},
         date=os.date, time=function() return c.now end,
         UnitFullName=function() return player end,
+        UnitName=function() return player end,
         IsInGuild=function() return true end,
+        GetNumGuildMembers=function() return #members end,
+        GetGuildRosterInfo=function(i) return members[i] end,
         GetPVPLifetimeStats=function() return c.lifetime end,
         GetStatisticsCategoryList=function() return {[2]=18} end,
         GetCategoryNumAchievements=function() return #c.slots end,
@@ -35,18 +47,31 @@ local function client(player, saved)
                 packets[#packets+1]={kind=kind,message="2;"..kind..";"..payload}
                 return true
             end,
-            IsMember=function(sender) return roster[sender:lower():match("^%w+")]~=nil end,
+            IsMember=function(sender) return member(sender)~=nil end,
             UI={Refresh=function() c.refreshes=c.refreshes+1 end},
+            -- Guild identity: current statistics require a bound guild.
+            GuildScope=function() return "4242" end,
+            CurrentGuildMember=member,
+            SameGuildMember=function(a,b) local x=member(a);return x~=nil and x==member(b) end,
+            IsSenderOfficer=function(name) return name=="Bravo Two" end,
+            Sync={RecoveryOfficers=function() return {"Bravo Two"} end,RecordOutcome=function() end},
+            Net={Send=function(_,message,channel,target)
+                packets[#packets+1]={kind=message:match("^2;([A-Z0-9]+);"),message=message,channel=channel,target=target}
+                return true
+            end},
         }
     }, {__index=_G})
     c.db,c.env,c.packets=env.KWCDB,env,packets
-    setfenv(assert(loadfile("KeepersWarCommand/PvP.lua")),env)()
+    setfenv(assert(loadfile("KeepersWarCommand/Engine/PvP.lua")),env)()
     c.pvp=env.KWC.PvP
     function c.fire(event,...)
         for _, fn in ipairs(handlers[event] or {}) do fn(...) end
     end
     function c.receive(sender,message)
         c.fire("CHAT_MSG_ADDON","KWC3",message,"GUILD",sender)
+    end
+    function c.whisper(sender,message)
+        c.fire("CHAT_MSG_ADDON","KWC3",message,"WHISPER",sender)
     end
     function c.flush()
         local pending=timers
@@ -64,13 +89,21 @@ local function client(player, saved)
     function c.score(name,metric)
         for _,r in ipairs(c.pvp.Rankings(metric)) do if r.name==name then return r.value end end
     end
+    -- Rows holding a score; members without one are listed as "Awaiting Stats".
+    function c.scored(metric)
+        local out={}
+        for _,r in ipairs(c.pvp.Rankings(metric)) do
+            if r.value~=nil then out[#out+1]=r else assert(r.status=="Awaiting Stats") end
+        end
+        return out
+    end
     return c
 end
 
 local alpha=client("Alpha One")
 alpha.fire("PLAYER_ENTERING_WORLD")
 assert(alpha.score("Alpha One","lifetime")==123)
-assert(#alpha.pvp.Rankings("world")==0 and #alpha.pvp.Rankings("battleground")==0)
+assert(#alpha.scored("world")==0 and #alpha.scored("battleground")==0)
 assert(not alpha.last("HKAREA"))
 alpha.world,alpha.bg="19","0"
 alpha.fire("PLAYER_PVP_KILLS_CHANGED")
@@ -114,22 +147,40 @@ bravo.receive("Charlie Three",("2;HKAREA;9;%d;55;%d"):format(epoch,epoch))
 bravo.receive("Charlie Three",("2;HKAREA;100;%d;-1;0"):format(epoch+1))
 bravo.receive("Delta Four",("2;HKAREA;19;%d;-1;0"):format(epoch))
 bravo.receive("delta four",("2;HKAREA;18;%d;-1;0"):format(epoch))
-local ranked=bravo.pvp.Rankings("world")
+local ranked=bravo.scored("world")
 assert(#ranked==3 and ranked[1].name=="Charlie Three" and ranked[1].value==100)
 assert(ranked[2].name=="Alpha One" and ranked[3].name=="Delta Four")
 assert(bravo.score("Charlie Three","battleground")==55)
 
 -- A third client can catch up on an offline member without creating a second row.
 local delta=client("Delta Four")
+-- In a guild, catch-up is a token-bound whisper to an officer; the old open
+-- broadcast request is ignored.
+local quiet=#bravo.packets
 bravo.receive("Delta Four","2;PVPREQ;1")
 bravo.flush()
+for i=quiet+1,#bravo.packets do assert(bravo.packets[i].kind~="PVPREPLY") end
+delta.now=bravo.now
+assert(delta.pvp.RequestGuildHonor(true))
+local request=assert(delta.last("PVPREQ2"))
+bravo.whisper("Delta Four",request)
+bravo.flush()
+local replies,reply=0
 for _, p in ipairs(bravo.packets) do
-    if p.kind=="HKAREACACHE" then delta.receive("Bravo Two",p.message) end
+    if p.kind=="PVPREPLY" then
+        assert(p.channel=="WHISPER" and p.target=="Delta Four")
+        replies,reply=replies+1,p.message
+        delta.whisper("Bravo Two",p.message)
+    end
 end
+assert(replies>0)
 assert(delta.score("Charlie Three","world")==100 and delta.score("Charlie Three","battleground")==55)
-assert(delta.score("Delta Four","world")==nil and #delta.pvp.Rankings("world")==2)
+assert(delta.score("Delta Four","world")==nil and #delta.scored("world")==2)
 delta.receive("Bravo Two",("2;HKAREACACHE;Unknown Person;999;%d;-1;0"):format(epoch))
-assert(#delta.pvp.Rankings("world")==2)
+local envelope=assert(reply:match("^(2;PVPREPLY;%d+;%d+%-%d+;)"))
+delta.whisper("Bravo Two",envelope..("2;HKAREACACHE;Unknown Person;999;%d;-1;0"):format(epoch))
+assert(#delta.scored("world")==2)
+for _,r in ipairs(delta.pvp.Rankings("world")) do assert(r.name~="Unknown Person") end
 
 -- Saved snapshots and legacy lifetime/daily/weekly records survive a new Lua session.
 alpha.db.pvp["Alpha One"].weekly.legacy=12

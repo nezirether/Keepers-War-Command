@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.0.3 (2026-11-25, not yet published)
+
+- War Room Classic interface, World PvP flagship leaderboard, activity feed, Hot Zones, Guild SOS, grouped navigation and Guild Hall.
+- Deletion authorization, clock-difference and display fixes.
+- See the [release notes](CURSEFORGE_CHANGELOG.md).
+
 ## 2.0.0 (2026-11-24)
 
 - Official stable release for WoW Forever 1.60.1. The distributed ZIP contains the public runtime previously tested as alpha.16.

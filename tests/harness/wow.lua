@@ -467,7 +467,9 @@ function World:Pump()
    local member=self:Member(c.name)
    local online=member and member.online and not c.offline
    local deliver=false
+   -- The game delivers guild addon messages only within the sender's guild.
    if m.channel=='GUILD' then deliver=online and c.inGuild~=false and m.from.inGuild~=false
+    and (c.guildID or self.guildID)==(m.from.guildID or self.guildID)
    elseif m.channel=='WHISPER' then deliver=online and m.target and (m.target:lower()==c.name:lower() or m.target:lower():match('^[^-]+')==c.name:lower())
    elseif m.channel=='PARTY' or m.channel=='RAID' or m.channel=='INSTANCE_CHAT' then deliver=online and c.inGroup and m.from.inGroup end
    if deliver and c.prefixes[m.prefix] then

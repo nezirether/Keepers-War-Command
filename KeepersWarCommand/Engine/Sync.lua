@@ -108,6 +108,26 @@ local function record(kind,e)
  return table.concat(data,'|')
 end
 local replayPendingEvents, replayBoardData
+-- Sync requests carry the sender's own clock. Queueing only makes the difference
+-- from ours look larger, so the smallest value seen in the last hour is the best
+-- estimate. Differences under two minutes are indistinguishable from delay.
+local clocks={}
+local function noteClock(sender,stamp)
+ local who=K.CurrentGuildMember and K.CurrentGuildMember(sender)
+ stamp=tonumber(stamp)
+ if not who or not stamp then return end
+ local offset,now=time()-stamp,time()
+ if math.abs(offset)>3600 then return end
+ local seen=clocks[who]
+ if not seen or now-seen.at>3600 or offset<seen.offset then clocks[who]={offset=offset,at=now} end
+end
+-- Seconds our clock is ahead of that member's, or 0 when unknown or negligible.
+function S.ClockOffset(name)
+ local who=K.CurrentGuildMember and K.CurrentGuildMember(name)
+ local seen=who and clocks[who]
+ if not seen or math.abs(seen.offset)<=120 then return 0 end
+ return seen.offset
+end
 local function apply(sender,msg,recovered)
  local category=msg:sub(1,1)=='C' and boardStats.CTA or msg:sub(1,1)=='B' and boardStats.Bounty
  if category then category.received=category.received+1 end
@@ -165,6 +185,7 @@ local function apply(sender,msg,recovered)
   replayPendingEvents(e)
  end
  if replayBoardData then replayBoardData(kind,id) end
+ if kind=='C' and K.Operations and K.Operations.ExpireSOS then K.Operations.ExpireSOS() end
  if K.UI and K.UI.Refresh then K.UI.Refresh() end
 end
 -- Independent command metadata protocol; keeps legacy CTA snapshots compatible.
@@ -296,7 +317,7 @@ local function recoveryEntries(sender)
  local entries={}
  for _,kind in ipairs({'C','B'}) do
   for _,e in ipairs(list(kind) or {}) do
-   if e.id and e.text and not deleted(kind,e.id) and authorized(e,sender) then
+   if e.id and e.text and not deleted(kind,e.id) and authorized(e,sender) and not (e.sosExpired and not e.sosExpirySent) then
     entries[#entries+1]={kind=kind,entry=e}
    end
   end
@@ -806,6 +827,7 @@ K.On('CHAT_MSG_ADDON',function(prefix,msg,channel,sender)
   S.RecordOutcome(PREFIX,'Request (no record change)')
   local me=UnitName and UnitName('player')
   if me and fullSender(sender)==fullSender(me) then return end
+  noteClock(sender,msg:match('^Q|(%d+)$'))
   local now=time();local who=fullSender(sender)
   if now-(lastReply[who] or 0)<45 then return end
   lastReply[who]=now

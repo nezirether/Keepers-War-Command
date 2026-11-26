@@ -119,7 +119,7 @@ local function build(ch)
     line:SetHeight(height);used=used+height
    end
   end
-  local actionTop=used+5
+  local actionTop=used+8
   if actions>0 then used=actionTop+math.ceil(actions/2)*27-3 end
   local h,top
   if plate then

@@ -25,7 +25,12 @@ packet(a,"KWC3","2;HONOR;1",d)
 packet(a,"KWC3","2;HKAREA;17;"..E.time()..";-1;0",c)
 assert(E.KWCDB.pvp[c.name].honor.lifetime==72 and E.KWCDB.pvp[d.name].honor.lifetime==90)
 assert(E.KWCDB.pvp[c.name].honorByArea.world.value==17 and not E.KWCDB.pvp[c.name].honorByArea.battleground)
-assert(#E.KWC.PvP.Rankings("lifetime")==3)
+-- Three characters hold a total; any other roster member is listed without one.
+local held=0
+for _,row in ipairs(E.KWC.PvP.Rankings("lifetime")) do
+ if row.value~=nil then held=held+1 else assert(row.status=="Awaiting Stats") end
+end
+assert(held==3,held)
 assert(outcomes["KWC3 PvP"]["Duplicate honor record"]==1 and outcomes["KWC3 PvP"]["Stale honor total"]==1)
 local saved=E.KWCDB
 a.guildID=false;a.event("PLAYER_GUILD_UPDATE")

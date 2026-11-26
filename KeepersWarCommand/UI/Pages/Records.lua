@@ -5,7 +5,7 @@ local K=KWC
 local Kit,S,P,W=K.Kit,K.WarRoomSkin,K.WarRoomPages,K.WarRoom2
 local OWNER=S.OWNER
 
-local page={id='records',title='Deaths & Guild Records',subtitle='Historical game statistics with separate recorded event details.',group='records'}
+local page={id='records',title='Deaths & Guild Records',subtitle='Historical game statistics with separate recorded event details.',group='ops'}
 local state={tab='lifetime',category=1,member=nil,query=''}
 local list,side,head,note,catSeg
 local TABS={

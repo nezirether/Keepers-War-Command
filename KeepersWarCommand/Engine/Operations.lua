@@ -144,6 +144,7 @@ function O.UpdateCTA(id,zone,horde,alliance,objective,priority,notes)
  if K.GuildScope and not K.GuildScope() then return end
  local e=get('CTA',id)
  if not ownerOrOfficer(e) then K.Say('Only the poster or an officer may edit.');return end
+ if O.IsSOS(e) then return O.UpdateSOS(e,zone,horde,alliance,objective,notes) end
  local h,a=tonumber(horde),tonumber(alliance)
  if not h or not a or h<0 or a<0 or h>999 or a>999 or h~=math.floor(h) or a~=math.floor(a) then K.Say('Enter Horde and Alliance counts from 0 to 999.');return end
  zone=K.Clean(zone,34);objective=K.Clean(objective,54);notes=K.Clean(notes,28)
@@ -401,6 +402,226 @@ function O.CreateCTA(text,details)
  if K.Sync then K.Sync.Broadcast('CTA',KWCDB.ops[1]) end
  K.Send('CTA',id..':'..text);if KWCDB.settings.autoGuildReports then K.Say('CTA ready: use CTA Board > Guild report to prepare a chat draft.') end;K.Log('CTA',text);K.Say('CTA published locally and broadcast attempted.');K.UI.Refresh()
 end
+-- Guild SOS: an ordinary URGENT call to arms, so responses, command, sync,
+-- deletion and alerts all behave as for any other call. The text marker survives
+-- clients and recovery paths that carry no details.
+local SOS_MARK='SOS: backup needed'
+local SOS_COOLDOWN=60
+local lastSOS=0
+-- e.sos remembers the identity if an older client rewrites the text.
+function O.IsSOS(e) return e~=nil and (e.sos==true or tostring(e.text or ''):find(SOS_MARK,1,true)~=nil) end
+-- A request lives 10 minutes from its creation. The call ID carries the creator's
+-- creation time, which edits and sync never change.
+local SOS_LIFETIME=600
+local function started(e) return tonumber(tostring(e.id):match('^(%d+)%-%d+$')) or tonumber(e.created) end
+-- When it ends on this computer's clock. The creator's clock stamped the start, so
+-- a known difference between the two clocks is added back.
+local function deadline(e,at)
+ return at+SOS_LIFETIME+(K.Sync and K.Sync.ClockOffset and K.Sync.ClockOffset(e.author) or 0)
+end
+function O.SOSRemaining(e)
+ local at=O.IsSOS(e) and started(e)
+ if not at then return nil end
+ return math.max(0,math.min(SOS_LIFETIME,deadline(e,at)-time()))
+end
+function O.SOSExpired(e)
+ if not O.IsSOS(e) or (e.status or 'ACTIVE')=='ACTIVE' then return false end
+ local at=started(e)
+ return e.sosExpired==true or (at~=nil and e.modifiedAt==at+SOS_LIFETIME)
+end
+function O.SOSTimeText(e)
+ local left=O.SOSRemaining(e)
+ if not left then return nil end
+ if left<=0 then return 'expired' end
+ return left<60 and (left..'s left') or (math.ceil(left/60)..'m left')
+end
+local function mySOS(e,me) return O.IsSOS(e) and K.SameGuildMember(e.author,me) end
+-- This character's active request, if any.
+function O.ActiveSOS()
+ O.ExpireSOS()
+ local me=K.LocalGuildMember and K.LocalGuildMember()
+ if not me then return nil end
+ for _,e in ipairs(KWCDB and KWCDB.ops or {}) do
+  if (e.status or 'ACTIVE')=='ACTIVE' and mySOS(e,me) then return e end
+ end
+end
+local function readableText(value,limit)
+ if (issecretvalue and issecretvalue(value)) or type(value)~='string' then return nil end
+ value=K.Clean(value,limit):gsub('%c',' '):match('^%s*(.-)%s*$')
+ return value~='' and value or nil
+end
+-- This session's local send state per SOS. Never saved, never a delivery receipt.
+local outbound={}
+local function refreshPages() if K.WarRoom2 and K.WarRoom2.Refresh then K.WarRoom2.Refresh() end end
+-- Moves what was queued since mark ahead of the backlog and follows it out.
+local function dispatch(id,mark,announce)
+ local state={total=0,pending=0,failed=0}
+ outbound[id]=state
+ local function done(ok)
+  state.pending=state.pending-1
+  if not ok then state.failed=state.failed+1 end
+  if state.pending==0 then
+   if announce and K.InstanceAlerts and K.InstanceAlerts.Allowed() then
+    K.Say(state.failed==0 and 'Backup request sent by your client. Delivery is not confirmed.'
+     or 'Part of your backup request could not be sent. Guildmates may not have it.')
+   end
+   refreshPages()
+  end
+ end
+ state.total=K.Net.Expedite(mark,done)
+ state.pending=state.total
+end
+-- Sends whatever fn queues ahead of the backlog when it concerns an SOS.
+local function sendFirst(entry,fn)
+ if not O.IsSOS(entry) then return fn() end
+ local mark=K.Net.Mark()
+ fn()
+ dispatch(entry.id,mark)
+end
+O.SendFirst=sendFirst
+-- Plain wording for what this client actually knows. Responses from others are the
+-- only evidence anyone received it.
+function O.SOSStatusText(e)
+ if not O.IsSOS(e) then return nil end
+ local lines={}
+ local state=outbound[e.id]
+ if state then
+  if state.total==0 then lines[#lines+1]='Saved on this client only; nothing was queued to send.'
+  elseif state.pending>0 then lines[#lines+1]='Queued to send ('..state.pending..' of '..state.total..' messages waiting).'
+  elseif state.failed>0 then lines[#lines+1]='Some messages could not be sent.'
+  else lines[#lines+1]='Sent by your client. Delivery is not confirmed.' end
+ end
+ local replies=0
+ for who in pairs((KWCDB.responses or {})[e.id] or {}) do
+  if not K.SameGuildMember(who,e.author) then replies=replies+1 end
+ end
+ if replies>0 then lines[#lines+1]=replies..' guildmate response'..(replies>1 and 's' or '')..' received.' end
+ return #lines>0 and table.concat(lines,' ') or nil
+end
+-- Every client closes an old request itself, so it cannot return after a reload or
+-- late sync. Only the requester also publishes the change, which is how older
+-- versions learn of it.
+-- Older versions cannot expire a request, and only learn of it from an update. If
+-- the requester is offline, an officer publishes the same update through normal
+-- call sync, after a grace period that absorbs clock error. Officers wait
+-- different lengths so that usually only one of them sends it.
+local OFFICER_GRACE=120
+local function standInDue(e,at)
+ if not (e.sosExpired and not e.sosExpirySent and e.sosBaseRevision) then return false end
+ -- A higher revision means someone has already published a change.
+ if (e.revision or 0)~=e.sosBaseRevision or not (K.IsOfficer and K.IsOfficer()) then return false end
+ local guid=UnitGUID and UnitGUID('player') or ''
+ local jitter=0
+ for i=1,#guid do jitter=(jitter*31+guid:byte(i))%90 end
+ local overdue=time()-deadline(e,at)
+ if overdue<OFFICER_GRACE+jitter or overdue>86400 then return false end
+ local member,_,online=K.CurrentGuildMember(e.author)
+ return member~=nil and online==false
+end
+local expiring=false
+function O.ExpireSOS()
+ if expiring or not KWCDB or not KWCDB.ops or (K.GuildScope and not K.GuildScope()) then return end
+ expiring=true
+ local me=K.LocalGuildMember and K.LocalGuildMember()
+ local changed=false
+ for _,e in ipairs(KWCDB.ops) do
+  if O.IsSOS(e) then
+   e.sos=true
+   local at=started(e)
+   if (e.status or 'ACTIVE')=='ACTIVE' and at and time()>=deadline(e,at) then
+    e.status='RESOLVED';e.sosExpired=true;e.sosExpirySent=nil;e.sosBaseRevision=e.revision or 0;changed=true
+   end
+   local mine=me and K.SameGuildMember(e.author,me)
+   if e.sosExpired and not e.sosExpirySent and me and (mine or standInDue(e,at)) then
+    e.sosExpirySent=true;changed=true
+    e.status='RESOLVED';e.revision=(e.revision or 0)+1;e.modifiedAt=at+SOS_LIFETIME
+    e.updated=K.Now();e.updatedBy=UnitName('player')
+    sendFirst(e,function()
+     K.Send('STATUS','CTA,'..e.id..',RESOLVED')
+     if K.Sync then K.Sync.Broadcast('CTA',e) end
+    end)
+    if mine and K.InstanceAlerts and K.InstanceAlerts.Allowed() then K.Say('Your backup request expired after 10 minutes.') end
+   end
+  end
+ end
+ expiring=false
+ if changed then
+  if K.UI and K.UI.Refresh then K.UI.Refresh() end
+  refreshPages()
+ end
+end
+function O.UpdateSOS(e,zone,horde,alliance,objective,notes)
+ local function blank(v) return v==nil or v=='' end
+ local h,a=tonumber(horde),tonumber(alliance)
+ if not (blank(horde) and blank(alliance)) then
+  if not h or not a or h<0 or a<0 or h>999 or a>999 or h~=math.floor(h) or a~=math.floor(a) then
+   K.Say('Leave both enemy counts blank, or enter both from 0 to 999.');return end
+ end
+ zone=K.Clean(zone,34);notes=K.Clean(notes,28)
+ if zone=='' then K.Say('Zone is required.');return end
+ local extra=tostring(objective or '')
+ local from,to=extra:find(SOS_MARK,1,true)
+ if from then extra=extra:sub(1,from-1)..extra:sub(to+1) end
+ extra=extra:match('^[%s:%-]*(.-)%s*$')
+ local goal=K.Clean(SOS_MARK..(extra~='' and (': '..extra) or ''),55)
+ local coords=e.details and e.details.coords or tostring(e.text):match('(%d+%.%d, %d+%.%d)') or ''
+ e.sos=true
+ e.details={zone=zone,objective=goal,priority='URGENT',urgent=true,notes=notes,coords=coords,horde=h,alliance=a}
+ e.text=K.Clean('[URGENT] '..zone..' - '..goal..(coords~='' and (' - '..coords) or '')..(h and (' - H:A '..h..':'..a) or '')..(notes~='' and (' - '..notes) or ''),165)
+ e.revision=(e.revision or 0)+1;e.updated=K.Now();e.updatedBy=UnitName('player')
+ e.modifiedAt=time()
+ sendFirst(e,function() syncUpdate('CTA',e) end)
+ K.Log('CTA','Updated '..e.id);K.UI.Refresh()
+end
+local ticker,sinceTick,sinceShown=CreateFrame('Frame'),0,0
+ticker:SetScript('OnUpdate',function(_,elapsed)
+ sinceTick=sinceTick+(elapsed or 0);sinceShown=sinceShown+(elapsed or 0)
+ if sinceTick<1 then return end
+ sinceTick=0
+ O.ExpireSOS()
+ -- Keeps the remaining time on screen current while a request is running.
+ if sinceShown>=15 then
+  sinceShown=0
+  for _,e in ipairs(KWCDB and KWCDB.ops or {}) do
+   if (e.status or 'ACTIVE')=='ACTIVE' and O.IsSOS(e) then refreshPages();break end
+  end
+ end
+end)
+-- Returns true and the new entry, or false and the reason (already announced).
+function O.RequestBackup()
+ local function refuse(reason) K.Say(reason);return false,reason end
+ if not IsInGuild() or (K.GuildScope and not K.GuildScope()) then return refuse('Guild is not ready. Backup was not requested.') end
+ local me=K.LocalGuildMember()
+ if not me then return refuse('Guild roster verification is required to request backup.') end
+ if not K.InstanceAlerts or K.InstanceAlerts.State()~='open' then return refuse('Backup requests are for the open world only.') end
+ if O.ActiveSOS() then return refuse('You already have an active backup request. Resolve it first.') end
+ local now=time()
+ local latest=lastSOS
+ for _,e in ipairs(KWCDB.ops or {}) do
+  if mySOS(e,me) then latest=math.max(latest,tonumber(tostring(e.id):match('^(%d+)%-')) or 0) end
+ end
+ if now-latest<SOS_COOLDOWN then return refuse('Please wait '..(SOS_COOLDOWN-(now-latest))..' seconds before requesting backup again.') end
+ -- Only what the client reports. No enemy counts are ever filled in.
+ local ok,value=pcall(function() return GetRealZoneText and GetRealZoneText() end)
+ local zone=ok and readableText(value,38) or nil
+ if zone then zone=zone:gsub(';',' ') end
+ local coords
+ if zone and K.Geo then
+  local map,x,y=K.Geo.PlayerPosition()
+  if map then coords=K.Geo.Format(x,y) end
+ end
+ zone=zone or 'Unknown zone'
+ local before=KWCDB.ops[1]
+ local mark=K.Net.Mark()
+ O.CreateCTA('[URGENT] '..zone..' - '..SOS_MARK..(coords and (' - '..coords) or ''),
+  {zone=zone,objective=SOS_MARK,priority='URGENT',urgent=true,notes='',coords=coords or ''})
+ local entry=KWCDB.ops[1]
+ if not entry or entry==before or not O.IsSOS(entry) then return refuse('Backup request could not be created.') end
+ entry.sos=true
+ dispatch(entry.id,mark,true)
+ lastSOS=now
+ return true,entry
+end
 function O.AddBounty(text,details)
  if K.GuildScope and not K.GuildScope() then K.Say('Guild is not ready.');return false end
  if not IsInGuild() then K.Say('You must be in a guild.');return false end
@@ -474,9 +695,15 @@ function O.Edit(kind,id,newText)
  if not (isOwner(e,who) or K.IsOfficer()) then K.Say('Only the poster or an officer can edit this entry.');return end
  newText=K.Clean(newText,155)
  if newText=='' then K.Say('Entry cannot be empty.');return end
+ local sos=kind=='CTA' and O.IsSOS(e)
+ if sos and not newText:find(SOS_MARK,1,true) then
+  e.sos=true
+  local zone=e.details and e.details.zone or tostring(e.text):match('^%[%a+%]%s*(.-)%s+%-%s') or 'Unknown zone'
+  newText=K.Clean('[URGENT] '..zone..' - '..SOS_MARK..' - '..newText,155)
+ end
  e.text=newText;e.updated=K.Now();e.updatedBy=who
  e.revision=(e.revision or 0)+1;e.modifiedAt=time()
- if K.Sync then K.Sync.Broadcast(kind,e) end
+ O.SendFirst(sos and e or nil,function() if K.Sync then K.Sync.Broadcast(kind,e) end end)
  K.Log(kind,'Edited entry '..id)
  K.UI.Refresh()
 end
@@ -488,9 +715,12 @@ function O.ChangeStatus(kind,id,status)
  if not e then K.Say('Entry not found.');return end
  local who=K.CharacterDisplayName(UnitName('player'),true)
  if not (isOwner(e,who) or K.IsOfficer()) then K.Say('Only the poster or an officer can change this status.');return end
+ if kind=='CTA' and status=='ACTIVE' and O.SOSRemaining(e)==0 then K.Say('That backup request has expired. Send a new one.');return end
  e.status=status;e.updated=K.Now();e.updatedBy=who;e.revision=(e.revision or 0)+1;e.modifiedAt=time()
- K.Send('STATUS',kind..','..id..','..status)
- if K.Sync then K.Sync.Broadcast(kind,e) end
+ O.SendFirst(kind=='CTA' and e or nil,function()
+  K.Send('STATUS',kind..','..id..','..status)
+  if K.Sync then K.Sync.Broadcast(kind,e) end
+ end)
  K.Log(kind,who..' changed '..id..' to '..status)
  K.UI.Refresh()
 end
@@ -601,14 +831,18 @@ end
 function O.Respond(id,status)
  if K.GuildScope and not K.GuildScope() then return end
  if not id or (status~='Coming' and status~='Maybe' and status~='Busy') then return end
+ O.ExpireSOS()
  local entry=findEntry('CTA',id)
  if not entry or (entry.status or 'ACTIVE')~='ACTIVE' then return end
  local who=K.LocalGuildMember()
  if not who then return end
  local revision=math.max(time(),((entry.responseRevisions or {})[who] or 0)+1)
  if not O.ApplyResponse(entry,who,status,revision) then return end
- if K.Sync then K.Sync.BroadcastResponse(entry,who,status,revision) end
- K.Send('RESPONSE',id..':'..status);K.Say('CTA response saved: '..status..'. Guild broadcast attempted.');K.UI.Refresh()
+ O.SendFirst(entry,function()
+  if K.Sync then K.Sync.BroadcastResponse(entry,who,status,revision) end
+  K.Send('RESPONSE',id..':'..status)
+ end)
+ K.Say('CTA response saved: '..status..'. Guild broadcast attempted.');K.UI.Refresh()
 end
 K.On('CHAT_MSG_ADDON',function(prefix,msg,channel,sender)
  if prefix~='KWC3' or channel~='GUILD' or type(msg)~='string' or type(sender)~='string' then return end
@@ -666,7 +900,9 @@ K.On('CHAT_MSG_ADDON',function(prefix,msg,channel,sender)
   if not O.ApplyResponse(entry,sender,body) then return end
  elseif (kind=='CTA' or kind=='BOUNTY') then
   local created=add(kind=='CTA' and KWCDB.ops or KWCDB.bounties,sender,body,id);if not created then return end;K.Log(kind,'From '..sender..': '..body)
-  if kind=='CTA' and KWCDB.settings.alerts~=false and alertsAllowed() then K.Say('CALL TO ARMS: '..body) end
+  local lapsed=kind=='CTA' and O.SOSRemaining(created)==0
+  if lapsed then O.ExpireSOS() end
+  if kind=='CTA' and not lapsed and KWCDB.settings.alerts~=false and alertsAllowed() then K.Say('CALL TO ARMS: '..body) end
  end
  K.UI.Refresh()
 end)

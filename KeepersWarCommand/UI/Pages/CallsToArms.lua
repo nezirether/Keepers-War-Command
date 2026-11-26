@@ -66,7 +66,8 @@ local function fillRow(row,e)
  local f=faction(e)
  row.sub:SetText((f and (f..'   ') or '')..S.Code('muted')..'Cmdr '..P.Short(O().Commander(e))..'  -  '..c..' coming|r')
  row.meta:SetText(Kit.Age(e.created))
- row.meta2:SetText(active and pr or (e.status or ''))
+ local sosTime=O().SOSTimeText(e)
+ row.meta2:SetText(active and (sosTime or pr) or O().SOSExpired(e) and 'EXPIRED' or (e.status or ''))
  row:Select(state.selected==e.id)
 end
 
@@ -152,12 +153,16 @@ local function renderView(e)
  if not e then st:Place(view.empty,60);return end
  local active=(e.status or 'ACTIVE')=='ACTIVE'
  local pr=priorityOf(e)
- view.head:Set(pr..'  -  '..(e.status or 'ACTIVE'),headline(e))
+ view.head:Set(pr..'  -  '..(O().SOSExpired(e) and 'EXPIRED' or e.status or 'ACTIVE'),headline(e))
  st:Place(view.head,nil,14)
  local d=e.details or {}
  local lines={}
  local outcome=K.Celebrations.Outcome(e.id)
  if outcome then lines[#lines+1]='Confirmed outcome: '..outcome.outcome..' • '..outcome.actor end
+ if O().IsSOS(e) then
+  if active then lines[#lines+1]='Backup request: '..O().SOSTimeText(e) end
+  local status=O().SOSStatusText(e);if status then lines[#lines+1]=status end
+ end
  local f=faction(e);if f then lines[#lines+1]=f end
  if d.coords and d.coords~='' then lines[#lines+1]='Coordinates: '..d.coords end
  if d.notes and d.notes~='' then lines[#lines+1]='Notes: '..d.notes end
@@ -249,12 +254,17 @@ local function buildForm(pane)
   local zone,obj=form.zone:Get(),form.objective:Get()
   local h,a=tonumber(form.horde:Get()=='' and '0' or form.horde:Get()),tonumber(form.alliance:Get()=='' and '0' or form.alliance:Get())
   local bad=false
+  -- A backup request needs no enemy counts: blank stays blank.
+  local sos=state.mode=='edit' and O().IsSOS(find(state.selected))
+  local sh,sa=form.horde:Get(),form.alliance:Get()
+  if sos and (sh=='')~=(sa=='') then (sh=='' and form.horde or form.alliance):Error('Both or neither');bad=true end
   if zone=='' then form.zone:Error('Zone is required.');bad=true end
-  if obj=='' then form.objective:Error('Objective is required.');bad=true end
+  if obj=='' and not sos then form.objective:Error('Objective is required.');bad=true end
   if not h or h<0 or h>999 or h~=math.floor(h) then form.horde:Error('0-999');bad=true end
   if not a or a<0 or a>999 or a~=math.floor(a) then form.alliance:Error('0-999');bad=true end
   if bad then return end
   if state.mode=='edit' then
+   if sos then h,a=sh~='' and h or nil,sa~='' and a or nil end
    Kit.Safe(O().UpdateCTA,state.selected,zone,h,a,obj,form.priority,form.notes:Get())
   else
    local before=KWCDB.ops[1]
@@ -271,7 +281,7 @@ local function renderForm(e)
  st:Place(form.head,nil,14)
  if not form.filled then
   local d=editing and e.details or {}
-  form.zone:Set(d.zone or (editing and '' or P.HereZone()))
+  form.zone:Set(d.zone or (editing and (O().IsSOS(e) and tostring(e.text):match('^%[%a+%]%s*(.-)%s+%-%s') or '') or P.HereZone()))
   form.coords:Set(d.coords or (editing and '' or P.HereCoords()))
   form.objective:Set(d.objective or '')
   form.horde:Set(d.horde or '');form.alliance:Set(d.alliance or '')
@@ -286,6 +296,8 @@ local function renderForm(e)
  st:Place(form.objective,52,8);st:Place(form.counts,52,10)
  st:Place(form.prLabel,14,6);st:Place(form.pr,28,14)
  st:Place(form.notes,52,16)
+ form.note:SetText(editing and O().IsSOS(e) and 'Backup request: it stays urgent and keeps its original 10-minute limit. Enemy counts are optional.'
+  or 'Publishing sends the call over the guild addon channel only. Nothing is posted in public chat.')
  form.submit:SetLabel(editing and 'Save changes' or 'Publish to guild')
  st:Actions({form.submit,form.cancel},14);st:Place(form.note,nil,10)
 end
