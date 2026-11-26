@@ -6,7 +6,7 @@ fail=0
 public_only=0
 [ "${1:-}" = "--public-only" ] && public_only=1
 addons="KeepersWarCommand"
-suites="tests/kwc_load.lua tests/identity_rename.lua tests/board_sync.lua tests/alerts.lua tests/killing_blows.lua tests/ui_layout.lua tests/public_features.lua tests/warspoils.lua tests/phoenix_integration.lua tests/historical_deaths.lua tests/appearance_gallery.lua tests/name_echo.lua tests/celebrations.lua tests/alert_art.lua tests/alert_layout.lua"
+suites="tests/kwc_load.lua tests/integration_contract.lua tests/identity_rename.lua tests/board_sync.lua tests/alerts.lua tests/killing_blows.lua tests/ui_layout.lua tests/public_features.lua tests/warspoils.lua tests/phoenix_integration.lua tests/historical_deaths.lua tests/appearance_gallery.lua tests/name_echo.lua tests/celebrations.lua tests/alert_art.lua tests/alert_layout.lua"
 if [ $public_only -eq 0 ]; then
  addons="$addons KeepersWarCommand_Command"
  suites="$suites tests/kwcc_security.lua"

@@ -12,8 +12,8 @@ H.Check('KWC loads every TOC file without a Lua error',ok,err)
 if not ok then H.Summary('kwc_load');os.exit(1) end
 w:Login(c);w:Advance(5)
 local K=c.env.KWC
--- The running version must match the manifest, and the officer companion's
--- exact-match gate requires version and build to agree.
+-- The running version must match the manifest. Companion compatibility is a separate
+-- contract number, covered by integration_contract.lua.
 local manifest=H.ReadToc and select(2,H.ReadToc('KeepersWarCommand/KeepersWarCommand.toc'))
 H.Check('version matches the manifest and the build',K.version==manifest.Version and K.build==K.version,tostring(K.version)..' / '..tostring(manifest.Version))
 H.Check('no event errors during login',#c.errors==0,table.concat(c.errors,' | '):sub(1,800))
