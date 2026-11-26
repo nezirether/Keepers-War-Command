@@ -20,6 +20,8 @@ function page.Build(self,host)
  a.plus=S.Button(a.body,'+','secondary',function() K.UI.SetScale(K.UI.GetScale()+0.05);self:Update() end,34,26);a.plus:SetPoint('LEFT',a.minus,'RIGHT',6,0)
  a.minimap=S.Switch(a.body,'Minimap button',function() return K.Minimap.IsVisible() end,function(x) K.Minimap.SetVisible(x) end,260)
  a.minimap:SetPoint('TOPLEFT',0,-116)
+ a.winter=S.Switch(a.body,'Winter Veil decorations',function() return K.WinterVeil.Enabled() end,function(x) K.WinterVeil.SetEnabled(x) end,260,'Festive War Room art, shown from November 26 to January 2.')
+ a.winter:SetPoint('TOPLEFT',0,-146)
  -- Sync
  local s=S.Card(c,'Guild sync')
  s.auto=S.Switch(s.body,'Automatic guild sync',function() return K.Sync.AutoSyncEnabled() end,function(x) K.Sync.SetAutoSync(x) end,300,'Catches up boards, deletions, honor and raid sign-ups on login, periodically and when you open the War Room.')
@@ -56,7 +58,7 @@ function page.Build(self,host)
   st:Place(self.scaleLabel,nil,6)
   self.scale.keepWidth=true;self.scale:SetWidth(52);self.scale:SetHeight(26)
   st:Actions({self.scale,self.minus,self.plus})
-  st:Place(self.minimap,nil,8)
+  st:Place(self.minimap,nil,4);st:Place(self.winter,nil,8)
  end
  function s:LayoutBody(st)
   st:Place(self.auto,nil,4);st:Place(self.scout,nil,8)
@@ -83,7 +85,7 @@ end
 function page.OnShow(self,arg) end
 function page.Update(self)
  if not self.content then return end
- self.a.minimap:Update()
+ self.a.minimap:Update();self.a.winter:Update()
  self.a.scale:SetText(math.floor(K.UI.GetScale()*100+0.5)..'%')
  self.s.auto:Update();self.s.scout:Update();self.sh.records:Update();self.sh.services:Update()
  local h=K.Sync.Health()

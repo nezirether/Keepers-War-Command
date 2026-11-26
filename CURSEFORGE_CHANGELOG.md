@@ -1,17 +1,21 @@
-# Keepers War Command 2.0.4
+# Keepers War Command 2.0.5: Winter Veil
 
-For WoW Forever 1.60.1 (Interface 16001). Changes since 2.0.3.
+For WoW Forever 1.60.1 (Interface 16001). Changes since 2.0.4.
 
-## Fixed
+## Happy Winter Veil, Keepers!
 
-- The guild's officer add-on now works with this version again. Keepers War Command tells it which features it can rely on, instead of requiring one exact version number, so routine updates no longer switch it off.
+Burninating through the snow. The War Room is dressed for the holidays:
+
+- A festive Trogdor banner in the header (shown when the window is wide enough).
+- Frosted lantern corners on the War Room window.
+- A Winter Veil emblem, greeting and garland on the Dashboard.
+
+The decorations run from November 26, 2026 through January 2, 2027, then War Room Classic returns on its own.
+
+Prefer it plain? Turn them off under Settings, Window and minimap, "Winter Veil decorations".
 
 ## Updating
 
-Exit the game, back up the `KeepersWarCommand` folder and your SavedVariables, then replace the folder. Keep your SavedVariables.
+Exit the game, back up the `KeepersWarCommand` folder and your SavedVariables, then replace the folder. Keep your SavedVariables. Restart the game rather than using `/reload`, because there are new texture files.
 
-Officers need the current officer add-on from guild leadership. No settings or guild data change.
-
-## Good to know
-
-- Guildmates on 2.0.2 or 2.0.3 can keep playing together with 2.0.4. They are told a newer release is available once they see it.
+No guild data or other features change. Guildmates on earlier 2.0 versions can keep playing together with 2.0.5.

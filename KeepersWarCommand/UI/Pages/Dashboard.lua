@@ -407,6 +407,8 @@ function page.Layout(self)
  if self.layoutBusy then self.layoutPending=true;return end
  self.layoutBusy=true;self.layoutPending=nil
  local gap=10
+ local top=K.WinterVeil and K.WinterVeil.Dashboard(c,w) or 0
+ self.seasonHeight=top
  local cols=w>=540 and 5 or 3
  local tileHeight=62
  for i,tile in ipairs(tiles) do
@@ -414,11 +416,11 @@ function page.Layout(self)
   local row=math.floor(slot/cols)
   local count=math.min(cols,#tiles-row*cols)
   local width=math.floor((w-gap*(count-1))/count)
-  tile:ClearAllPoints();tile:SetPoint('TOPLEFT',(slot%cols)*(width+gap),-row*(tileHeight+gap))
+  tile:ClearAllPoints();tile:SetPoint('TOPLEFT',(slot%cols)*(width+gap),-top-row*(tileHeight+gap))
   tile:SetSize(width,tileHeight)
  end
  local half=math.floor((w-gap)/2)
- local y=math.ceil(#tiles/cols)*(tileHeight+gap)
+ local y=top+math.ceil(#tiles/cols)*(tileHeight+gap)
  local function put(card,x,yy,cw,h,hasEmptyState)
   card:ClearAllPoints();card:SetPoint('TOPLEFT',x,-yy);card:SetSize(cw,h)
   if hasEmptyState then
@@ -508,6 +510,10 @@ function page.Update(self)
  end
  cards.raid:Fill(items)
  cards.spoils:Fill(spoilsItems())
+ -- The season can begin or end while the Dashboard stays open.
+ if K.WinterVeil and K.WinterVeil.Active()~=((self.seasonHeight or 0)>0) then
+  self.countsChanged=true;if K.WarRoom2.UpdateHeaderArtwork then K.WarRoom2.UpdateHeaderArtwork() end
+ end
  if self.countsChanged then self.countsChanged=nil;self:Layout() end
 end
 W.Register(page)
