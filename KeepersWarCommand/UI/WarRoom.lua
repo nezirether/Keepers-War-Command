@@ -219,6 +219,18 @@ local function buildStrip()
     text:SetWidth(use and 355 or math.max(40,strip:GetWidth()-W.headerTextInset-58))
    end
   end
+  -- Seasonal banner (Winter Veil); the title text stops before it.
+  if K.WinterVeil then
+   local width=strip:GetWidth()
+   if width<=0 then width=frame:GetWidth()-RAIL_W end
+   local edge=K.WinterVeil.Header(strip,use and true or false,width)
+   if edge and W.pageGroup then
+    for _,text in ipairs({W.pageGroup,W.pageTitle,W.pageSub}) do
+     text:SetWidth(math.min(text:GetWidth(),math.max(40,edge-W.headerTextInset-8)))
+    end
+   end
+   K.WinterVeil.Window(frame)
+  end
  end
  W.UpdateHeaderArtwork=updateHeraldryStrip
  W.v3Heraldry=S.AssetOverlay(strip,'headerDashboard','BACKGROUND',3)

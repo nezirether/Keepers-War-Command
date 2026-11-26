@@ -1,9 +1,13 @@
 # Changelog
 
+## 2.0.5 (2026-11-26)
+
+- Winter Veil 2026 seasonal War Room decorations (November 26 to January 2), with a Settings switch.
+- See the [release notes](CURSEFORGE_CHANGELOG.md).
+
 ## 2.0.4 (2026-11-26)
 
 - Officer companion compatibility is decided by an integration contract version, not the release number.
-- See the [release notes](CURSEFORGE_CHANGELOG.md).
 
 ## 2.0.3 (2026-11-25)
 
