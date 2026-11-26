@@ -1,10 +1,14 @@
 # Changelog
 
-## 2.0.3 (2026-11-25, not yet published)
+## 2.0.4 (2026-11-26)
+
+- Officer companion compatibility is decided by an integration contract version, not the release number.
+- See the [release notes](CURSEFORGE_CHANGELOG.md).
+
+## 2.0.3 (2026-11-25)
 
 - War Room Classic interface, World PvP flagship leaderboard, activity feed, Hot Zones, Guild SOS, grouped navigation and Guild Hall.
 - Deletion authorization, clock-difference and display fixes.
-- See the [release notes](CURSEFORGE_CHANGELOG.md).
 
 ## 2.0.0 (2026-11-24)
 

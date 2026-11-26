@@ -1,7 +1,7 @@
 local F=CreateFrame('Frame')
-KWC={version='2.0.3',listeners={}};local K=KWC
+KWC={version='2.0.4',listeners={}};local K=KWC
 -- Stable release build identifier.
-K.build='2.0.3'
+K.build='2.0.4'
 -- Contract offered to officer companions, independent of the release version. Raise it
 -- only when an interface listed in tests/integration_contract.lua changes incompatibly.
 K.integrationVersion=1
